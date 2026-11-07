@@ -25,6 +25,8 @@ export class SmartSpectraController {
   private gestureEngine: GestureEngine;
   private callbacks: SmartSpectraControllerCallbacks;
   private isRunning: boolean = false;
+  private stopPromise: Promise<void> | null = null;
+  private hasSdkError = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -33,6 +35,7 @@ export class SmartSpectraController {
 
   public setPaused(paused: boolean): void {
     this.gestureEngine.setPaused(paused);
+    if (!this.sdk || this.hasSdkError) return;
     this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
     this.callbacks.onValidationChange(
       paused ? 'Paused by presenter' : 'Tracking active',
@@ -45,7 +48,8 @@ export class SmartSpectraController {
   }
 
   public async start(apiKey: string): Promise<void> {
-    if (this.isRunning) return;
+    if (this.isRunning || this.sdk || this.stopPromise) return;
+    this.hasSdkError = false;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -64,6 +68,7 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
+        if (this.hasSdkError) return;
         const isOk = code === ValidationCode.kOk;
         this.gestureEngine.setFaceValidation(isOk);
 
@@ -84,6 +89,7 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
+        if (this.hasSdkError) return;
         try {
           const decoded = decodeMetrics(buf);
           const blinkingSamples = decoded.face?.blinking;
@@ -113,38 +119,70 @@ export class SmartSpectraController {
         }
       });
 
-      this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, _retryable: boolean) => {
-        console.error(`[Glimra] SmartSpectra error (${code}): ${message}`);
+      this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, retryable: boolean) => {
+        if (this.hasSdkError) return;
+        this.hasSdkError = true;
+        console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`);
+        this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
+        this.callbacks.onValidationChange('Camera tracking stopped — restart to try again', false);
+        this.callbacks.onChargeProgress(0);
         this.callbacks.onError(code, message);
+        // Do not tear down the native SDK inside its own event callback.
+        // Schedule cleanup after the callback returns to the SDK bridge.
+        queueMicrotask(() => { void this.stop(true); });
       });
 
-      await this.sdk.start();
-      this.isRunning = true;
-      this.callbacks.onStatusChange('tracking');
+      const sdk = this.sdk;
+      await sdk.start();
+      if (this.sdk === sdk && !this.hasSdkError) {
+        this.isRunning = true;
+        this.callbacks.onStatusChange('tracking');
+        this.callbacks.onValidationChange('Waiting for a valid face signal', false);
+      }
     } catch (err: any) {
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
       this.callbacks.onStatusChange('error');
       this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
-      await this.stop();
+      await this.stop(true);
     }
   }
 
-  public async stop(): Promise<void> {
-    if (!this.sdk) return;
+  public async stop(preserveError = false): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    const sdk = this.sdk;
+    if (!sdk) return;
 
+    // Detach this instance first so another event cannot start a second teardown.
+    this.sdk = null;
+    this.isRunning = false;
+    this.gestureEngine.reset();
+
+    const cleanup = async () => {
+      try {
+        await sdk.stop();
+      } catch (err) {
+        console.warn('[Glimra] Error during SDK stop:', err);
+      } finally {
+        try {
+          // The renderer bridge documents destroy() as synchronous.
+          sdk.destroy();
+        } catch (err) {
+          console.warn('[Glimra] Error during SDK destroy:', err);
+        }
+        this.callbacks.onChargeProgress(0);
+        if (!preserveError && !this.hasSdkError) {
+          this.callbacks.onStatusChange('idle');
+          this.callbacks.onValidationChange('Camera idle', false);
+        }
+      }
+    };
+
+    this.stopPromise = cleanup();
     try {
-      this.gestureEngine.reset();
-      await this.sdk.stop();
-    } catch (err) {
-      console.warn('[Glimra] Error during SDK stop:', err);
+      await this.stopPromise;
     } finally {
-      this.sdk.destroy();
-      this.sdk = null;
-      this.isRunning = false;
-      this.callbacks.onStatusChange('idle');
-      this.callbacks.onValidationChange('Camera idle', false);
-      this.callbacks.onChargeProgress(0);
+      this.stopPromise = null;
     }
   }
 }
