@@ -36,6 +36,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   const [renderError, setRenderError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [fitWidth, setFitWidth] = useState(false);
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
   // Presenter Elapsed Timer
@@ -234,21 +235,29 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       </div>
 
       {!isFullscreen && (
-        <div aria-label="PDF zoom controls" style={{
-          position: 'absolute', right: '16px', top: '12px', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '8px',
-          backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-md)', padding: '4px 8px',
-        }}>
-          <button type="button" aria-label="Zoom out" title="Zoom out" disabled={!fitWidth && zoom <= 1}
-            onClick={() => { setFitWidth(false); setZoom(value => Math.max(1, Math.round((value - .25) * 100) / 100)); }}>−</button>
-          <span style={{ minWidth: '44px', textAlign: 'center', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>{fitWidth ? 'Width' : `${Math.round(zoom * 100)}%`}</span>
-          <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom >= 3}
-            onClick={() => { setFitWidth(false); setZoom(value => Math.min(3, Math.round((value + .25) * 100) / 100)); }}>+</button>
-          <button type="button" title="Fit the entire page" onClick={() => { setFitWidth(false); setZoom(1); }}
-            style={{ fontSize: '12px', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: '8px' }}>Fit page</button>
-          <button type="button" title="Fill the available width and scroll vertically" aria-pressed={fitWidth}
-            onClick={() => { setFitWidth(true); setZoom(1); }} style={{ fontSize: '12px', color: fitWidth ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}>Fit width</button>
+        <div className="pdf-zoom-toolbar">
+          <button type="button" className="pdf-zoom-trigger"
+            aria-label={zoomMenuOpen ? 'Hide zoom controls' : 'Show zoom controls'}
+            aria-expanded={zoomMenuOpen}
+            aria-controls="pdf-zoom-options"
+            onClick={() => setZoomMenuOpen(value => !value)}>
+            <span>Zoom</span>
+            <span className="pdf-zoom-value">{fitWidth ? 'Width' : `${Math.round(zoom * 100)}%`}</span>
+            <span aria-hidden="true">{zoomMenuOpen ? '⌃' : '⌄'}</span>
+          </button>
+          {zoomMenuOpen && (
+            <div id="pdf-zoom-options" className="pdf-zoom-options" role="group" aria-label="PDF zoom controls">
+              <button type="button" aria-label="Zoom out" title="Zoom out"
+                disabled={!fitWidth && zoom <= 1}
+                onClick={() => { setFitWidth(false); setZoom(value => Math.max(1, Math.round((value - .25) * 100) / 100)); }}>−</button>
+              <button type="button" aria-label="Zoom in" title="Zoom in" disabled={!fitWidth && zoom >= 3}
+                onClick={() => { setFitWidth(false); setZoom(value => Math.min(3, Math.round((value + .25) * 100) / 100)); }}>+</button>
+              <button type="button" aria-pressed={!fitWidth && zoom === 1}
+                onClick={() => { setFitWidth(false); setZoom(1); }}>Fit page</button>
+              <button type="button" aria-pressed={fitWidth}
+                onClick={() => { setFitWidth(true); setZoom(1); }}>Fit width</button>
+            </div>
+          )}
         </div>
       )}
       {/* Floating Presenter Navigation Bar */}
