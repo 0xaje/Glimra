@@ -221,6 +221,15 @@ export default function App() {
         setPdfDoc(null);
       }
 
+      // Validate the selected file before handing it to PDF.js. A .pdf extension
+      // alone does not guarantee that the contents are a readable PDF.
+      if (buffer.byteLength < 5) {
+        throw new Error('This file is empty or too small to be a PDF.');
+      }
+      const header = new TextDecoder('ascii').decode(buffer.slice(0, Math.min(buffer.byteLength, 1024)));
+      if (!header.includes('%PDF-')) {
+        throw new Error('This file is not a PDF. Choose a PDF exported from your presentation app.');
+      }
       const doc = await loadPresentationFromBuffer(buffer);
       setPdfDoc(doc);
       setPresentation({
@@ -234,7 +243,15 @@ export default function App() {
       setSeconds(0);
     } catch (err: unknown) {
       console.error('[Glimra] Failed to load presentation:', err);
-      setLoadError('Failed to parse PDF presentation. Please check the file.');
+      const detail = err instanceof Error ? err.message : '';
+      const message = /password/i.test(detail)
+        ? 'This PDF is password-protected. Unlock it before opening.'
+        : /Invalid PDF|Missing PDF|format|structure|corrupt/i.test(detail)
+          ? 'This PDF could not be read. Try exporting it again as a PDF.'
+          : detail.startsWith('This file')
+            ? detail
+            : 'Could not open this PDF. Check the browser console for the PDF.js error.';
+      setLoadError(message);
     } finally {
       setIsLoadingDeck(false);
     }
