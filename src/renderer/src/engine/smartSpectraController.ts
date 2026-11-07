@@ -42,6 +42,9 @@ export class SmartSpectraController {
   private calibrating = false;
   private calibrationBlinkStartUs: number | null = null;
   private calibrationLastTimestampUs = 0;
+  private metricsWindowStartMs = 0;
+  private metricsCount = 0;
+  private lastMetricsAtMs = 0;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -81,6 +84,9 @@ export class SmartSpectraController {
     this.lastValidationWarningCode = null;
     this.lastValidationWarningAt = 0;
     this.lastValidationHint = '';
+    this.metricsWindowStartMs = 0;
+    this.metricsCount = 0;
+    this.lastMetricsAtMs = 0;
     const generation = ++this.sessionGeneration;
 
     try {
@@ -177,6 +183,23 @@ export class SmartSpectraController {
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
         if (this.hasSdkError || generation !== this.sessionGeneration || !this.isSdkRunning) return;
         try {
+          // Diagnostic only: SDK metrics callbacks are NOT equivalent to camera FPS.
+          // A missing callback stream can nevertheless reveal a processing stall.
+          const nowMs = performance.now();
+          if (this.metricsWindowStartMs === 0) this.metricsWindowStartMs = nowMs;
+          this.metricsCount += 1;
+          this.lastMetricsAtMs = nowMs;
+          if (nowMs - this.metricsWindowStartMs >= 5000) {
+            const elapsedSeconds = (nowMs - this.metricsWindowStartMs) / 1000;
+            console.info('[Glimra/SmartSpectra] metrics delivery', {
+              callbacksPerSecond: Number((this.metricsCount / elapsedSeconds).toFixed(1)),
+              callbacks: this.metricsCount,
+              seconds: Number(elapsedSeconds.toFixed(1)),
+              note: 'SDK metrics callbacks, not measured camera FPS',
+            });
+            this.metricsWindowStartMs = nowMs;
+            this.metricsCount = 0;
+          }
           const decoded = decodeMetrics(buf);
           const blinkingSamples = decoded.face?.blinking;
 
@@ -225,10 +248,14 @@ export class SmartSpectraController {
       this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, retryable: boolean) => {
         if (this.hasSdkError || generation !== this.sessionGeneration) return;
         this.hasSdkError = true;
-        console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`);
+        console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`, {
+          millisecondsSinceLastMetrics: this.lastMetricsAtMs ? Math.round(performance.now() - this.lastMetricsAtMs) : null,
+          lastValidationHint: this.lastValidationHint,
+          cameraMode: this.preferLowBandwidthMode ? '640x480' : '1280x720',
+        });
         this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
-        this.callbacks.onValidationChange(this.lastValidationHint || 'Camera tracking stopped — restart to try again', false);
+        this.callbacks.onValidationChange('Camera processing stopped — disconnect and reconnect to retry', false);
         this.callbacks.onChargeProgress(0);
         this.callbacks.onError(code, this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message);
         // Stop the frame pump after the SDK callback has returned.
