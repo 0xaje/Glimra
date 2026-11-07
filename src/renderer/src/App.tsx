@@ -474,7 +474,7 @@ export default function App() {
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
           <div className="panel-field"><label>Eye gesture timing</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
-          <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
+          <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={handleEnableCameraClick}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
           <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
         </section>
       </div>}
