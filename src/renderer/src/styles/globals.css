@@ -154,3 +154,14 @@ button:active:not(:disabled){filter:brightness(.94)}
 /* Light studio: a soft neutral surround lets white PDF pages remain the focus. */
 .glimra-app[data-theme="light"] .studio-stage.has-presentation{background:var(--color-bg-base)}
 .glimra-app[data-theme="light"] .rail-slide-sheet{background:var(--color-bg-elevated)}
+
+/* PDF zoom: compact by default, readable in both color themes. */
+.pdf-zoom-toolbar{position:absolute;right:var(--space-4);top:var(--space-3);z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-2)}
+.pdf-zoom-trigger,.pdf-zoom-options{background:var(--color-bg-surface);color:var(--color-text-primary);border:1px solid var(--color-border-strong);border-radius:var(--radius-md)}
+.pdf-zoom-trigger{display:flex;align-items:center;gap:var(--space-2);min-height:36px;padding:var(--space-2) var(--space-3);font-size:13px;font-weight:600}
+.pdf-zoom-trigger:hover,.pdf-zoom-options button:hover:not(:disabled){background:var(--color-bg-elevated)}
+.pdf-zoom-value{color:var(--color-text-secondary);font-size:12px;font-variant-numeric:tabular-nums}
+.pdf-zoom-options{display:flex;align-items:center;gap:var(--space-1);padding:var(--space-2);box-shadow:0 4px 16px var(--color-bg-overlay)}
+.pdf-zoom-options button{background:transparent;color:var(--color-text-primary);border:1px solid var(--color-border-subtle);border-radius:var(--radius-sm);padding:var(--space-2);min-height:34px;font-size:12px;white-space:nowrap}
+.pdf-zoom-options button[aria-pressed="true"]{border-color:var(--color-accent);color:var(--color-text-primary);font-weight:700}
+@media(max-width:520px){.pdf-zoom-toolbar{right:var(--space-2);top:var(--space-2)}.pdf-zoom-options{flex-wrap:wrap;justify-content:flex-end;max-width:240px}}
