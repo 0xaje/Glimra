@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { CameraOff } from 'lucide-react';
 
 export function CameraPreview({ stream }: { stream: MediaStream | null }) {
