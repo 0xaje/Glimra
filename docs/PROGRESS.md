@@ -100,20 +100,13 @@ found 0 vulnerabilities
 ## RESUME HERE
 
 - **Current State:** Comprehensive Hallmark Darkroom Studio Redesign completed on branch `feat/hallmark-redesign`.
-- **Design Direction:** Authored and saved to `docs/DESIGN_DIRECTION_STUDIO.md`.
-- **Rendered Audit:** Passed with `0 FAIL, 0 REFLEX, 0 WARN` via `sloplint.mjs --render`.
-- **Screenshots:** Captured at 1280×800 and 1920×1080 across all 5 states (first-launch, loaded presentation, settings, guide, presenter HUD) in `.hallmark/screenshots/before/` and `.hallmark/screenshots/after/`. Visual comparison viewer available at `.hallmark/compare.html`.
-- **Unit Tests:** 16/16 passing via `scripts/test-runner.mjs`.
-- **TypeScript & Build:** Clean compilation with 0 errors via `npm run build`.
-- **Security & Audit:** 0 vulnerabilities via `npm audit`.
-- **Branch:** `feat/hallmark-redesign` pushed to GitHub; awaiting user visual review and approval before merging to `main`.
-
-- **Current State:** Branch `feat/hallmark-redesign` created for Hallmark studio redesign. Design direction [`docs/DESIGN_DIRECTION_STUDIO.md`](DESIGN_DIRECTION_STUDIO.md) drafted and implemented. Baseline before and after screenshots captured at 1280×800 and 1920×1080 across 5 states (`.hallmark/screenshots/`). Full rendered audit passing clean with 0 FAIL, 0 REFLEX, 0 WARN. Visual comparison page generated at `.hallmark/compare.html`. Awaiting user review and visual approval before merging into `main`.
+- **Design Direction:** Authored and saved to [`docs/DESIGN_DIRECTION_STUDIO.md`](DESIGN_DIRECTION_STUDIO.md).
 - **Active Branch:** `feat/hallmark-redesign`
+- **Rendered Audit:** Passed with `0 FAIL, 0 REFLEX, 0 WARN` across static and rendered tests (`sloplint.mjs --render`).
+- **Screenshots:** Captured at 1280×800 and 1920×1080 across all 5 states (first-launch, loaded presentation, settings, guide, presenter HUD) in `.hallmark/screenshots/before/` and `.hallmark/screenshots/after/`. Visual comparison viewer available at `.hallmark/compare.html`.
 - **Verification Evidence:**
   - `npm test`: 16/16 unit tests passing (0 failures).
   - `npm run lint:hallmark`: Clean static audit (0 FAIL, 0 REFLEX, 0 WARN).
-  - `npm run audit:render`: Clean rendered audit across 1280, 1440, 1920, and 375 viewports (0 FAIL, 0 REFLEX, 0 WARN).
   - `npm run build`: Production bundle and Electron compilation succeed.
   - `npm audit`: 0 vulnerabilities.
 - **Immediate Next Priority:** User review and approval of the redesign screenshots; upon approval, merge `feat/hallmark-redesign` into `main` and push.
