@@ -143,6 +143,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           position: 'relative',
           minHeight: 0,
           overflow: 'auto',
+          justifyContent: 'flex-start',
         }}
       >
         <canvas
@@ -154,6 +155,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
             maxWidth: zoom === 1 ? '100%' : 'none',
             maxHeight: zoom === 1 ? '100%' : 'none',
             flexShrink: 0,
+            margin: 'auto',
             objectFit: 'contain',
             backgroundColor: 'var(--color-canvas-bg)',
             opacity: isBlackout ? 0 : 1,
