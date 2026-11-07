@@ -35,6 +35,9 @@
   "build": {
     "appId": "com.glimra.presentation",
     "productName": "Glimra",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**",
       "dist-electron/**",

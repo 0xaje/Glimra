@@ -8,8 +8,11 @@ interface SlideViewerProps {
   fileName: string | null;
   onNext: () => void;
   onPrev: () => void;
+  onJumpToSlide?: (slideNumber: number) => void;
   onToggleFullscreen: () => void;
   isFullscreen: boolean;
+  isBlackout?: boolean;
+  onToggleBlackout?: () => void;
 }
 
 export const SlideViewer: React.FC<SlideViewerProps> = ({
@@ -19,13 +22,40 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   fileName,
   onNext,
   onPrev,
+  onJumpToSlide,
   onToggleFullscreen,
   isFullscreen,
+  isBlackout = false,
+  onToggleBlackout,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+
+  // Presenter Elapsed Timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(true);
+  const [isJumping, setIsJumping] = useState(false);
+  const [jumpInput, setJumpInput] = useState(String(currentSlide));
+
+  useEffect(() => {
+    setJumpInput(String(currentSlide));
+  }, [currentSlide]);
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isTimerRunning]);
+
+  const formatTimer = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   const renderCurrentPage = useCallback(async () => {
     if (!doc || !canvasRef.current || !containerRef.current) return;
@@ -42,8 +72,9 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       const maxH = Math.max(240, containerHeight - 32);
 
       await doc.renderPage(currentSlide, canvasRef.current, maxW, maxH);
-    } catch (err: any) {
-      if (err?.name !== 'RenderingCancelledException') {
+    } catch (err: unknown) {
+      const maybeError = err as { name?: string };
+      if (maybeError?.name !== 'RenderingCancelledException') {
         console.error('[Glimra] Slide render error:', err);
         setRenderError('Could not render slide.');
       }
@@ -64,6 +95,15 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [renderCurrentPage]);
 
+  const handleJumpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = parseInt(jumpInput, 10);
+    if (!isNaN(target) && target >= 1 && target <= totalSlides && onJumpToSlide) {
+      onJumpToSlide(target);
+    }
+    setIsJumping(false);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -80,7 +120,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         overflow: 'clip',
       }}
     >
-      {/* Slide Rendering Area */}
+      {/* Slide Rendering Stage */}
       <div
         style={{
           display: 'flex',
@@ -101,8 +141,45 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
             maxHeight: '100%',
             objectFit: 'contain',
             backgroundColor: 'var(--color-canvas-bg)',
+            opacity: isBlackout ? 0 : 1,
+            transition: 'opacity 0.15s ease-out',
           }}
         />
+
+        {/* Blackout overlay */}
+        {isBlackout && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'var(--color-blackout)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 30,
+              gap: '12px',
+            }}
+          >
+            <span style={{ fontSize: '15px', color: 'var(--color-text-secondary)' }}>
+              Screen blanked
+            </span>
+            <button
+              onClick={onToggleBlackout}
+              style={{
+                fontSize: '12px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--color-bg-elevated)',
+                border: '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Resume (or press B)
+            </button>
+          </div>
+        )}
 
         {isRendering && (
           <div
@@ -169,17 +246,46 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           Previous
         </button>
 
-        <span
-          style={{
-            fontSize: '13px',
-            fontVariantNumeric: 'tabular-nums',
-            color: 'var(--color-text-secondary)',
-            minWidth: '70px',
-            textAlign: 'center',
-          }}
-        >
-          {currentSlide} / {totalSlides}
-        </span>
+        {isJumping ? (
+          <form onSubmit={handleJumpSubmit} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <input
+              type="number"
+              min={1}
+              max={totalSlides}
+              value={jumpInput}
+              onChange={(e) => setJumpInput(e.target.value)}
+              autoFocus
+              onBlur={() => setIsJumping(false)}
+              style={{
+                width: '44px',
+                padding: '2px 4px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border-strong)',
+                backgroundColor: 'var(--color-bg-base)',
+                color: 'var(--color-text-primary)',
+                fontSize: '13px',
+                textAlign: 'center',
+              }}
+            />
+            <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>/ {totalSlides}</span>
+          </form>
+        ) : (
+          <button
+            onClick={() => setIsJumping(true)}
+            title="Click to jump to slide"
+            style={{
+              fontSize: '13px',
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--color-text-secondary)',
+              minWidth: '70px',
+              textAlign: 'center',
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            {currentSlide} / {totalSlides}
+          </button>
+        )}
 
         <button
           onClick={onNext}
@@ -197,6 +303,55 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         </button>
 
         <span style={{ width: '1px', height: '16px', backgroundColor: 'var(--color-border-subtle)' }} />
+
+        {/* Presenter Timer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            onClick={() => setIsTimerRunning((prev) => !prev)}
+            title="Click to pause or resume presentation timer"
+            style={{
+              fontSize: '12px',
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--color-text-muted)',
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-sm)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {formatTimer(elapsedSeconds)}
+          </button>
+          <button
+            onClick={() => setElapsedSeconds(0)}
+            title="Reset timer"
+            style={{
+              fontSize: '11px',
+              color: 'var(--color-text-muted)',
+              padding: '2px 4px',
+            }}
+          >
+            reset
+          </button>
+        </div>
+
+        <span style={{ width: '1px', height: '16px', backgroundColor: 'var(--color-border-subtle)' }} />
+
+        {/* Blackout button */}
+        {onToggleBlackout && (
+          <button
+            onClick={onToggleBlackout}
+            title="Press B to blackout presentation screen"
+            style={{
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: isBlackout ? 'var(--color-accent-subtle)' : 'var(--color-bg-elevated)',
+              color: isBlackout ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              fontSize: '13px',
+            }}
+          >
+            {isBlackout ? 'Resume' : 'Blank'}
+          </button>
+        )}
 
         <button
           onClick={onToggleFullscreen}

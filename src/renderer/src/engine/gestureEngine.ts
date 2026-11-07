@@ -48,6 +48,15 @@ export class GestureEngine {
     this.config = { ...DEFAULT_GESTURE_CONFIG, ...config };
   }
 
+  public updateConfig(config: Partial<GestureEngineConfig>): void {
+    this.config = { ...this.config, ...config };
+    this.resetTransientState();
+  }
+
+  public getConfig(): GestureEngineConfig {
+    return { ...this.config };
+  }
+
   public setPaused(paused: boolean): void {
     this.isPaused = paused;
     this.resetTransientState();

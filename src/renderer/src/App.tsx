@@ -4,6 +4,15 @@ import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEn
 import { SlideViewer } from './components/SlideViewer';
 import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
+import { audioFeedback } from './utils/audioChime';
+
+type GestureSensitivity = 'responsive' | 'standard' | 'deliberate';
+
+const SENSITIVITY_DWELL_MAP: Record<GestureSensitivity, number> = {
+  responsive: 320,
+  standard: 380,
+  deliberate: 460,
+};
 
 export default function App() {
   const [presentation, setPresentation] = useState<PresentationState>({
@@ -31,7 +40,12 @@ export default function App() {
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [isBlackout, setIsBlackout] = useState(false);
+
   const [apiKey, setApiKey] = useState('');
+  const [sensitivity, setSensitivity] = useState<GestureSensitivity>('standard');
+  const [soundFeedbackEnabled, setSoundFeedbackEnabled] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
@@ -91,6 +105,12 @@ export default function App() {
       } else if (e.key === 'p' || e.key === 'P' || e.key === ' ') {
         e.preventDefault();
         toggleGesturePause();
+      } else if (e.key === 'b' || e.key === 'B' || e.key === '.') {
+        e.preventDefault();
+        toggleBlackout();
+      } else if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        setShowGuideModal((prev) => !prev);
       }
     };
 
@@ -99,17 +119,34 @@ export default function App() {
   }, [presentation.currentSlide, presentation.totalSlides, camera.status, presentation.isLoaded]);
 
   const nextSlide = () => {
+    setIsBlackout(false);
     setPresentation((prev) => {
       if (!prev.isLoaded || prev.currentSlide >= prev.totalSlides) return prev;
+      audioFeedback.playSlideAdvance();
       return { ...prev, currentSlide: prev.currentSlide + 1 };
     });
   };
 
   const prevSlide = () => {
+    setIsBlackout(false);
     setPresentation((prev) => {
       if (!prev.isLoaded || prev.currentSlide <= 1) return prev;
+      audioFeedback.playSlidePrevious();
       return { ...prev, currentSlide: prev.currentSlide - 1 };
     });
+  };
+
+  const jumpToSlide = (slideNum: number) => {
+    setIsBlackout(false);
+    setPresentation((prev) => {
+      if (!prev.isLoaded || slideNum < 1 || slideNum > prev.totalSlides) return prev;
+      audioFeedback.playSlideAdvance();
+      return { ...prev, currentSlide: slideNum };
+    });
+  };
+
+  const toggleBlackout = () => {
+    setIsBlackout((prev) => !prev);
   };
 
   const toggleFullscreen = async () => {
@@ -133,12 +170,23 @@ export default function App() {
     controllerRef.current.setPaused(willPause);
   };
 
+  const handleSensitivityChange = (newSens: GestureSensitivity) => {
+    setSensitivity(newSens);
+    controllerRef.current?.updateGestureConfig({
+      minIntentionalBlinkMs: SENSITIVITY_DWELL_MAP[newSens],
+    });
+  };
+
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundFeedbackEnabled(enabled);
+    audioFeedback.setEnabled(enabled);
+  };
+
   const loadPdfData = async (buffer: ArrayBuffer, name: string) => {
     try {
       setIsLoadingDeck(true);
       setLoadError(null);
 
-      // Clean up previous presentation document
       if (pdfDoc) {
         pdfDoc.destroy();
         setPdfDoc(null);
@@ -153,7 +201,8 @@ export default function App() {
         currentSlide: 1,
         isFullscreen: false,
       });
-    } catch (err: any) {
+      setIsBlackout(false);
+    } catch (err: unknown) {
       console.error('[Glimra] Failed to load presentation:', err);
       setLoadError('Failed to parse PDF presentation. Please check the file.');
     } finally {
@@ -187,7 +236,7 @@ export default function App() {
       if (!response.ok) throw new Error('Could not fetch sample presentation');
       const buffer = await response.arrayBuffer();
       await loadPdfData(buffer, 'Glimra Starter Presentation.pdf');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Glimra] Failed to load sample presentation:', err);
       setLoadError('Could not load the built-in starter presentation.');
       setIsLoadingDeck(false);
@@ -196,7 +245,6 @@ export default function App() {
 
   const handleEnableCameraClick = async () => {
     if (camera.isActive) {
-      // Disarm camera and revoke session consent
       await window.glimraDesktop?.setCameraConsent(false);
       await controllerRef.current?.stop();
       setCamera({
@@ -220,7 +268,6 @@ export default function App() {
       return;
     }
 
-    // Explicitly grant camera consent through verified IPC
     await window.glimraDesktop?.setCameraConsent(true);
 
     setCamera((prev) => ({
@@ -241,7 +288,6 @@ export default function App() {
     }
     setShowSettingsModal(false);
 
-    // If camera was pending key, restart with key
     if (camera.isActive && controllerRef.current) {
       await controllerRef.current.stop();
       await controllerRef.current.start(trimmed);
@@ -271,7 +317,7 @@ export default function App() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Hands-Free Camera Control Toggle */}
           <button
             onClick={handleEnableCameraClick}
@@ -289,6 +335,21 @@ export default function App() {
             }}
           >
             {camera.isActive ? 'Hands-free active' : 'Enable hands-free'}
+          </button>
+
+          {/* Guide Button */}
+          <button
+            onClick={() => setShowGuideModal(true)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '13px',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: 'var(--color-bg-elevated)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            Guide
           </button>
 
           {/* Settings Button */}
@@ -412,11 +473,306 @@ export default function App() {
             fileName={presentation.fileName}
             onNext={nextSlide}
             onPrev={prevSlide}
+            onJumpToSlide={jumpToSlide}
             onToggleFullscreen={toggleFullscreen}
             isFullscreen={presentation.isFullscreen}
+            isBlackout={isBlackout}
+            onToggleBlackout={toggleBlackout}
           />
         )}
       </main>
+
+      {/* Guide & Onboarding Modal */}
+      {showGuideModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guide-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--color-bg-overlay)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            zIndex: 100,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              backgroundColor: 'var(--color-bg-surface)',
+              border: '1px solid var(--color-border-strong)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 id="guide-title" style={{ fontSize: '18px', fontWeight: 600 }}>
+                How Glimra works
+              </h2>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-text-muted)',
+                  fontSize: '13px',
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+              Glimra recognizes intentional eye gestures to give you confident, touch-free control
+              while addressing an audience. Natural involuntary blinks are filtered out.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-elevated)',
+                  border: '1px solid var(--color-border-subtle)',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>
+                  Next slide: intentional dwell blink
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                  Close eyes deliberately for approximately 380 milliseconds. The HUD charge bar indicates
+                  the dwell progress before advancing the slide.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-elevated)',
+                  border: '1px solid var(--color-border-subtle)',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-signal-warning)' }}>
+                  Previous slide: quick double-blink
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                  Perform two crisp consecutive blinks within half a second to step backwards.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-elevated)',
+                  border: '1px solid var(--color-border-subtle)',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                  Presenter shortcuts & fallbacks
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.6 }}>
+                  Right Arrow / Page Down: Next slide<br />
+                  Left Arrow / Page Up: Previous slide<br />
+                  Space or P: Pause / Resume eye gesture detection<br />
+                  B or period: Blackout / blank screen<br />
+                  F: Toggle fullscreen presentation
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'var(--color-text-inverse)',
+                  fontWeight: 500,
+                  fontSize: '13px',
+                }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--color-bg-overlay)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            zIndex: 100,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: 'var(--color-bg-surface)',
+              border: '1px solid var(--color-border-strong)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+            }}
+          >
+            <h2 id="settings-title" style={{ fontSize: '18px', fontWeight: 600 }}>
+              Settings
+            </h2>
+
+            {/* API Key */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                Presage SmartSpectra API key
+              </label>
+              <input
+                id="api-key-input"
+                type="password"
+                defaultValue={apiKey}
+                placeholder="Enter your API key"
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border-subtle)',
+                  backgroundColor: 'var(--color-bg-base)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '13px',
+                }}
+              />
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Encrypted via OS safeStorage. Never sent to third parties or logged.
+              </p>
+            </div>
+
+            {/* Gesture Sensitivity */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                Gesture dwell sensitivity
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {(['responsive', 'standard', 'deliberate'] as GestureSensitivity[]).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => handleSensitivityChange(level)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid',
+                      borderColor:
+                        sensitivity === level
+                          ? 'var(--color-accent)'
+                          : 'var(--color-border-subtle)',
+                      backgroundColor:
+                        sensitivity === level
+                          ? 'var(--color-accent-subtle)'
+                          : 'var(--color-bg-elevated)',
+                      color:
+                        sensitivity === level
+                          ? 'var(--color-accent)'
+                          : 'var(--color-text-primary)',
+                      fontSize: '12px',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                {sensitivity === 'responsive' && '320ms intentional dwell for rapid presenters.'}
+                {sensitivity === 'standard' && '380ms dwell balanced for natural speech pacing.'}
+                {sensitivity === 'deliberate' && '460ms dwell preventing accidental triggers.'}
+              </p>
+            </div>
+
+            {/* Audio Feedback Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-primary)' }}>
+                  Presenter audio cues
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                  Plays a subtle chime when slides advance or step back
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSoundToggle(!soundFeedbackEnabled)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border-subtle)',
+                  backgroundColor: soundFeedbackEnabled
+                    ? 'var(--color-accent-subtle)'
+                    : 'var(--color-bg-elevated)',
+                  color: soundFeedbackEnabled
+                    ? 'var(--color-accent)'
+                    : 'var(--color-text-secondary)',
+                  fontSize: '12px',
+                }}
+              >
+                {soundFeedbackEnabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border-subtle)',
+                  backgroundColor: 'var(--color-bg-elevated)',
+                  fontSize: '13px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('api-key-input') as HTMLInputElement;
+                  if (input) saveApiKey(input.value);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'var(--color-text-inverse)',
+                  fontWeight: 500,
+                  fontSize: '13px',
+                }}
+              >
+                Save settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Privacy and Camera Notice Modal */}
       {showPrivacyModal && (
@@ -478,6 +834,7 @@ export default function App() {
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-subtle)',
                   backgroundColor: 'var(--color-bg-elevated)',
+                  fontSize: '13px',
                 }}
               >
                 Cancel
@@ -490,98 +847,10 @@ export default function App() {
                   backgroundColor: 'var(--color-accent)',
                   color: 'var(--color-text-inverse)',
                   fontWeight: 500,
+                  fontSize: '13px',
                 }}
               >
                 Enable camera control
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'var(--color-bg-overlay)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '24px',
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '460px',
-              backgroundColor: 'var(--color-bg-surface)',
-              border: '1px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '28px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-            }}
-          >
-            <h2 id="settings-title" style={{ fontSize: '18px', fontWeight: 600 }}>
-              Settings
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Presage SmartSpectra API Key
-              </label>
-              <input
-                id="api-key-input"
-                type="password"
-                defaultValue={apiKey}
-                placeholder="Enter your API key"
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-base)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: '13px',
-                }}
-              />
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                Get a developer key from physiology.presagetech.com. Stored locally on this device.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                }}
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  const input = document.getElementById('api-key-input') as HTMLInputElement;
-                  if (input) saveApiKey(input.value);
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
-                }}
-              >
-                Save
               </button>
             </div>
           </div>

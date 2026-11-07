@@ -47,10 +47,11 @@ $ npm test
 ✔ M3 Gesture Engine: Verified Double Blink Triggers Previous Slide (0.32ms)
 ✔ M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations (0.29ms)
 ✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.38ms)
-✔ M2 Presentation Engine: Real PDF Document Import & Page Count (141.25ms)
-✔ M2 Presentation Engine: Slide Navigation State Machine (1.29ms)
-✔ M2 Presentation Engine: Corrupted Buffer Error Handling (4.70ms)
-ℹ tests 15, suites 0, pass 15, fail 0
+✔ M2 Presentation Engine: Real PDF Document Import & Page Count (77.67ms)
+✔ M2 Presentation Engine: Slide Navigation State Machine (0.34ms)
+✔ M2 Presentation Engine: Corrupted Buffer Error Handling (2.16ms)
+✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.44ms)
+ℹ tests 16, suites 0, pass 16, fail 0
 
 $ node .agents/skills/hallmark/scripts/sloplint.mjs src/ --scope app
 sloplint: clean. 0 FAIL, 0 REFLEX, 0 WARN across 5 file(s).
@@ -59,8 +60,8 @@ $ npm run build
 tsc && vite build
 dist/index.html                              0.42 kB │ gzip:   0.29 kB
 dist/assets/pdf.worker.min-yatZIOMy.mjs  1,375.84 kB
-dist/assets/index-AD_HNLOc.css               1.86 kB │ gzip:   0.88 kB
-dist/assets/index-BCoFQnwg.js              671.64 kB │ gzip: 185.19 kB
+dist/assets/index-BiKc9hxt.css               1.89 kB │ gzip:   0.90 kB
+dist/assets/index-DpyDSECV.js              681.85 kB │ gzip: 187.36 kB
 dist-electron/main.js                        2.84 kB │ gzip:   1.31 kB
 dist-electron/preload.js                     0.56 kB │ gzip:   0.26 kB
 ✓ built cleanly
@@ -70,7 +71,5 @@ dist-electron/preload.js                     0.56 kB │ gzip:   0.26 kB
 
 ## RESUME HERE
 
-- **Current State:** Review items 1 through 10 fully implemented and verified locally. SafeStorage IPC securely handling credentials, camera permissions origin-gated with explicit presenter consent, gesture engine hardened against unstable biometric frames and monotonic anomalies, documentation updated to honestly mark unverified hardware as BLOCKED.
-- **Latest Verified Commit:** [`ab8541f`](https://github.com/0xaje/Glimra/commit/ab8541f64dfbc00defe6bde418624224d29769d6)
-- **GitHub Push Status:** Verified (`origin/main` synchronized with `ab8541f`).
-- **Immediate Next Task:** Test with live webcam hardware and genuine Presage credentials when physically attached.
+- **Current State:** Milestone M4 presenter enhancements completed and verified: Presenter Guide modal ("How Glimra works"), Blackout screen mode (`B`/`.`), Elapsed presentation timer (`MM:SS`), Quick jump-to-slide, dynamic sensitivity tuning (`updateGestureConfig`), and Web Audio non-intrusive sound confirmation cues. GitHub Actions CI/CD workflow configured for automated linting, tests, and Linux packaging.
+- **Immediate Next Task:** Test with live physical camera hardware and genuine Presage credentials when connected to host.

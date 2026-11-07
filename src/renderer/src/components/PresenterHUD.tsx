@@ -128,7 +128,7 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
             fontFamily: 'var(--font-mono)',
           }}
         >
-          ✓ {camera.lastGesture.label}
+          {camera.lastGesture.label}
         </div>
       )}
 

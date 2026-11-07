@@ -6,7 +6,7 @@ import {
   SmartSpectraErrorCodeValue,
 } from '@smartspectra/node-sdk/renderer';
 import { decodeMetrics } from '@smartspectra/node-sdk/messages';
-import { GestureEngine } from './gestureEngine';
+import { GestureEngine, GestureEngineConfig } from './gestureEngine';
 import { GestureFeedback } from '../types';
 
 export interface SmartSpectraControllerCallbacks {
@@ -38,6 +38,10 @@ export class SmartSpectraController {
       paused ? 'Paused by presenter' : 'Tracking active',
       !paused,
     );
+  }
+
+  public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
+    this.gestureEngine.updateConfig(config);
   }
 
   public async start(apiKey: string): Promise<void> {

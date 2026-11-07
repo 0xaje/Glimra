@@ -196,3 +196,29 @@ test('M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately', () 
   res = engine.processSample(false, true, t);
   assert.equal(res.command, 'none', 'No command emitted when face tracking is invalid');
 });
+
+test('M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig', () => {
+  const engine = new GestureEngine({ minIntentionalBlinkMs: 380 });
+  assert.equal(engine.getConfig().minIntentionalBlinkMs, 380);
+
+  // Switch to responsive mode (320ms)
+  engine.updateConfig({ minIntentionalBlinkMs: 320 });
+  assert.equal(engine.getConfig().minIntentionalBlinkMs, 320);
+
+  engine.setFaceValidation(true);
+  let t = 40000000;
+  engine.processSample(true, true, t);
+  t += 330000; // 330ms closure
+  let res = engine.processSample(false, true, t);
+  assert.equal(res.command, 'next', '330ms closure triggers next in responsive mode');
+
+  // Switch to deliberate mode (460ms)
+  engine.updateConfig({ minIntentionalBlinkMs: 460 });
+  assert.equal(engine.getConfig().minIntentionalBlinkMs, 460);
+
+  t += 2000000;
+  engine.processSample(true, true, t);
+  t += 350000; // 350ms closure
+  res = engine.processSample(false, true, t);
+  assert.equal(res.command, 'none', '350ms closure ignored in deliberate 460ms mode');
+});
