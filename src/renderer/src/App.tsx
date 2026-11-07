@@ -9,12 +9,23 @@ import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
 import { audioFeedback } from './utils/audioChime';
 
-type GestureSensitivity = 'responsive' | 'standard' | 'deliberate';
-
-const SENSITIVITY_DWELL_MAP: Record<GestureSensitivity, number> = {
-  responsive: 320,
-  standard: 380,
-  deliberate: 460,
+type GestureSensitivity = 'quick' | 'balanced' | 'relaxed' | 'custom';
+type GestureTiming = { minIntentionalBlinkMs: number; maxIntentionalBlinkMs: number; refractoryCooldownMs: number };
+const GESTURE_PRESETS: Record<Exclude<GestureSensitivity, 'custom'>, GestureTiming> = {
+  quick: { minIntentionalBlinkMs: 400, maxIntentionalBlinkMs: 1200, refractoryCooldownMs: 900 },
+  balanced: { minIntentionalBlinkMs: 550, maxIntentionalBlinkMs: 1500, refractoryCooldownMs: 1200 },
+  relaxed: { minIntentionalBlinkMs: 750, maxIntentionalBlinkMs: 1900, refractoryCooldownMs: 1600 },
+};
+const readGesturePreference = (): { preset: GestureSensitivity; custom: GestureTiming } => {
+  const fallback = { preset: 'balanced' as GestureSensitivity, custom: { ...GESTURE_PRESETS.balanced } };
+  try {
+    const saved = JSON.parse(localStorage.getItem('glimra-gesture-timing') || 'null');
+    if (!saved || !['quick', 'balanced', 'relaxed', 'custom'].includes(saved.preset)) return fallback;
+    const min = Number(saved.custom?.minIntentionalBlinkMs);
+    const cooldown = Number(saved.custom?.refractoryCooldownMs);
+    if (!Number.isFinite(min) || !Number.isFinite(cooldown) || min < 300 || min > 1200 || cooldown < 600 || cooldown > 2500) return fallback;
+    return { preset: saved.preset, custom: { minIntentionalBlinkMs: min, maxIntentionalBlinkMs: min + 950, refractoryCooldownMs: cooldown } };
+  } catch { return fallback; }
 };
 
 export default function App() {
@@ -51,7 +62,9 @@ export default function App() {
   const [seconds, setSeconds] = useState(0);
 
   const [apiKey, setApiKey] = useState('');
-  const [sensitivity, setSensitivity] = useState<GestureSensitivity>('standard');
+  const [gesturePreference, setGesturePreference] = useState(readGesturePreference);
+  const sensitivity = gesturePreference.preset;
+  const gestureTiming = sensitivity === 'custom' ? gesturePreference.custom : GESTURE_PRESETS[sensitivity];
   const [soundFeedbackEnabled, setSoundFeedbackEnabled] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -211,10 +224,19 @@ export default function App() {
     controllerRef.current.setPaused(willPause);
   };
 
+  useEffect(() => {
+    try { localStorage.setItem('glimra-gesture-timing', JSON.stringify(gesturePreference)); } catch { /* optional preference storage */ }
+    controllerRef.current?.updateGestureConfig(gestureTiming);
+  }, [gesturePreference]);
+
   const handleSensitivityChange = (newSens: GestureSensitivity) => {
-    setSensitivity(newSens);
-    controllerRef.current?.updateGestureConfig({
-      minIntentionalBlinkMs: SENSITIVITY_DWELL_MAP[newSens],
+    setGesturePreference(prev => ({ ...prev, preset: newSens }));
+  };
+  const handleCustomTimingChange = (key: 'minIntentionalBlinkMs' | 'refractoryCooldownMs', value: number) => {
+    setGesturePreference(prev => {
+      const custom = { ...prev.custom, [key]: value };
+      custom.maxIntentionalBlinkMs = custom.minIntentionalBlinkMs + 950;
+      return { preset: 'custom', custom };
     });
   };
 
@@ -610,8 +632,8 @@ export default function App() {
               <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                 Gesture dwell sensitivity
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {(['responsive', 'standard', 'deliberate'] as GestureSensitivity[]).map((level) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map((level) => (
                   <button
                     key={level}
                     type="button"
@@ -641,9 +663,18 @@ export default function App() {
                 ))}
               </div>
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                {sensitivity === 'responsive' && '320ms intentional dwell for rapid presenters.'}
-                {sensitivity === 'standard' && '380ms dwell balanced for natural speech pacing.'}
-                {sensitivity === 'deliberate' && '460ms dwell preventing accidental triggers.'}
+                Close your eyes for at least {(gestureTiming.minIntentionalBlinkMs / 1000).toFixed(2)} seconds, then open them before {(gestureTiming.maxIntentionalBlinkMs / 1000).toFixed(2)} seconds to move forward. Wait {(gestureTiming.refractoryCooldownMs / 1000).toFixed(2)} seconds between commands.
+              </p>
+              {sensitivity === 'custom' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ fontSize: '12px' }} htmlFor="blink-hold">Minimum eye hold: {(gestureTiming.minIntentionalBlinkMs / 1000).toFixed(2)}s</label>
+                  <input id="blink-hold" type="range" min="300" max="1200" step="50" value={gesturePreference.custom.minIntentionalBlinkMs} onChange={event => handleCustomTimingChange('minIntentionalBlinkMs', Number(event.target.value))}/>
+                  <label style={{ fontSize: '12px' }} htmlFor="blink-cooldown">Time between commands: {(gestureTiming.refractoryCooldownMs / 1000).toFixed(2)}s</label>
+                  <input id="blink-cooldown" type="range" min="600" max="2500" step="100" value={gesturePreference.custom.refractoryCooldownMs} onChange={event => handleCustomTimingChange('refractoryCooldownMs', Number(event.target.value))}/>
+                </div>
+              )}
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                A normal quick blink will not advance slides. Eye control uses a deliberate hold and release.
               </p>
             </div>
 
