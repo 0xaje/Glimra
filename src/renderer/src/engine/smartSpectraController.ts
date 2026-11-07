@@ -34,6 +34,8 @@ export class SmartSpectraController {
   private firstStreamReport = false;
   private lastValidationWarningCode: number | null = null;
   private lastValidationWarningAt = 0;
+  private lastValidationHint = '';
+  private sessionGeneration = 0;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -61,6 +63,8 @@ export class SmartSpectraController {
     this.firstStreamReport = false;
     this.lastValidationWarningCode = null;
     this.lastValidationWarningAt = 0;
+    this.lastValidationHint = '';
+    const generation = ++this.sessionGeneration;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -76,7 +80,7 @@ export class SmartSpectraController {
 
       this.sdk.on('processingStatus', (status: number) => {
         console.info('[Glimra/SmartSpectra] processingStatus', status, Object.entries(ProcessingStatus).find(([, value]) => value === status)?.[0] ?? 'unknown');
-        if (this.hasSdkError) return;
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
         if (status === ProcessingStatus.kRunning) {
           this.isSdkRunning = true;
           this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
@@ -98,6 +102,7 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('streamAvailable', (stream: MediaStream) => {
+        if (generation !== this.sessionGeneration || this.hasSdkError) return;
         const track = stream.getVideoTracks()[0];
         if (track) {
           const settings = track.getSettings();
@@ -116,7 +121,8 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
-        if (this.hasSdkError) return;
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
+        if (hint) this.lastValidationHint = hint;
         if (code !== ValidationCode.kOk) {
           const now = Date.now();
           if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
@@ -148,7 +154,7 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
-        if (this.hasSdkError || !this.isSdkRunning) return;
+        if (this.hasSdkError || generation !== this.sessionGeneration || !this.isSdkRunning) return;
         try {
           const decoded = decodeMetrics(buf);
           const blinkingSamples = decoded.face?.blinking;
@@ -179,17 +185,19 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, retryable: boolean) => {
-        if (this.hasSdkError) return;
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
         this.hasSdkError = true;
         console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`);
         this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
-        this.callbacks.onValidationChange('Camera tracking stopped — restart to try again', false);
+        this.callbacks.onValidationChange(this.lastValidationHint || 'Camera tracking stopped — restart to try again', false);
         this.callbacks.onChargeProgress(0);
-        this.callbacks.onError(code, message);
+        this.callbacks.onError(code, this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message);
         // Stop the frame pump after the SDK callback has returned.
         // Do not destroy native resources synchronously inside the callback.
-        window.setTimeout(() => { void this.stop(true); }, 0);
+        window.setTimeout(() => {
+          if (generation === this.sessionGeneration) void this.stop(true);
+        }, 0);
       });
 
       const sdk = this.sdk;
@@ -216,6 +224,7 @@ export class SmartSpectraController {
 
     // Detach this instance first so another event cannot start a second teardown.
     this.sdk = null;
+    ++this.sessionGeneration;
     this.isRunning = false;
     this.isSdkRunning = false;
     this.isValidated = false;
