@@ -4,6 +4,7 @@ import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
 import { SlideThumbnail } from './components/SlideThumbnail';
+import { CameraPreview } from './components/CameraPreview';
 import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
 import { audioFeedback } from './utils/audioChime';
@@ -353,7 +354,7 @@ export default function App() {
         <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title">
           <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
           <p className="panel-description">Connect your camera and choose how long to close your eyes to change slides.</p>
-          <div className="camera-preview"><CameraOff size={32}/><span>{camera.status==='tracking'?'Camera connected':'Camera preview appears here after you connect'}</span></div>
+          <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
           <div className="panel-field"><label>Blink sensitivity</label><div className="sensitivity-options">{(['responsive','standard','deliberate'] as GestureSensitivity[]).map(option=><button key={option} className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{SENSITIVITY_DWELL_MAP[option]} ms</small></button>)}</div><p>Choose a slower setting if slides change too easily.</p></div>
           <button className="primary-button panel-primary" onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
