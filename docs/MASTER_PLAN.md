@@ -15,8 +15,8 @@
 | **M0** | Repository & Project Foundation | **VERIFIED** | Build passes, lint clean, docs in place |
 | **M1** | Real SDK Feasibility Verification | **VERIFIED** | **STOP GATE:** No gesture claims without verified real SDK output |
 | **M2** | Presentation Engine Core | **VERIFIED** | PDF import, keyboard nav, fullscreen without SDK |
-| **M3** | Gesture-Controlled Presentation Engine | **IN PROGRESS** | Verified real blink/gesture signals driving slide state |
-| **M4** | Public User Experience & Hallmark Design | **NOT STARTED** | Plain English onboarding, privacy disclosures, WCAG AA |
+| **M3** | Gesture-Controlled Presentation Engine | **VERIFIED** | Verified real blink/gesture signals driving slide state |
+| **M4** | Public User Experience & Hallmark Design | **IN PROGRESS** | Plain English onboarding, privacy disclosures, WCAG AA |
 | **M5** | Packaging & Clean-System Testing | **NOT STARTED** | Installable package for target OS, zero hardcoded keys |
 | **M6** | Hackathon Submission & Evidence Archive | **NOT STARTED** | Real footage, Dev.to post `#presagechallenge` |
 

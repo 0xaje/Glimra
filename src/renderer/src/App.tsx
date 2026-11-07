@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PresentationState, CameraState } from './types';
+import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
+import { SmartSpectraController } from './engine/smartSpectraController';
+import { PresenterHUD } from './components/PresenterHUD';
 
 export default function App() {
   const [presentation, setPresentation] = useState<PresentationState>({
@@ -24,6 +26,9 @@ export default function App() {
     lastGesture: null,
   });
 
+  const [chargeRatio, setChargeRatio] = useState(0);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [apiKey, setApiKey] = useState(
@@ -31,6 +36,34 @@ export default function App() {
   );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const controllerRef = useRef<SmartSpectraController | null>(null);
+
+  // Initialize SmartSpectra controller once
+  useEffect(() => {
+    controllerRef.current = new SmartSpectraController({
+      onNextSlide: () => nextSlide(),
+      onPrevSlide: () => prevSlide(),
+      onStreamAvailable: (stream) => setVideoStream(stream),
+      onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
+      onValidationChange: (validationMessage, faceDetected) =>
+        setCamera((prev) => ({ ...prev, validationMessage, faceDetected })),
+      onGestureDetected: (feedback: GestureFeedback) => {
+        setCamera((prev) => ({ ...prev, lastGesture: feedback }));
+      },
+      onChargeProgress: (ratio) => setChargeRatio(ratio),
+      onError: (_code, message) => {
+        setCamera((prev) => ({
+          ...prev,
+          status: 'error',
+          validationMessage: message,
+        }));
+      },
+    });
+
+    return () => {
+      controllerRef.current?.stop();
+    };
+  }, []);
 
   // Presenter keyboard shortcuts
   useEffect(() => {
@@ -88,12 +121,9 @@ export default function App() {
   };
 
   const toggleGesturePause = () => {
-    if (!camera.isActive) return;
-    setCamera((prev) => ({
-      ...prev,
-      status: prev.status === 'paused' ? 'tracking' : 'paused',
-      validationMessage: prev.status === 'paused' ? 'Tracking active' : 'Paused by presenter',
-    }));
+    if (!camera.isActive || !controllerRef.current) return;
+    const willPause = camera.status !== 'paused';
+    controllerRef.current.setPaused(willPause);
   };
 
   const loadPdfData = async (buffer: ArrayBuffer, name: string) => {
@@ -157,8 +187,10 @@ export default function App() {
     }
   };
 
-  const handleEnableCameraClick = () => {
+  const handleEnableCameraClick = async () => {
     if (camera.isActive) {
+      // Disarm camera
+      await controllerRef.current?.stop();
       setCamera({
         isActive: false,
         status: 'idle',
@@ -166,26 +198,41 @@ export default function App() {
         validationMessage: 'Camera idle',
         lastGesture: null,
       });
+      setVideoStream(null);
     } else {
       setShowPrivacyModal(true);
     }
   };
 
-  const confirmCameraConsent = () => {
+  const confirmCameraConsent = async () => {
     setShowPrivacyModal(false);
-    setCamera({
+
+    if (!apiKey.trim()) {
+      setShowSettingsModal(true);
+      return;
+    }
+
+    setCamera((prev) => ({
+      ...prev,
       isActive: true,
       status: 'initializing',
-      faceDetected: false,
       validationMessage: 'Connecting to SmartSpectra…',
-      lastGesture: null,
-    });
+    }));
+
+    await controllerRef.current?.start(apiKey);
   };
 
-  const saveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem('glimra_presage_api_key', key.trim());
+  const saveApiKey = async (key: string) => {
+    const trimmed = key.trim();
+    setApiKey(trimmed);
+    localStorage.setItem('glimra_presage_api_key', trimmed);
     setShowSettingsModal(false);
+
+    // If camera was pending key, restart with key
+    if (camera.isActive && controllerRef.current) {
+      await controllerRef.current.stop();
+      await controllerRef.current.start(trimmed);
+    }
   };
 
   return (
@@ -260,6 +307,14 @@ export default function App() {
           overflow: 'clip',
         }}
       >
+        {/* Presenter HUD Overlay */}
+        <PresenterHUD
+          camera={camera}
+          chargeRatio={chargeRatio}
+          videoStream={videoStream}
+          onTogglePause={toggleGesturePause}
+        />
+
         {!presentation.isLoaded ? (
           <div
             style={{
