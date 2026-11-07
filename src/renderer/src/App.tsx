@@ -26,6 +26,7 @@ export default function App() {
   const [pdfDoc, setPdfDoc] = useState<PresentationDocument | null>(null);
   const [isLoadingDeck, setIsLoadingDeck] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const [camera, setCamera] = useState<CameraState>({
     isActive: false,
@@ -99,73 +100,72 @@ export default function App() {
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
         prevSlide();
-      } else if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault();
-        toggleFullscreen();
-      } else if (e.key === 'p' || e.key === 'P' || e.key === ' ') {
+      } else if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         toggleGesturePause();
       } else if (e.key === 'b' || e.key === 'B' || e.key === '.') {
         e.preventDefault();
         toggleBlackout();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
       } else if (e.key === '?' || e.key === 'h' || e.key === 'H') {
         e.preventDefault();
         setShowGuideModal((prev) => !prev);
+      } else if (e.key === 'Escape') {
+        setShowPrivacyModal(false);
+        setShowSettingsModal(false);
+        setShowGuideModal(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [presentation.currentSlide, presentation.totalSlides, camera.status, presentation.isLoaded]);
+  }, [presentation.currentSlide, presentation.totalSlides, camera.status]);
 
   const nextSlide = () => {
-    setIsBlackout(false);
     setPresentation((prev) => {
-      if (!prev.isLoaded || prev.currentSlide >= prev.totalSlides) return prev;
-      audioFeedback.playSlideAdvance();
-      return { ...prev, currentSlide: prev.currentSlide + 1 };
+      if (prev.currentSlide < prev.totalSlides) {
+        if (soundFeedbackEnabled) audioFeedback.playSlideAdvance();
+        return { ...prev, currentSlide: prev.currentSlide + 1 };
+      }
+      return prev;
     });
   };
 
   const prevSlide = () => {
-    setIsBlackout(false);
     setPresentation((prev) => {
-      if (!prev.isLoaded || prev.currentSlide <= 1) return prev;
-      audioFeedback.playSlidePrevious();
-      return { ...prev, currentSlide: prev.currentSlide - 1 };
+      if (prev.currentSlide > 1) {
+        if (soundFeedbackEnabled) audioFeedback.playSlidePrevious();
+        return { ...prev, currentSlide: prev.currentSlide - 1 };
+      }
+      return prev;
     });
   };
 
   const jumpToSlide = (slideNum: number) => {
-    setIsBlackout(false);
     setPresentation((prev) => {
-      if (!prev.isLoaded || slideNum < 1 || slideNum > prev.totalSlides) return prev;
-      audioFeedback.playSlideAdvance();
-      return { ...prev, currentSlide: slideNum };
+      const target = Math.max(1, Math.min(slideNum, prev.totalSlides));
+      return { ...prev, currentSlide: target };
     });
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setPresentation((prev) => ({ ...prev, isFullscreen: true }));
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setPresentation((prev) => ({ ...prev, isFullscreen: false }));
+    }
   };
 
   const toggleBlackout = () => {
     setIsBlackout((prev) => !prev);
   };
 
-  const toggleFullscreen = async () => {
-    if (window.glimraDesktop?.toggleFullscreen) {
-      const isFull = await window.glimraDesktop.toggleFullscreen();
-      setPresentation((prev) => ({ ...prev, isFullscreen: isFull }));
-    } else {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-        setPresentation((prev) => ({ ...prev, isFullscreen: true }));
-      } else {
-        document.exitFullscreen().catch(() => {});
-        setPresentation((prev) => ({ ...prev, isFullscreen: false }));
-      }
-    }
-  };
-
   const toggleGesturePause = () => {
-    if (!camera.isActive || !controllerRef.current) return;
+    if (!controllerRef.current || !camera.isActive) return;
     const willPause = camera.status !== 'paused';
     controllerRef.current.setPaused(willPause);
   };
@@ -204,7 +204,7 @@ export default function App() {
       setIsBlackout(false);
     } catch (err: unknown) {
       console.error('[Glimra] Failed to load presentation:', err);
-      setLoadError('Failed to parse PDF presentation. Please check the file.');
+      setLoadError('Failed to parse PDF presentation. Please check the file format.');
     } finally {
       setIsLoadingDeck(false);
     }
@@ -215,7 +215,7 @@ export default function App() {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setLoadError('Glimra currently supports standard PDF presentation files.');
+      setLoadError('Glimra supports standard PDF presentation decks.');
       return;
     }
 
@@ -228,12 +228,32 @@ export default function App() {
     }
   };
 
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setLoadError('Please drop a standard PDF presentation file.');
+      return;
+    }
+
+    try {
+      const buffer = await file.arrayBuffer();
+      await loadPdfData(buffer, file.name);
+    } catch (err) {
+      console.error('[Glimra] Error reading dropped file:', err);
+      setLoadError('Could not read the dropped presentation file.');
+    }
+  };
+
   const handleLoadSampleDeck = async () => {
     try {
       setIsLoadingDeck(true);
       setLoadError(null);
       const response = await fetch('/glimra-sample-deck.pdf');
-      if (!response.ok) throw new Error('Could not fetch sample presentation');
+      if (!response.ok) throw new Error('Could not fetch starter presentation');
       const buffer = await response.arrayBuffer();
       await loadPdfData(buffer, 'Glimra Starter Presentation.pdf');
     } catch (err: unknown) {
@@ -255,85 +275,185 @@ export default function App() {
         lastGesture: null,
       });
       setVideoStream(null);
-    } else {
-      setShowPrivacyModal(true);
+      return;
     }
+
+    setShowPrivacyModal(true);
   };
 
   const confirmCameraConsent = async () => {
     setShowPrivacyModal(false);
+    if (!controllerRef.current) return;
 
-    if (!apiKey.trim()) {
-      setShowSettingsModal(true);
-      return;
+    try {
+      if (window.glimraDesktop?.setCameraConsent) {
+        await window.glimraDesktop.setCameraConsent(true);
+      }
+
+      setCamera((prev) => ({
+        ...prev,
+        isActive: true,
+        status: 'initializing',
+        validationMessage: 'Connecting optical feed…',
+      }));
+
+      await controllerRef.current.start(apiKey);
+    } catch (err) {
+      console.error('[Glimra] Camera activation failed:', err);
+      setCamera((prev) => ({
+        ...prev,
+        isActive: false,
+        status: 'error',
+        validationMessage: 'Hardware access or SDK initialization failed.',
+      }));
     }
-
-    await window.glimraDesktop?.setCameraConsent(true);
-
-    setCamera((prev) => ({
-      ...prev,
-      isActive: true,
-      status: 'initializing',
-      validationMessage: 'Connecting to SmartSpectra…',
-    }));
-
-    await controllerRef.current?.start(apiKey);
   };
 
-  const saveApiKey = async (key: string) => {
-    const trimmed = key.trim();
-    setApiKey(trimmed);
+  const saveApiKey = async (newKey: string) => {
+    setApiKey(newKey);
     if (window.glimraDesktop?.storeApiKey) {
-      await window.glimraDesktop.storeApiKey(trimmed);
+      await window.glimraDesktop.storeApiKey(newKey);
     }
     setShowSettingsModal(false);
-
-    if (camera.isActive && controllerRef.current) {
-      await controllerRef.current.stop();
-      await controllerRef.current.start(trimmed);
-    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100vh' }}>
-      {/* Primary Presenter Bar */}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: 'var(--studio-bg)',
+        color: 'var(--studio-ink-primary)',
+        overflow: 'clip',
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={handleDrop}
+    >
+      {/* Studio Header Bar */}
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 24px',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          backgroundColor: 'var(--color-bg-surface)',
+          padding: '10px 24px',
+          borderBottom: '1px solid var(--studio-rule)',
+          backgroundColor: 'var(--studio-surface)',
           zIndex: 20,
+          userSelect: 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.01em' }}>
-            Glimra
-          </h1>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>
+        {/* Brand Lockup */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--studio-amber)',
+                color: 'var(--studio-on-amber)',
+                fontWeight: 700,
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              G
+            </span>
+            <span style={{ fontSize: '16px', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--studio-ink-primary)' }}>
+              Glimra Studio
+            </span>
+          </div>
+
+          <span style={{ width: '1px', height: '16px', backgroundColor: 'var(--studio-rule)' }} />
+
+          <span style={{ color: 'var(--studio-ink-secondary)', fontSize: '13px' }}>
             Control without a touch
           </span>
         </div>
 
+        {/* Deck Slot Telemetry */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {presentation.isLoaded ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--studio-elevated)',
+                border: '1px solid var(--studio-rule)',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              <span style={{ color: 'var(--studio-ink-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {presentation.fileName}
+              </span>
+              <span style={{ color: 'var(--studio-amber)' }}>
+                {String(presentation.currentSlide).padStart(2, '0')}/{String(presentation.totalSlides).padStart(2, '0')}
+              </span>
+            </div>
+          ) : (
+            <span
+              style={{
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--studio-ink-secondary)',
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--studio-rule-subtle)',
+              }}
+            >
+              Deck standby
+            </span>
+          )}
+        </div>
+
+        {/* Studio Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Hands-Free Camera Control Toggle */}
           <button
             onClick={handleEnableCameraClick}
             style={{
               padding: '6px 14px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-strong)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontWeight: 500,
+              border: '1px solid',
+              borderColor: camera.isActive
+                ? 'var(--studio-signal-active)'
+                : 'var(--studio-rule)',
               backgroundColor: camera.isActive
-                ? 'var(--color-accent-subtle)'
-                : 'var(--color-bg-elevated)',
+                ? 'var(--studio-signal-active-subtle)'
+                : 'var(--studio-elevated)',
               color: camera.isActive
-                ? 'var(--color-accent)'
-                : 'var(--color-text-primary)',
+                ? 'var(--studio-signal-active)'
+                : 'var(--studio-ink-primary)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: camera.isActive
+                  ? 'var(--studio-signal-active)'
+                  : 'var(--studio-ink-dim)',
+              }}
+            />
             {camera.isActive ? 'Hands-free active' : 'Enable hands-free'}
           </button>
 
@@ -342,11 +462,11 @@ export default function App() {
             onClick={() => setShowGuideModal(true)}
             style={{
               padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-subtle)',
-              backgroundColor: 'var(--color-bg-elevated)',
-              color: 'var(--color-text-secondary)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              border: '1px solid var(--studio-rule)',
+              backgroundColor: 'var(--studio-elevated)',
+              color: 'var(--studio-ink-secondary)',
             }}
           >
             Guide
@@ -357,11 +477,11 @@ export default function App() {
             onClick={() => setShowSettingsModal(true)}
             style={{
               padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-subtle)',
-              backgroundColor: 'var(--color-bg-elevated)',
-              color: 'var(--color-text-secondary)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              border: '1px solid var(--studio-rule)',
+              backgroundColor: 'var(--studio-elevated)',
+              color: 'var(--studio-ink-secondary)',
             }}
           >
             Settings
@@ -369,7 +489,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Presentation Stage */}
+      {/* Main Studio Stage */}
       <main
         style={{
           flex: 1,
@@ -392,78 +512,289 @@ export default function App() {
         {!presentation.isLoaded ? (
           <div
             style={{
-              maxWidth: '480px',
-              textAlign: 'center',
+              width: '100%',
+              maxWidth: '960px',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '24px',
+              gap: '28px',
+              padding: '32px 24px',
+              margin: 'auto',
             }}
           >
-            <h2 style={{ fontSize: '24px', fontWeight: 500 }}>
-              Present hands-free with intentional eye gestures
-            </h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
-              Import any PDF presentation deck to begin presenting. Control slides using verified
-              prolonged blinks or fallback to your keyboard anytime.
-            </p>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".pdf,application/pdf"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoadingDeck}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
-                  fontSize: '14px',
-                }}
-              >
-                {isLoadingDeck ? 'Loading…' : 'Choose PDF presentation'}
-              </button>
-
-              <button
-                onClick={handleLoadSampleDeck}
-                disabled={isLoadingDeck}
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-strong)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: '14px',
-                }}
-              >
-                Try sample deck
-              </button>
-            </div>
-
-            {loadError && (
+            {/* Primary Importer Stage */}
+            <div
+              style={{
+                backgroundColor: isDragOver ? 'var(--studio-amber-subtle)' : 'var(--studio-surface)',
+                border: isDragOver
+                  ? '2px dashed var(--studio-amber)'
+                  : '1px solid var(--studio-rule)',
+                borderRadius: 'var(--radius-md)',
+                padding: '40px 32px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '18px',
+                transition: 'background-color 0.15s ease, border-color 0.15s ease',
+              }}
+            >
               <div
                 style={{
-                  marginTop: '12px',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-bg-surface)',
-                  border: '1px solid var(--color-signal-danger)',
-                  color: 'var(--color-signal-danger)',
-                  fontSize: '13px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--studio-elevated)',
+                  border: '1px solid var(--studio-rule-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '18px',
+                  color: 'var(--studio-amber)',
                 }}
               >
-                {loadError}
+                PDF
               </div>
-            )}
+
+              <div>
+                <h1 style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--studio-ink-primary)', textWrap: 'balance' }}>
+                  Import a PDF deck to begin presenting
+                </h1>
+                <p style={{ color: 'var(--studio-ink-secondary)', fontSize: '14px', marginTop: '6px', maxWidth: '520px', textWrap: 'pretty' }}>
+                  Select any standard PDF deck to present hands-free with intentional eye dwell blinks, or launch the built-in starter presentation immediately.
+                </p>
+              </div>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".pdf,application/pdf"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoadingDeck}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--studio-amber)',
+                    color: 'var(--studio-on-amber)',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {isLoadingDeck ? 'Loading…' : 'Choose PDF presentation'}
+                </button>
+
+                <button
+                  onClick={handleLoadSampleDeck}
+                  disabled={isLoadingDeck}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--studio-elevated)',
+                    border: '1px solid var(--studio-rule-light)',
+                    color: 'var(--studio-ink-primary)',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                  }}
+                >
+                  Open starter deck
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)' }}>
+                  Drag and drop PDF directly into window
+                </span>
+                <span style={{ width: '1px', height: '12px', backgroundColor: 'var(--studio-rule)' }} />
+                <span style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)' }}>
+                  All document rendering and eye tracking run strictly offline
+                </span>
+              </div>
+
+              {loadError && (
+                <div
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--studio-signal-alert-subtle)',
+                    border: '1px solid var(--studio-signal-alert)',
+                    color: 'var(--studio-signal-alert)',
+                    fontSize: '13px',
+                  }}
+                >
+                  {loadError}
+                </div>
+              )}
+            </div>
+
+            {/* Gesture Physics & Intent Blueprint */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                  Hands-free gesture architecture
+                </h2>
+                <span style={{ fontSize: '12px', color: 'var(--studio-ink-muted)' }}>
+                  Presage SmartSpectra filters involuntary movements so you speak naturally
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '14px',
+                }}
+              >
+                {/* Blueprint Card 1: Natural Blink Filter */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--studio-surface)',
+                    border: '1px solid var(--studio-rule)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--studio-ink-muted)' }}>
+                      01 / FILTERED
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '11px',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--studio-elevated)',
+                        color: 'var(--studio-ink-secondary)',
+                        border: '1px solid var(--studio-rule)',
+                      }}
+                    >
+                      &lt; 300 ms
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                    Natural blink
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', lineHeight: 1.5 }}>
+                    Involuntary natural blinks are automatically filtered out. Slides remain steady during speech.
+                  </p>
+                </div>
+
+                {/* Blueprint Card 2: Advance Slide */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--studio-surface)',
+                    border: '1px solid var(--studio-rule)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--studio-amber)' }}>
+                      02 / ADVANCE
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '11px',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--studio-amber-subtle)',
+                        color: 'var(--studio-amber)',
+                        border: '1px solid var(--studio-amber-border)',
+                      }}
+                    >
+                      380 ms dwell
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                    Next slide
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', lineHeight: 1.5 }}>
+                    Deliberate closed-eye pause charges the progress ring, then advances forward.
+                  </p>
+                </div>
+
+                {/* Blueprint Card 3: Previous Slide */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--studio-surface)',
+                    border: '1px solid var(--studio-rule)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--studio-signal-active)' }}>
+                      03 / REWIND
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '11px',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--studio-signal-active-subtle)',
+                        color: 'var(--studio-signal-active)',
+                        border: '1px solid var(--studio-signal-active)',
+                      }}
+                    >
+                      2x in 600 ms
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                    Previous slide
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', lineHeight: 1.5 }}>
+                    Two crisp intentional blinks in sequence immediately return to the preceding slide.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Keyboard Fallback Bar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 16px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--studio-surface)',
+                border: '1px solid var(--studio-rule-subtle)',
+                fontSize: '12px',
+              }}
+            >
+              <span style={{ color: 'var(--studio-ink-muted)' }}>
+                Keyboard fallbacks always available:
+              </span>
+              <div style={{ display: 'flex', gap: '14px', color: 'var(--studio-ink-secondary)', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                <span>[ → ] Next</span>
+                <span>[ ← ] Previous</span>
+                <span>[ Space / P ] Pause</span>
+                <span>[ B ] Blank</span>
+                <span>[ F ] Fullscreen</span>
+                <span>[ ? ] Guide</span>
+              </div>
+            </div>
           </div>
         ) : (
           <SlideViewer
@@ -482,7 +813,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Guide & Onboarding Modal */}
+      {/* Guide Modal */}
       {showGuideModal && (
         <div
           role="dialog"
@@ -491,7 +822,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'var(--color-bg-overlay)',
+            backgroundColor: 'var(--studio-scrim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -503,9 +834,9 @@ export default function App() {
             style={{
               width: '100%',
               maxWidth: '560px',
-              backgroundColor: 'var(--color-bg-surface)',
-              border: '1px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--studio-surface)',
+              border: '1px solid var(--studio-rule-light)',
+              borderRadius: 'var(--radius-md)',
               padding: '28px',
               display: 'flex',
               flexDirection: 'column',
@@ -515,91 +846,87 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h2 id="guide-title" style={{ fontSize: '18px', fontWeight: 600 }}>
-                How Glimra works
+              <h2 id="guide-title" style={{ fontSize: '17px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                Hands-free presentation guide
               </h2>
               <button
                 onClick={() => setShowGuideModal(false)}
                 style={{
                   padding: '4px 8px',
                   borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-text-muted)',
-                  fontSize: '13px',
+                  color: 'var(--studio-ink-muted)',
+                  fontSize: '12px',
                 }}
               >
                 Close
               </button>
             </div>
 
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+            <p style={{ color: 'var(--studio-ink-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
               Glimra recognizes intentional eye gestures to give you confident, touch-free control
-              while addressing an audience. Natural involuntary blinks are filtered out.
+              while addressing an audience. Involuntary blinks are automatically filtered.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-elevated)',
+                  border: '1px solid var(--studio-rule)',
                 }}
               >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-amber)' }}>
                   Next slide: intentional dwell blink
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                  Close eyes deliberately for approximately 380 milliseconds. The HUD charge bar indicates
-                  the dwell progress before advancing the slide.
+                <div style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', marginTop: '4px' }}>
+                  Close eyes deliberately for approximately 380 milliseconds. The HUD progress ring indicates
+                  the dwell charge before advancing the slide.
                 </div>
               </div>
 
               <div
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-elevated)',
+                  border: '1px solid var(--studio-rule)',
                 }}
               >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-signal-warning)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-signal-active)' }}>
                   Previous slide: quick double-blink
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', marginTop: '4px' }}>
                   Perform two crisp consecutive blinks within half a second to step backwards.
                 </div>
               </div>
 
               <div
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-elevated)',
+                  border: '1px solid var(--studio-rule)',
                 }}
               >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-                  Presenter shortcuts & fallbacks
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+                  Lighting & positioning recommendations
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.6 }}>
-                  Right Arrow / Page Down: Next slide<br />
-                  Left Arrow / Page Up: Previous slide<br />
-                  Space or P: Pause / Resume eye gesture detection<br />
-                  B or period: Blackout / blank screen<br />
-                  F: Toggle fullscreen presentation
+                <div style={{ fontSize: '12px', color: 'var(--studio-ink-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
+                  Position your camera at eye level. Ensure even lighting on your face and avoid strong backlighting or glare directly into the lens.
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
               <button
                 onClick={() => setShowGuideModal(false)}
                 style={{
                   padding: '8px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-amber)',
+                  color: 'var(--studio-on-amber)',
+                  fontWeight: 600,
                   fontSize: '13px',
                 }}
               >
@@ -619,7 +946,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'var(--color-bg-overlay)',
+            backgroundColor: 'var(--studio-scrim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -631,22 +958,22 @@ export default function App() {
             style={{
               width: '100%',
               maxWidth: '480px',
-              backgroundColor: 'var(--color-bg-surface)',
-              border: '1px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--studio-surface)',
+              border: '1px solid var(--studio-rule-light)',
+              borderRadius: 'var(--radius-md)',
               padding: '28px',
               display: 'flex',
               flexDirection: 'column',
               gap: '18px',
             }}
           >
-            <h2 id="settings-title" style={{ fontSize: '18px', fontWeight: 600 }}>
-              Settings
+            <h2 id="settings-title" style={{ fontSize: '17px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+              Studio settings
             </h2>
 
             {/* API Key */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--studio-ink-secondary)' }}>
                 Presage SmartSpectra API key
               </label>
               <input
@@ -657,20 +984,21 @@ export default function App() {
                 style={{
                   padding: '8px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-base)',
-                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--studio-rule)',
+                  backgroundColor: 'var(--studio-bg)',
+                  color: 'var(--studio-ink-primary)',
                   fontSize: '13px',
+                  fontFamily: 'var(--font-mono)',
                 }}
               />
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              <p style={{ fontSize: '12px', color: 'var(--studio-ink-muted)' }}>
                 Encrypted via OS safeStorage. Never sent to third parties or logged.
               </p>
             </div>
 
             {/* Gesture Sensitivity */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              <label style={{ fontSize: '13px', color: 'var(--studio-ink-secondary)' }}>
                 Gesture dwell sensitivity
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
@@ -685,16 +1013,16 @@ export default function App() {
                       border: '1px solid',
                       borderColor:
                         sensitivity === level
-                          ? 'var(--color-accent)'
-                          : 'var(--color-border-subtle)',
+                          ? 'var(--studio-amber)'
+                          : 'var(--studio-rule)',
                       backgroundColor:
                         sensitivity === level
-                          ? 'var(--color-accent-subtle)'
-                          : 'var(--color-bg-elevated)',
+                          ? 'var(--studio-amber-subtle)'
+                          : 'var(--studio-elevated)',
                       color:
                         sensitivity === level
-                          ? 'var(--color-accent)'
-                          : 'var(--color-text-primary)',
+                          ? 'var(--studio-amber)'
+                          : 'var(--studio-ink-primary)',
                       fontSize: '12px',
                       textTransform: 'capitalize',
                     }}
@@ -703,7 +1031,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              <p style={{ fontSize: '12px', color: 'var(--studio-ink-muted)' }}>
                 {sensitivity === 'responsive' && '320ms intentional dwell for rapid presenters.'}
                 {sensitivity === 'standard' && '380ms dwell balanced for natural speech pacing.'}
                 {sensitivity === 'deliberate' && '460ms dwell preventing accidental triggers.'}
@@ -713,10 +1041,10 @@ export default function App() {
             {/* Audio Feedback Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
               <div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-primary)' }}>
+                <div style={{ fontSize: '13px', color: 'var(--studio-ink-primary)' }}>
                   Presenter audio cues
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--studio-ink-muted)' }}>
                   Plays a subtle chime when slides advance or step back
                 </div>
               </div>
@@ -726,13 +1054,13 @@ export default function App() {
                 style={{
                   padding: '6px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
+                  border: '1px solid var(--studio-rule)',
                   backgroundColor: soundFeedbackEnabled
-                    ? 'var(--color-accent-subtle)'
-                    : 'var(--color-bg-elevated)',
+                    ? 'var(--studio-amber-subtle)'
+                    : 'var(--studio-elevated)',
                   color: soundFeedbackEnabled
-                    ? 'var(--color-accent)'
-                    : 'var(--color-text-secondary)',
+                    ? 'var(--studio-amber)'
+                    : 'var(--studio-ink-secondary)',
                   fontSize: '12px',
                 }}
               >
@@ -740,14 +1068,14 @@ export default function App() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
               <button
                 onClick={() => setShowSettingsModal(false)}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--studio-rule)',
+                  backgroundColor: 'var(--studio-elevated)',
                   fontSize: '13px',
                 }}
               >
@@ -760,10 +1088,10 @@ export default function App() {
                 }}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-amber)',
+                  color: 'var(--studio-on-amber)',
+                  fontWeight: 600,
                   fontSize: '13px',
                 }}
               >
@@ -783,7 +1111,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'var(--color-bg-overlay)',
+            backgroundColor: 'var(--studio-scrim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -794,46 +1122,46 @@ export default function App() {
           <div
             style={{
               maxWidth: '520px',
-              backgroundColor: 'var(--color-bg-surface)',
-              border: '1px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--studio-surface)',
+              border: '1px solid var(--studio-rule-light)',
+              borderRadius: 'var(--radius-md)',
               padding: '28px',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
             }}
           >
-            <h2 id="privacy-title" style={{ fontSize: '18px', fontWeight: 600 }}>
-              Camera access & privacy
+            <h2 id="privacy-title" style={{ fontSize: '17px', fontWeight: 600, color: 'var(--studio-ink-primary)' }}>
+              Camera access & local privacy
             </h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              Glimra uses your camera exclusively to detect intentional eye gestures (prolonged
-              blinks) to control slide transitions.
+            <p style={{ color: 'var(--studio-ink-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+              Glimra uses your camera exclusively to detect intentional eye gestures to control slide transitions.
             </p>
             <ul
               style={{
-                color: 'var(--color-text-secondary)',
-                fontSize: '13px',
-                paddingLeft: '20px',
+                color: 'var(--studio-ink-secondary)',
+                fontSize: '12px',
+                paddingLeft: '18px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
+                lineHeight: 1.5,
               }}
             >
               <li>Video frames are processed in local device memory and are never saved to disk.</li>
-              <li>No video or audio is streamed to external cloud servers.</li>
+              <li>No video or telemetry is streamed to external cloud servers.</li>
               <li>The camera turns off immediately when you pause, disable, or exit.</li>
               <li>Physical keyboard shortcuts always remain functional.</li>
             </ul>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
               <button
                 onClick={() => setShowPrivacyModal(false)}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--studio-rule)',
+                  backgroundColor: 'var(--studio-elevated)',
                   fontSize: '13px',
                 }}
               >
@@ -843,10 +1171,10 @@ export default function App() {
                 onClick={confirmCameraConsent}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--studio-amber)',
+                  color: 'var(--studio-on-amber)',
+                  fontWeight: 600,
                   fontSize: '13px',
                 }}
               >

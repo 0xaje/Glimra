@@ -33,7 +33,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  // Presenter Elapsed Timer
+  // Presenter Elapsed Session Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [isJumping, setIsJumping] = useState(false);
@@ -67,9 +67,9 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       const containerWidth = containerRef.current.clientWidth;
       const containerHeight = containerRef.current.clientHeight;
 
-      // Available presentation stage with padding
-      const maxW = Math.max(320, containerWidth - 32);
-      const maxH = Math.max(240, containerHeight - 32);
+      // Generous presentation canvas margins for studio layout
+      const maxW = Math.max(320, containerWidth - 48);
+      const maxH = Math.max(240, containerHeight - 64);
 
       await doc.renderPage(currentSlide, canvasRef.current, maxW, maxH);
     } catch (err: unknown) {
@@ -116,11 +116,11 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        backgroundColor: 'var(--color-bg-base)',
+        backgroundColor: 'var(--studio-bg)',
         overflow: 'clip',
       }}
     >
-      {/* Slide Rendering Stage */}
+      {/* Slide Presentation Canvas Stage */}
       <div
         style={{
           display: 'flex',
@@ -129,86 +129,93 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           flex: 1,
           width: '100%',
           position: 'relative',
+          padding: '24px 24px 12px 24px',
         }}
       >
         <canvas
           ref={canvasRef}
           aria-label="Presentation slide canvas"
           style={{
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
             borderRadius: 'var(--radius-sm)',
             maxWidth: '100%',
             maxHeight: '100%',
             objectFit: 'contain',
-            backgroundColor: 'var(--color-canvas-bg)',
+            backgroundColor: 'var(--studio-canvas-bg)',
             opacity: isBlackout ? 0 : 1,
-            transition: 'opacity 0.15s ease-out',
+            transition: 'opacity 120ms ease-out',
+            border: '1px solid var(--studio-rule-light)',
           }}
         />
 
-        {/* Blackout overlay */}
+        {/* Blackout Stage Overlay */}
         {isBlackout && (
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundColor: 'var(--color-blackout)',
+              backgroundColor: 'var(--studio-blackout)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 30,
-              gap: '12px',
+              gap: '16px',
             }}
           >
-            <span style={{ fontSize: '15px', color: 'var(--color-text-secondary)' }}>
-              Screen blanked
+            <span style={{ fontSize: '15px', fontWeight: 500, color: 'var(--studio-ink-secondary)' }}>
+              Screen Blanked
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--studio-ink-muted)' }}>
+              Audience view temporarily suspended for speaker focus
             </span>
             <button
               onClick={onToggleBlackout}
               style={{
-                fontSize: '12px',
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--color-bg-elevated)',
-                border: '1px solid var(--color-border-subtle)',
-                color: 'var(--color-text-primary)',
-                whiteSpace: 'nowrap',
+                fontSize: '13px',
+                padding: '8px 18px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--studio-amber)',
+                color: 'var(--studio-amber-ink)',
+                fontWeight: 600,
               }}
             >
-              Resume (or press B)
+              Resume presentation (B)
             </button>
           </div>
         )}
 
+        {/* Rendering Slide Notification */}
         {isRendering && (
           <div
             style={{
               position: 'absolute',
               bottom: '24px',
               left: '24px',
-              padding: '4px 10px',
+              padding: '6px 12px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-bg-overlay)',
-              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: 'var(--studio-overlay)',
+              border: '1px solid var(--studio-rule)',
               fontSize: '12px',
-              color: 'var(--color-text-secondary)',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--studio-ink-secondary)',
             }}
           >
             Rendering slide…
           </div>
         )}
 
+        {/* Error Notification */}
         {renderError && (
           <div
             style={{
               position: 'absolute',
               padding: '12px 20px',
-              backgroundColor: 'var(--color-bg-overlay)',
-              border: '1px solid var(--color-signal-danger)',
+              backgroundColor: 'var(--studio-overlay)',
+              border: '1px solid var(--studio-signal-alert)',
               borderRadius: 'var(--radius-md)',
-              color: 'var(--color-signal-danger)',
-              fontSize: '14px',
+              color: 'var(--studio-signal-alert)',
+              fontSize: '13px',
             }}
           >
             {renderError}
@@ -216,36 +223,41 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         )}
       </div>
 
-      {/* Floating Presenter Navigation Bar */}
+      {/* Floating Presenter Studio Control Dock */}
       <nav
-        aria-label="Slide navigation"
+        aria-label="Presenter control dock"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          padding: '8px 16px',
+          padding: '8px 18px',
           borderRadius: 'var(--radius-md)',
-          backgroundColor: 'var(--color-bg-surface)',
-          border: '1px solid var(--color-border-subtle)',
+          backgroundColor: 'var(--studio-surface)',
+          border: '1px solid var(--studio-rule-light)',
           marginBottom: '16px',
           zIndex: 10,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.45)',
         }}
       >
+        {/* Previous Slide Button */}
         <button
           onClick={onPrev}
           disabled={currentSlide <= 1}
           style={{
             padding: '6px 14px',
             borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-bg-elevated)',
-            color: currentSlide <= 1 ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+            border: '1px solid var(--studio-rule)',
+            backgroundColor: 'var(--studio-elevated)',
+            color: currentSlide <= 1 ? 'var(--studio-ink-dim)' : 'var(--studio-ink-primary)',
             fontSize: '13px',
+            fontWeight: 500,
           }}
+          title="Previous slide (Left Arrow or Page Up)"
         >
           Previous
         </button>
 
+        {/* Slide Counter / Jump Form */}
         {isJumping ? (
           <form onSubmit={handleJumpSubmit} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <input
@@ -257,126 +269,142 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
               autoFocus
               onBlur={() => setIsJumping(false)}
               style={{
-                width: '44px',
-                padding: '2px 4px',
+                width: '48px',
+                padding: '3px 4px',
                 borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border-strong)',
-                backgroundColor: 'var(--color-bg-base)',
-                color: 'var(--color-text-primary)',
+                border: '1px solid var(--studio-amber)',
+                backgroundColor: 'var(--studio-bg)',
+                color: 'var(--studio-ink-primary)',
                 fontSize: '13px',
+                fontFamily: 'var(--font-mono)',
                 textAlign: 'center',
               }}
             />
-            <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>/ {totalSlides}</span>
+            <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--studio-ink-muted)' }}>
+              / {String(totalSlides).padStart(2, '0')}
+            </span>
           </form>
         ) : (
           <button
             onClick={() => setIsJumping(true)}
-            title="Click to jump to slide"
+            title="Click to jump to specific slide"
             style={{
               fontSize: '13px',
+              fontFamily: 'var(--font-mono)',
               fontVariantNumeric: 'tabular-nums',
-              color: 'var(--color-text-secondary)',
-              minWidth: '70px',
+              color: 'var(--studio-ink-primary)',
+              minWidth: '76px',
               textAlign: 'center',
-              padding: '2px 6px',
+              padding: '3px 8px',
               borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--studio-rule)',
+              backgroundColor: 'var(--studio-subtle)',
             }}
           >
-            {currentSlide} / {totalSlides}
+            {String(currentSlide).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
           </button>
         )}
 
+        {/* Next Slide Button */}
         <button
           onClick={onNext}
           disabled={currentSlide >= totalSlides}
           style={{
             padding: '6px 14px',
             borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-bg-elevated)',
-            color: currentSlide >= totalSlides ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+            border: '1px solid var(--studio-rule)',
+            backgroundColor: 'var(--studio-elevated)',
+            color: currentSlide >= totalSlides ? 'var(--studio-ink-dim)' : 'var(--studio-ink-primary)',
             fontSize: '13px',
+            fontWeight: 500,
           }}
+          title="Next slide (Right Arrow or Page Down)"
         >
           Next
         </button>
 
-        <span style={{ width: '1px', height: '16px', backgroundColor: 'var(--color-border-subtle)' }} />
+        <span style={{ width: '1px', height: '18px', backgroundColor: 'var(--studio-rule)' }} />
 
-        {/* Presenter Timer */}
+        {/* Presenter Session Timer */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={() => setIsTimerRunning((prev) => !prev)}
-            title="Click to pause or resume presentation timer"
+            title="Click to pause or resume timer"
             style={{
               fontSize: '12px',
               fontVariantNumeric: 'tabular-nums',
-              color: 'var(--color-text-muted)',
-              padding: '2px 6px',
-              borderRadius: 'var(--radius-sm)',
               fontFamily: 'var(--font-mono)',
+              color: isTimerRunning ? 'var(--studio-amber)' : 'var(--studio-ink-muted)',
+              padding: '3px 8px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--studio-rule)',
+              backgroundColor: 'var(--studio-elevated)',
             }}
           >
             {formatTimer(elapsedSeconds)}
           </button>
           <button
             onClick={() => setElapsedSeconds(0)}
-            title="Reset timer"
+            title="Reset session timer"
             style={{
               fontSize: '11px',
-              color: 'var(--color-text-muted)',
-              padding: '2px 4px',
+              color: 'var(--studio-ink-muted)',
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-sm)',
             }}
           >
             reset
           </button>
         </div>
 
-        <span style={{ width: '1px', height: '16px', backgroundColor: 'var(--color-border-subtle)' }} />
+        <span style={{ width: '1px', height: '18px', backgroundColor: 'var(--studio-rule)' }} />
 
-        {/* Blackout button */}
+        {/* Blackout Toggle Button */}
         {onToggleBlackout && (
           <button
             onClick={onToggleBlackout}
-            title="Press B to blackout presentation screen"
+            title="Press B to blank out screen"
             style={{
-              padding: '6px 10px',
+              padding: '6px 12px',
               borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--color-border-subtle)',
-              backgroundColor: isBlackout ? 'var(--color-accent-subtle)' : 'var(--color-bg-elevated)',
-              color: isBlackout ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              border: isBlackout ? '1px solid var(--studio-amber)' : '1px solid var(--studio-rule)',
+              backgroundColor: isBlackout ? 'var(--studio-amber-subtle)' : 'var(--studio-elevated)',
+              color: isBlackout ? 'var(--studio-amber)' : 'var(--studio-ink-secondary)',
               fontSize: '13px',
             }}
           >
-            {isBlackout ? 'Resume' : 'Blank'}
+            {isBlackout ? 'Resume' : 'Blank (B)'}
           </button>
         )}
 
+        {/* Fullscreen Toggle Button */}
         <button
           onClick={onToggleFullscreen}
           style={{
             padding: '6px 12px',
             borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-bg-elevated)',
-            color: 'var(--color-text-secondary)',
+            border: '1px solid var(--studio-rule)',
+            backgroundColor: 'var(--studio-elevated)',
+            color: 'var(--studio-ink-secondary)',
             fontSize: '13px',
           }}
+          title="Toggle fullscreen presentation (F)"
         >
-          {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen (F)'}
         </button>
 
+        {/* Loaded Document Name */}
         {fileName && (
           <span
             style={{
               fontSize: '12px',
-              color: 'var(--color-text-muted)',
+              color: 'var(--studio-ink-muted)',
               maxWidth: '180px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               marginLeft: '4px',
+              fontFamily: 'var(--font-mono)',
             }}
             title={fileName}
           >
