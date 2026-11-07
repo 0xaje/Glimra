@@ -87,13 +87,14 @@ export default function App() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (showPrivacyModal) setShowPrivacyModal(false);
+      else if (calibrationOpen) endCalibration();
       else if (showSettingsModal) setShowSettingsModal(false);
       else if (showGuideModal) setShowGuideModal(false);
       else if (showCameraSetup) setShowCameraSetup(false);
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [showPrivacyModal, showSettingsModal, showGuideModal, showCameraSetup]);
+  }, [showPrivacyModal, showSettingsModal, showGuideModal, showCameraSetup, calibrationOpen]);
 
   // Load API key from secure Electron storage on mount
   useEffect(() => {
@@ -122,6 +123,8 @@ export default function App() {
         setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
       },
       onError: (_code, message) => {
+        calibrationActiveRef.current = false;
+        setCalibrationOpen(false);
         // A failed SDK session must not leave a stale live preview or
         // appear active. Do not silently restart and spend more credits.
         setVideoStream(null);
@@ -242,8 +245,7 @@ export default function App() {
     setCalibrationOpen(false);
   };
   const beginCalibration = () => {
-    if (camera.status !== 'tracking' && camera.status !== 'paused') return;
-    if (camera.status === 'paused') controllerRef.current?.setPaused(false);
+    if (camera.status !== 'tracking' || !camera.faceDetected) return;
     setCalibrationSamples([]);
     calibrationActiveRef.current = true;
     controllerRef.current?.setCalibrationMode(true);
@@ -251,7 +253,7 @@ export default function App() {
     setCalibrationOpen(true);
   };
   const calibrationSuggestion = (() => {
-    if (calibrationSamples.length < 5) return null;
+    if (calibrationSamples.length !== 5) return null;
     const sorted = [...calibrationSamples].sort((a, b) => a - b);
     const median = sorted[2];
     const min = Math.max(300, Math.min(1200, Math.round(median * 0.75 / 50) * 50));
@@ -345,6 +347,7 @@ export default function App() {
 
   const handleEnableCameraClick = async () => {
     if (camera.isActive) {
+      endCalibration();
       await window.glimraDesktop?.setCameraConsent(false);
       await controllerRef.current?.stop();
       setCamera({
@@ -713,7 +716,7 @@ export default function App() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <button type="button" disabled={camera.status !== 'tracking' && camera.status !== 'paused'} onClick={beginCalibration}
+              <button type="button" disabled={camera.status !== 'tracking' || !camera.faceDetected} onClick={beginCalibration}
                 style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
                 Practice and find my eye timing
               </button>
@@ -801,7 +804,7 @@ export default function App() {
             <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Only valid, stable SmartSpectra readings count. Practice does not change slides or save video.</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button type="button" onClick={endCalibration}>Cancel</button>
-              <button type="button" onClick={() => setCalibrationSamples([])}>Try again</button>
+              <button type="button" onClick={() => { setCalibrationSamples([]); controllerRef.current?.setCalibrationMode(true); }}>Try again</button>
               {calibrationSuggestion && <button type="button" onClick={applyCalibration}>Use this timing</button>}
             </div>
           </div>
