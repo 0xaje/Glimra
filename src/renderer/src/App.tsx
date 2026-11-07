@@ -64,6 +64,19 @@ export default function App() {
     return () => window.clearInterval(id);
   }, [presentation.isLoaded]);
   const timeLabel = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  // Escape closes the topmost setup or help surface without changing camera state.
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (showPrivacyModal) setShowPrivacyModal(false);
+      else if (showSettingsModal) setShowSettingsModal(false);
+      else if (showGuideModal) setShowGuideModal(false);
+      else if (showCameraSetup) setShowCameraSetup(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showPrivacyModal, showSettingsModal, showGuideModal, showCameraSetup]);
+
   // Load API key from secure Electron storage on mount
   useEffect(() => {
     if (window.glimraDesktop?.retrieveApiKey) {
@@ -361,19 +374,19 @@ export default function App() {
             </div>
             <div className="footer-group">
               {presentation.isLoaded && <><span className="timer-readout"><Timer size={15}/>{timeLabel}</span><button className="icon-button" aria-label={isBlackout?'Resume screen':'Blank screen'} title="Blank screen (B)" onClick={toggleBlackout}><MonitorOff size={18}/></button><button className="icon-button" aria-label="Toggle fullscreen" onClick={toggleFullscreen}><Maximize2 size={18}/></button></>}
-              {!presentation.isLoaded && <button className="footer-setup" onClick={() => setShowCameraSetup(true)}>Set up camera <ChevronRight size={15}/></button>}
+              {!presentation.isLoaded && <button className="footer-setup" onClick={() => setShowCameraSetup(true)}>Set up camera <ChevronLeft size={15}/></button>}
             </div>
           </footer>}
         </section>
       </div>
       {showCameraSetup && <div className="studio-scrim" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget)setShowCameraSetup(false)}}>
-        <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title">
+        <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title" aria-describedby="camera-setup-description">
           <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
-          <p className="panel-description">Connect your camera and choose how long to close your eyes to change slides.</p>
+          <p className="panel-description" id="camera-setup-description">Connect your camera and choose how long to close your eyes to change slides.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
           <div className="panel-field"><label>Blink sensitivity</label><div className="sensitivity-options">{(['responsive','standard','deliberate'] as GestureSensitivity[]).map(option=><button key={option} className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{SENSITIVITY_DWELL_MAP[option]} ms</small></button>)}</div><p>Choose a slower setting if slides change too easily.</p></div>
-          <button className="primary-button panel-primary" onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
+          <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
           <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
         </section>
       </div>}
