@@ -45,6 +45,10 @@ export class SmartSpectraController {
   private metricsWindowStartMs = 0;
   private metricsCount = 0;
   private lastMetricsAtMs = 0;
+  private lastChargeReportAtMs = 0;
+  private lastChargeRatio = 0;
+  private lastReportedValidation = '';
+  private lastReportedFaceTracked = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -87,6 +91,10 @@ export class SmartSpectraController {
     this.metricsWindowStartMs = 0;
     this.metricsCount = 0;
     this.lastMetricsAtMs = 0;
+    this.lastChargeReportAtMs = 0;
+    this.lastChargeRatio = 0;
+    this.lastReportedValidation = '';
+    this.lastReportedFaceTracked = false;
     const generation = ++this.sessionGeneration;
 
     try {
@@ -160,9 +168,12 @@ export class SmartSpectraController {
         } else {
           this.lastValidationWarningCode = null;
         }
+        // FPS and lighting warnings are not proof that the face disappeared.
+        // Only explicit face-loss validation should disarm a previously valid face.
         const isOk = code === ValidationCode.kOk;
-        this.isValidated = isOk;
-        this.gestureEngine.setFaceValidation(isOk);
+        if (isOk) this.isValidated = true;
+        else if (code === ValidationCode.kNoFaceFound || code === ValidationCode.kMultipleFacesFound) this.isValidated = false;
+        this.gestureEngine.setFaceValidation(this.isValidated);
 
         let statusText = 'Tracking active';
         if (code === ValidationCode.kNoFaceFound) {
@@ -177,7 +188,13 @@ export class SmartSpectraController {
           statusText = hint;
         }
 
-        this.callbacks.onValidationChange(statusText, isOk && !this.isPaused && this.isSdkRunning);
+        const faceTracked = this.isValidated && !this.isPaused && this.isSdkRunning;
+        // Do not trigger a React state update for every repeated SDK warning.
+        if (statusText !== this.lastReportedValidation || faceTracked !== this.lastReportedFaceTracked) {
+          this.lastReportedValidation = statusText;
+          this.lastReportedFaceTracked = faceTracked;
+          this.callbacks.onValidationChange(statusText, faceTracked);
+        }
       });
 
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
@@ -229,7 +246,14 @@ export class SmartSpectraController {
               const result = this.gestureEngine.processSample(detected, stable, tsUs);
 
               // Update visual charge feedback on HUD
-              this.callbacks.onChargeProgress(result.chargeRatio);
+              // Limit HUD React updates to 10Hz, preserving the final reset.
+              const chargeNow = performance.now();
+              if (result.chargeRatio === 0 && this.lastChargeRatio !== 0 ||
+                  chargeNow - this.lastChargeReportAtMs >= 100) {
+                this.lastChargeReportAtMs = chargeNow;
+                this.lastChargeRatio = result.chargeRatio;
+                this.callbacks.onChargeProgress(result.chargeRatio);
+              }
 
               if (result.command === 'next') {
                 if (result.feedback) this.callbacks.onGestureDetected(result.feedback);
