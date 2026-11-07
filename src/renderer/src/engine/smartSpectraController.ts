@@ -32,6 +32,8 @@ export class SmartSpectraController {
   private isValidated = false;
   private isSdkRunning = false;
   private firstStreamReport = false;
+  private lastValidationWarningCode: number | null = null;
+  private lastValidationWarningAt = 0;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -57,6 +59,8 @@ export class SmartSpectraController {
     this.isValidated = false;
     this.isSdkRunning = false;
     this.firstStreamReport = false;
+    this.lastValidationWarningCode = null;
+    this.lastValidationWarningAt = 0;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -113,7 +117,16 @@ export class SmartSpectraController {
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
         if (this.hasSdkError) return;
-        if (code !== ValidationCode.kOk) console.warn('[Glimra/SmartSpectra] validationStatus', { code, hint, timestampUs: _ts });
+        if (code !== ValidationCode.kOk) {
+          const now = Date.now();
+          if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
+            console.warn('[Glimra/SmartSpectra] validationStatus', { code, hint, timestampUs: _ts });
+            this.lastValidationWarningCode = code;
+            this.lastValidationWarningAt = now;
+          }
+        } else {
+          this.lastValidationWarningCode = null;
+        }
         const isOk = code === ValidationCode.kOk;
         this.isValidated = isOk;
         this.gestureEngine.setFaceValidation(isOk);
