@@ -19,12 +19,10 @@ export function CameraPreview({ stream }: { stream: MediaStream | null }) {
     // processing FPS, but helps distinguish capture/delivery from SDK failures.
     let cancelled = false;
     let frameCount = 0;
-    let firstFrameAt = 0;
     let lastReportAt = 0;
     let requestId: number | undefined;
     const onFrame: VideoFrameRequestCallback = (now, metadata) => {
       if (cancelled) return;
-      if (!firstFrameAt) firstFrameAt = now;
       frameCount++;
       if (!lastReportAt) lastReportAt = now;
       const elapsed = now - lastReportAt;
