@@ -13,12 +13,12 @@
   --focus-ring:2px solid var(--color-accent);--focus-offset:3px;
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
   --radius-sm:6px;--radius-md:8px;--radius-lg:12px;
-  --light-color-bg-base:#F2F4F7;
-  --light-color-bg-surface:#FBFCFD;
-  --light-color-bg-elevated:#E9EDF2;
+  --light-color-bg-base:#E5E9ED;
+  --light-color-bg-surface:#F0F2F4;
+  --light-color-bg-elevated:#DCE2E8;
   --light-color-bg-overlay:rgba(20,30,44,.60);
-  --light-color-border-subtle:#D8DEE7;
-  --light-color-border-strong:#AAB4C1;
+  --light-color-border-subtle:#C9D1D9;
+  --light-color-border-strong:#9CA9B6;
   --light-color-text-primary:#18212C;
   --light-color-text-secondary:#49586B;
   --light-color-text-muted:#66758A;
@@ -150,3 +150,7 @@ button:active:not(:disabled){filter:brightness(.94)}
 .rail-slide:hover .rail-slide-sheet{border-color:var(--color-border-strong)}
 .rail-slide.selected:hover .rail-slide-sheet{border-color:var(--color-accent)}
 @media(max-width:520px){.camera-panel{max-width:100%;padding:var(--space-5)}.studio-topbar{height:56px}.welcome-stage{gap:var(--space-3)}.welcome-stage p{font-size:14px}}
+
+/* Light studio: a soft neutral surround lets white PDF pages remain the focus. */
+.glimra-app[data-theme="light"] .studio-stage.has-presentation{background:var(--color-bg-base)}
+.glimra-app[data-theme="light"] .rail-slide-sheet{background:var(--color-bg-elevated)}
