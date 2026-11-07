@@ -53,6 +53,26 @@ $ npm test
 ✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.44ms)
 ℹ tests 16, suites 0, pass 16, fail 0
 
+$ npm test
+node scripts/test-runner.mjs
+✔ Glimra Foundation — Core Documentation Suite (3.80ms)
+✔ Glimra Foundation — Security Audit (No Committed Credentials) (1.04ms)
+✔ Glimra Foundation — SmartSpectra SDK Native Export Surface (110.51ms)
+✔ Glimra Foundation — Build Artifacts Generated (0.33ms)
+✔ M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored (3.26ms)
+✔ M3 Gesture Engine: Unstable Biometric Samples Are Discarded (0.41ms)
+✔ M3 Gesture Engine: Non-monotonic & Stalled Timestamps Handled Safely (0.49ms)
+✔ M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide (0.57ms)
+✔ M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances (0.64ms)
+✔ M3 Gesture Engine: Verified Double Blink Triggers Previous Slide (0.43ms)
+✔ M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations (1.60ms)
+✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.34ms)
+✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.81ms)
+✔ M2 Presentation Engine: Real PDF Document Import & Page Count (133.73ms)
+✔ M2 Presentation Engine: Slide Navigation State Machine (0.63ms)
+✔ M2 Presentation Engine: Corrupted Buffer Error Handling (2.56ms)
+ℹ tests 16, suites 0, pass 16, fail 0
+
 $ node .agents/skills/hallmark/scripts/sloplint.mjs src/ --scope app
 sloplint: clean. 0 FAIL, 0 REFLEX, 0 WARN across 5 file(s).
 
@@ -65,13 +85,14 @@ dist/assets/index-DpyDSECV.js              681.85 kB │ gzip: 187.36 kB
 dist-electron/main.js                        2.84 kB │ gzip:   1.31 kB
 dist-electron/preload.js                     0.56 kB │ gzip:   0.26 kB
 ✓ built cleanly
+
+$ npm audit
+found 0 vulnerabilities
 ```
 
 ---
 
 ## RESUME HERE
 
-- **Current State:** Milestone M4 presenter enhancements completed and verified: Presenter Guide modal ("How Glimra works"), Blackout screen mode (`B`/`.`), Elapsed presentation timer (`MM:SS`), Quick jump-to-slide, dynamic sensitivity tuning (`updateGestureConfig`), and Web Audio non-intrusive sound confirmation cues. GitHub Actions CI/CD workflow configured for automated linting, tests, and Linux packaging.
-- **Latest Verified Commit:** [`b65b1e3`](https://github.com/0xaje/Glimra/commit/b65b1e305e9b2727647a31d1fe1af0373aa86d90)
-- **GitHub Push Status:** Verified (`origin/main` synchronized with `b65b1e3`).
-- **Immediate Next Task:** Test with live physical camera hardware and genuine Presage credentials when connected to host.
+- **Current State:** CI pipeline repaired and hardened against runner environment limitations. Fixed cross-platform test discovery with Node-based runner (`scripts/test-runner.mjs`), aligned CI runner with Node 22 LTS, and eliminated all 7 dependency vulnerabilities (upgraded Electron to 43.8.7 and locked minimatch to ^11.0.5).
+- **Immediate Next Task:** Push to origin/main and monitor live GitHub Actions run to verify full CI test, build, and Linux packaging artifact creation.
