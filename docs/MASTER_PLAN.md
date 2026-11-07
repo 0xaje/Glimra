@@ -4,7 +4,27 @@
 **Tagline:** Control without a touch.  
 **Competition:** Presage SmartSpectra SDK Challenge 2026  
 **Target Deadline:** November 22, 2026, 11:59 PM PST  
-**Repository:** https://github.com/0xaje/Glimra.git  
+**Official Repository:** https://github.com/0xaje/Glimra  
+**Default Branch:** `main`
+
+---
+
+## 0. Mandatory GitHub Sync & Verification Protocol
+
+GitHub is our single source of truth. All verified development work must be committed and pushed to `https://github.com/0xaje/Glimra` on `origin/main`. Never leave completed work only on the local machine.
+
+### The Verification-Commit-Push Rule:
+After every meaningful, verified milestone or task:
+1. **Self-Review:** Inspect code quality, types (`tsc`), bundler (`npm run build`), and Hallmark floor (`npm run lint:hallmark`).
+2. **Security & Secrets:** Check `git status` and verify zero exposed credentials, `.env` files, or leaked keys.
+3. **Execute Automated Tests:** Run `npm test` and verify all tests pass.
+4. **Update Progress Tracker:** Record progress, commands, and results in `docs/PROGRESS.md`.
+5. **Commit:** Commit with a clear semantic message (`feat: ...`, `fix: ...`, `docs: ...`, `chore: ...`).
+6. **Push:** Push directly to `origin main` using `git push origin main`.
+7. **Confirm Remote Sync:** Run `git rev-parse HEAD` and `git rev-parse origin/main` to confirm receipt.
+8. **Report Link:** Report the actual commit hash and GitHub commit link (`https://github.com/0xaje/Glimra/commit/<SHA>`).
+
+Do not claim that anything was pushed without confirming it. If pushing fails, investigate and report the blocker immediately.
 
 ---
 

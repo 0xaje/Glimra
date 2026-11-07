@@ -60,5 +60,5 @@ dist-electron/preload.js                     0.28 kB │ gzip:   0.19 kB
 
 ## RESUME HERE
 
-- **Current Step:** Stage and commit M3 verified progress to Git, push to remote repository `origin/main`.
-- **Immediate Next Task:** M4/M5 Onboarding refinement and desktop distribution packaging (`electron-builder`).
+- **Current Step:** Permanent GitHub sync & verification protocol added to `AGENTS.md` and `docs/MASTER_PLAN.md`.
+- **Immediate Next Task:** M6 Hackathon submission assets and final clean-system verification.
