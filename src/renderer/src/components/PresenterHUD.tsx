@@ -116,6 +116,12 @@ export function PresenterHUD({
         {camera.validationMessage}
       </div>
 
+      {/* Eye hold progress reaches ready at 100%; release completes the command. */}
+      {camera.status === 'tracking' && camera.faceDetected && (
+        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+          {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
+        </div>
+      )}
       {/* Visual charge indicator for prolonged intentional blink dwell */}
       {chargeRatio > 0 && (
         <div
