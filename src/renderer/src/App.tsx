@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PresentationState, CameraState } from './types';
+import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
+import { SlideViewer } from './components/SlideViewer';
 
 export default function App() {
   const [presentation, setPresentation] = useState<PresentationState>({
@@ -9,6 +11,10 @@ export default function App() {
     currentSlide: 1,
     isFullscreen: false,
   });
+
+  const [pdfDoc, setPdfDoc] = useState<PresentationDocument | null>(null);
+  const [isLoadingDeck, setIsLoadingDeck] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [camera, setCamera] = useState<CameraState>({
     isActive: false,
@@ -26,7 +32,7 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle keyboard shortcuts for presenters
+  // Presenter keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -50,7 +56,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [presentation.currentSlide, presentation.totalSlides, camera.status]);
+  }, [presentation.currentSlide, presentation.totalSlides, camera.status, presentation.isLoaded]);
 
   const nextSlide = () => {
     setPresentation((prev) => {
@@ -90,27 +96,69 @@ export default function App() {
     }));
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const loadPdfData = async (buffer: ArrayBuffer, name: string) => {
+    try {
+      setIsLoadingDeck(true);
+      setLoadError(null);
+
+      // Clean up previous presentation document
+      if (pdfDoc) {
+        pdfDoc.destroy();
+        setPdfDoc(null);
+      }
+
+      const doc = await loadPresentationFromBuffer(buffer);
+      setPdfDoc(doc);
+      setPresentation({
+        isLoaded: true,
+        fileName: name,
+        totalSlides: doc.numPages,
+        currentSlide: 1,
+        isFullscreen: false,
+      });
+    } catch (err: any) {
+      console.error('[Glimra] Failed to load presentation:', err);
+      setLoadError('Failed to parse PDF presentation. Please check the file.');
+    } finally {
+      setIsLoadingDeck(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Glimra currently supports standard PDF presentation decks.');
+      setLoadError('Glimra currently supports standard PDF presentation files.');
       return;
     }
 
-    setPresentation({
-      isLoaded: true,
-      fileName: file.name,
-      totalSlides: 1, // Will be read by PDF.js engine in M2
-      currentSlide: 1,
-      isFullscreen: false,
-    });
+    try {
+      const buffer = await file.arrayBuffer();
+      await loadPdfData(buffer, file.name);
+    } catch (err) {
+      console.error('[Glimra] Error reading file:', err);
+      setLoadError('Could not read the selected presentation file.');
+    }
+  };
+
+  const handleLoadSampleDeck = async () => {
+    try {
+      setIsLoadingDeck(true);
+      setLoadError(null);
+      const response = await fetch('/glimra-sample-deck.pdf');
+      if (!response.ok) throw new Error('Could not fetch sample presentation');
+      const buffer = await response.arrayBuffer();
+      await loadPdfData(buffer, 'Glimra Starter Presentation.pdf');
+    } catch (err: any) {
+      console.error('[Glimra] Failed to load sample presentation:', err);
+      setLoadError('Could not load the built-in starter presentation.');
+      setIsLoadingDeck(false);
+    }
   };
 
   const handleEnableCameraClick = () => {
     if (camera.isActive) {
-      // Disable camera and release resources
       setCamera({
         isActive: false,
         status: 'idle',
@@ -129,7 +177,7 @@ export default function App() {
       isActive: true,
       status: 'initializing',
       faceDetected: false,
-      validationMessage: 'Connecting to SmartSpectra...',
+      validationMessage: 'Connecting to SmartSpectra…',
       lastGesture: null,
     });
   };
@@ -151,6 +199,7 @@ export default function App() {
           padding: '12px 24px',
           borderBottom: '1px solid var(--color-border-subtle)',
           backgroundColor: 'var(--color-bg-surface)',
+          zIndex: 20,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -207,8 +256,8 @@ export default function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '24px',
           position: 'relative',
+          overflow: 'clip',
         }}
       >
         {!presentation.isLoaded ? (
@@ -220,13 +269,14 @@ export default function App() {
               flexDirection: 'column',
               alignItems: 'center',
               gap: '16px',
+              padding: '24px',
             }}
           >
             <h2 style={{ fontSize: '24px', fontWeight: 500 }}>
               Present hands-free with intentional eye gestures
             </h2>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
-              Import any PDF slide deck to begin presenting. Control slides using verified
+              Import any PDF presentation deck to begin presenting. Control slides using verified
               prolonged blinks or fallback to your keyboard anytime.
             </p>
 
@@ -238,165 +288,65 @@ export default function App() {
               style={{ display: 'none' }}
             />
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                marginTop: '8px',
-                padding: '10px 24px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--color-accent)',
-                color: 'var(--color-text-inverse)',
-                fontWeight: 500,
-                fontSize: '14px',
-              }}
-            >
-              Choose PDF presentation
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {/* Slide Stage Canvas Area */}
-            <div
-              style={{
-                width: '100%',
-                maxWidth: '1200px',
-                aspectRatio: '16 / 9',
-                backgroundColor: 'var(--color-bg-surface)',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-              }}
-            >
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-                  {presentation.fileName}
-                </p>
-                <p style={{ fontSize: '20px', marginTop: '8px' }}>
-                  Slide {presentation.currentSlide} of {presentation.totalSlides}
-                </p>
-              </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoadingDeck}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'var(--color-text-inverse)',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                }}
+              >
+                {isLoadingDeck ? 'Loading…' : 'Choose PDF presentation'}
+              </button>
 
-              {/* Gesture HUD Indicator (Top Right) */}
-              {camera.isActive && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '16px',
-                    right: '16px',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-bg-overlay)',
-                    border: '1px solid var(--color-border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '12px',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor:
-                        camera.status === 'tracking'
-                          ? 'var(--color-signal-active)'
-                          : camera.status === 'paused'
-                          ? 'var(--color-signal-warning)'
-                          : 'var(--color-border-strong)',
-                    }}
-                  />
-                  <span>{camera.validationMessage}</span>
-                  <button
-                    onClick={toggleGesturePause}
-                    style={{
-                      marginLeft: '4px',
-                      padding: '2px 6px',
-                      borderRadius: 'var(--radius-sm)',
-                      backgroundColor: 'var(--color-bg-elevated)',
-                      border: '1px solid var(--color-border-subtle)',
-                      fontSize: '11px',
-                    }}
-                  >
-                    {camera.status === 'paused' ? 'Resume' : 'Pause'}
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={handleLoadSampleDeck}
+                disabled={isLoadingDeck}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-elevated)',
+                  border: '1px solid var(--color-border-strong)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '14px',
+                }}
+              >
+                Try sample deck
+              </button>
             </div>
 
-            {/* Presenter Slide Navigation Bar */}
-            <nav
-              aria-label="Presentation controls"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                marginTop: '16px',
-              }}
-            >
-              <button
-                onClick={prevSlide}
-                disabled={presentation.currentSlide <= 1}
+            {loadError && (
+              <div
                 style={{
+                  marginTop: '12px',
                   padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
                   backgroundColor: 'var(--color-bg-surface)',
-                  color:
-                    presentation.currentSlide <= 1
-                      ? 'var(--color-text-muted)'
-                      : 'var(--color-text-primary)',
+                  border: '1px solid var(--color-signal-danger)',
+                  color: 'var(--color-signal-danger)',
+                  fontSize: '13px',
                 }}
               >
-                Previous
-              </button>
-
-              <span style={{ fontSize: '14px', fontVariantNumeric: 'tabular-nums' }}>
-                {presentation.currentSlide} / {presentation.totalSlides}
-              </span>
-
-              <button
-                onClick={nextSlide}
-                disabled={presentation.currentSlide >= presentation.totalSlides}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-surface)',
-                  color:
-                    presentation.currentSlide >= presentation.totalSlides
-                      ? 'var(--color-text-muted)'
-                      : 'var(--color-text-primary)',
-                }}
-              >
-                Next
-              </button>
-
-              <button
-                onClick={toggleFullscreen}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-bg-surface)',
-                }}
-              >
-                {presentation.isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              </button>
-            </nav>
+                {loadError}
+              </div>
+            )}
           </div>
+        ) : (
+          <SlideViewer
+            document={pdfDoc}
+            currentSlide={presentation.currentSlide}
+            totalSlides={presentation.totalSlides}
+            fileName={presentation.fileName}
+            onNext={nextSlide}
+            onPrev={prevSlide}
+            onToggleFullscreen={toggleFullscreen}
+            isFullscreen={presentation.isFullscreen}
+          />
         )}
       </main>
 

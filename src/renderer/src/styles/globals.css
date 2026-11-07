@@ -23,6 +23,8 @@
   --color-signal-warning: #f59e0b;
   --color-signal-danger: #ef4444;
 
+  --color-canvas-bg: #fafbfe;
+
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
