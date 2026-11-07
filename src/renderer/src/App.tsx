@@ -352,13 +352,13 @@ export default function App() {
       </div>
       {showCameraSetup && <div className="studio-scrim" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget)setShowCameraSetup(false)}}>
         <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title">
-          <div className="panel-head"><div><span className="panel-overline">PRESENTER TOOLS</span><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
+          <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
           <p className="panel-description">Connect your camera and choose how long to close your eyes to change slides.</p>
           <div className="camera-preview"><CameraOff size={32}/><span>{camera.status==='tracking'?'Camera connected':'Camera preview appears here after you connect'}</span></div>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
           <div className="panel-field"><label>Blink sensitivity</label><div className="sensitivity-options">{(['responsive','standard','deliberate'] as GestureSensitivity[]).map(option=><button key={option} className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{SENSITIVITY_DWELL_MAP[option]} ms</small></button>)}</div><p>Choose a slower setting if slides change too easily.</p></div>
           <button className="primary-button panel-primary" onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
-          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key and other settings</button>
+          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
         </section>
       </div>}
       {/* Guide & Onboarding Modal */}
