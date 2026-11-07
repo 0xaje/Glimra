@@ -1,0 +1,74 @@
+{
+  "name": "glimra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Control without a touch — Hands-free presentation application with Presage SmartSpectra eye gesture control",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint:hallmark": "node .agents/skills/hallmark/scripts/sloplint.mjs src/ --scope app",
+    "test": "node --test tests/**/*.test.js",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "dependencies": {
+    "@smartspectra/node-sdk": "^3.4.0",
+    "lucide-react": "^1.16.0",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "43.2.0",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.glimra.presentation",
+    "productName": "Glimra",
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "node_modules/@smartspectra/node-sdk/**",
+      "!node_modules/@smartspectra/node-sdk/scripts/**",
+      "!node_modules/@smartspectra/node-sdk/test/**",
+      "!node_modules/@smartspectra/node-sdk/samples/**"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/@smartspectra/node-sdk-linux-${arch}/",
+        "to": "smartspectra"
+      },
+      {
+        "from": "node_modules/@smartspectra/node-sdk-win32-${arch}/",
+        "to": "smartspectra"
+      },
+      {
+        "from": "node_modules/@smartspectra/node-sdk-darwin-${arch}/",
+        "to": "smartspectra"
+      }
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Office"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "asar": true
+  }
+}
+
