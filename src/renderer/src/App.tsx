@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Eye, FolderOpen, BookOpen, Settings2, Sun, Moon, ChevronLeft, ChevronRight, Maximize2, Minimize2, Camera, CameraOff, PanelLeftClose, PanelLeftOpen, Presentation, MonitorOff, Timer, Pause, Play, X, Plus } from 'lucide-react';
 import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
@@ -42,6 +43,10 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => { try { return localStorage.getItem('glimra-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } });
+  const [showSlides, setShowSlides] = useState(true);
+  const [showCameraSetup, setShowCameraSetup] = useState(false);
+  const [seconds, setSeconds] = useState(0);
 
   const [apiKey, setApiKey] = useState('');
   const [sensitivity, setSensitivity] = useState<GestureSensitivity>('standard');
@@ -50,6 +55,13 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
 
+  useEffect(() => { try { localStorage.setItem('glimra-theme', theme); } catch { /* preference storage unavailable */ } }, [theme]);
+  useEffect(() => {
+    if (!presentation.isLoaded) return;
+    const id = window.setInterval(() => setSeconds(value => value + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [presentation.isLoaded]);
+  const timeLabel = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   // Load API key from secure Electron storage on mount
   useEffect(() => {
     if (window.glimraDesktop?.retrieveApiKey) {
@@ -295,193 +307,75 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100vh' }}>
-      {/* Primary Presenter Bar */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 24px',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          backgroundColor: 'var(--color-bg-surface)',
-          zIndex: 20,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.01em' }}>
-            Glimra
-          </h1>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>
-            Control without a touch
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Hands-Free Camera Control Toggle */}
-          <button
-            onClick={handleEnableCameraClick}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-strong)',
-              backgroundColor: camera.isActive
-                ? 'var(--color-accent-subtle)'
-                : 'var(--color-bg-elevated)',
-              color: camera.isActive
-                ? 'var(--color-accent)'
-                : 'var(--color-text-primary)',
-            }}
-          >
-            {camera.isActive ? 'Hands-free active' : 'Enable hands-free'}
-          </button>
-
-          {/* Guide Button */}
-          <button
-            onClick={() => setShowGuideModal(true)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-subtle)',
-              backgroundColor: 'var(--color-bg-elevated)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            Guide
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              border: '1px solid var(--color-border-subtle)',
-              backgroundColor: 'var(--color-bg-elevated)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            Settings
-          </button>
+    <div className="glimra-app" data-theme={theme}>
+      <header className="studio-topbar">
+        <div className="studio-brand"><span className="brand-mark"><Eye size={20} strokeWidth={2.6}/></span><span className="brand-name">Glimra<span className="brand-subtitle"> Studio</span></span></div>
+        <div className="topbar-actions">
+          {presentation.isLoaded && <span className="document-title" title={presentation.fileName || ''}>{presentation.fileName}</span>}
+          <button className="icon-button" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle color theme" onClick={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button>
+          <button className="topbar-text-button" onClick={() => setShowGuideModal(true)}><BookOpen size={16}/> <span>Guide</span></button>
+          <button className="icon-button" title="Settings" aria-label="Settings" onClick={() => setShowSettingsModal(true)}><Settings2 size={19}/></button>
         </div>
       </header>
-
-      {/* Main Presentation Stage */}
-      <main
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'clip',
-        }}
-      >
-        {/* Presenter HUD Overlay */}
-        <PresenterHUD
-          camera={camera}
-          chargeRatio={chargeRatio}
-          videoStream={videoStream}
-          onTogglePause={toggleGesturePause}
-        />
-
-        {!presentation.isLoaded ? (
-          <div
-            style={{
-              maxWidth: '480px',
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '24px',
-            }}
-          >
-            <h2 style={{ fontSize: '24px', fontWeight: 500 }}>
-              Present hands-free with intentional eye gestures
-            </h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
-              Import any PDF presentation deck to begin presenting. Control slides using verified
-              prolonged blinks or fallback to your keyboard anytime.
-            </p>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".pdf,application/pdf"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoadingDeck}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent)',
-                  color: 'var(--color-text-inverse)',
-                  fontWeight: 500,
-                  fontSize: '14px',
-                }}
-              >
-                {isLoadingDeck ? 'Loading…' : 'Choose PDF presentation'}
+      <div className="studio-layout">
+        {presentation.isLoaded && !presentation.isFullscreen && showSlides && (
+          <aside className="slide-rail" aria-label="Slide navigator">
+            <div className="rail-heading"><span>Slides</span><button className="icon-button small" title="Hide slides" onClick={() => setShowSlides(false)}><PanelLeftClose size={16}/></button></div>
+            <div className="rail-list">{Array.from({length:presentation.totalSlides},(_,i)=>i+1).map(page=>(
+              <button key={page} className={`rail-slide ${presentation.currentSlide===page?'selected':''}`} onClick={()=>jumpToSlide(page)} aria-current={presentation.currentSlide===page?'page':undefined}>
+                <span className="rail-slide-sheet"><span className="rail-slide-number">{page}</span><Presentation size={20} strokeWidth={1.25}/></span><span className="rail-page-label">{page}</span>
               </button>
-
-              <button
-                onClick={handleLoadSampleDeck}
-                disabled={isLoadingDeck}
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-strong)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: '14px',
-                }}
-              >
-                Try sample deck
-              </button>
-            </div>
-
-            {loadError && (
-              <div
-                style={{
-                  marginTop: '12px',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-bg-surface)',
-                  border: '1px solid var(--color-signal-danger)',
-                  color: 'var(--color-signal-danger)',
-                  fontSize: '13px',
-                }}
-              >
-                {loadError}
+            ))}</div>
+          </aside>
+        )}
+        <section className="studio-center">
+          {!presentation.isFullscreen && presentation.isLoaded && !showSlides && <button className="restore-rail" onClick={() => setShowSlides(true)}><PanelLeftOpen size={16}/> Show slides</button>}
+          <div className={`studio-stage ${presentation.isLoaded?'has-presentation':''}`}>
+            <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause}/>
+            <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
+            {!presentation.isLoaded ? (
+              <div className="welcome-stage">
+                <div className="welcome-symbol"><Presentation size={38} strokeWidth={1.6}/></div>
+                <h1>Your stage is ready.</h1>
+                <p>Open a PDF. Present without touching your computer.</p>
+                <button className="primary-button" onClick={() => fileInputRef.current?.click()} disabled={isLoadingDeck}><FolderOpen size={18}/>{isLoadingDeck?'Opening…':'Open presentation'}</button>
+                <span className="welcome-hint">Or drag a PDF into this window</span>
+                {loadError && <div className="studio-error" role="alert">{loadError}</div>}
               </div>
+            ) : (
+              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout}/>
             )}
           </div>
-        ) : (
-          <SlideViewer
-            document={pdfDoc}
-            currentSlide={presentation.currentSlide}
-            totalSlides={presentation.totalSlides}
-            fileName={presentation.fileName}
-            onNext={nextSlide}
-            onPrev={prevSlide}
-            onJumpToSlide={jumpToSlide}
-            onToggleFullscreen={toggleFullscreen}
-            isFullscreen={presentation.isFullscreen}
-            isBlackout={isBlackout}
-            onToggleBlackout={toggleBlackout}
-          />
-        )}
-      </main>
-
+          {!presentation.isFullscreen && <footer className="studio-footer">
+            <div className="footer-group">
+              <button className="icon-button" aria-label="Previous slide" disabled={!presentation.isLoaded || presentation.currentSlide<=1} onClick={prevSlide}><ChevronLeft size={19}/></button>
+              <span className="slide-count">{presentation.isLoaded?`${presentation.currentSlide} / ${presentation.totalSlides}`:'No slides'}</span>
+              <button className="icon-button" aria-label="Next slide" disabled={!presentation.isLoaded || presentation.currentSlide>=presentation.totalSlides} onClick={nextSlide}><ChevronRight size={19}/></button>
+            </div>
+            <div className="footer-group footer-center">
+              <button className={`camera-status ${camera.status==='tracking'&&camera.faceDetected?'tracking':''}`} onClick={() => setShowCameraSetup(true)}>
+                {camera.status==='tracking'&&camera.faceDetected?<Camera size={16}/>:<CameraOff size={16}/>}
+                <span>{camera.status==='tracking'&&camera.faceDetected?'Hands-free active':camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':'Hands-free off'}</span>
+              </button>
+            </div>
+            <div className="footer-group">
+              {presentation.isLoaded && <><span className="timer-readout"><Timer size={15}/>{timeLabel}</span><button className="icon-button" aria-label={isBlackout?'Resume screen':'Blank screen'} title="Blank screen (B)" onClick={toggleBlackout}><MonitorOff size={18}/></button><button className="icon-button" aria-label="Toggle fullscreen" onClick={toggleFullscreen}><Maximize2 size={18}/></button></>}
+              {!presentation.isLoaded && <button className="footer-setup" onClick={() => setShowCameraSetup(true)}>Set up camera <ChevronRight size={15}/></button>}
+            </div>
+          </footer>}
+        </section>
+      </div>
+      {showCameraSetup && <div className="studio-scrim" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget)setShowCameraSetup(false)}}>
+        <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title">
+          <div className="panel-head"><div><span className="panel-overline">PRESENTER TOOLS</span><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
+          <p className="panel-description">Connect your camera and choose how long to close your eyes to change slides.</p>
+          <div className="camera-preview"><CameraOff size={32}/><span>{camera.status==='tracking'?'Camera connected':'Camera preview appears here after you connect'}</span></div>
+          <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
+          <div className="panel-field"><label>Blink sensitivity</label><div className="sensitivity-options">{(['responsive','standard','deliberate'] as GestureSensitivity[]).map(option=><button key={option} className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{SENSITIVITY_DWELL_MAP[option]} ms</small></button>)}</div><p>Choose a slower setting if slides change too easily.</p></div>
+          <button className="primary-button panel-primary" onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
+          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key and other settings</button>
+        </section>
+      </div>}
       {/* Guide & Onboarding Modal */}
       {showGuideModal && (
         <div
