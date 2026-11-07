@@ -7,7 +7,7 @@
 - **M1 Status:** **BLOCKED** (Requires physical webcam device `/dev/video*` and genuine Presage API key; native C ABI runtime load and REST auth error handling verified)
 - **M2 Status:** **VERIFIED** (Commit `207919a` — PDF Presentation Engine & Unit Tests)
 - **M3 Status:** **BLOCKED** (Requires M1 hardware/credentials; Gesture engine logic, stability gating, timestamp validation, refractory cooldown, double-blink rewind, dynamic sensitivity, and Presenter HUD implemented and unit tested 9/9)
-- **M4 Status:** **IN PROGRESS** (SafeStorage OS credential storage, origin-restricted camera permissions with presenter consent gate, Guide modal, timer, blackout mode, Hallmark Darkroom theme sloplint clean 0 FAIL, 0 REFLEX, 0 WARN; full end-to-end user testing blocked on M1)
+- **M4 Status:** **IN PROGRESS (REDESIGN COMPLETED ON BRANCH `feat/hallmark-redesign`)** (Comprehensive Hallmark Darkroom Studio redesign implemented; `docs/DESIGN_DIRECTION_STUDIO.md` authored; baseline before/after screenshots captured at 1280×800 and 1920×1080 across all 5 application states; full rendered audit `sloplint --render` passing clean with 0 FAIL, 0 REFLEX, 0 WARN; awaiting user review of screenshots before merge to `main`)
 - **M5 Status:** **PARTIALLY VERIFIED**
   - **CI build and Linux packaging:** **VERIFIED** (GitHub Actions CI/CD workflow compiles and packages without error)
   - **Linux AppImage artifact generation:** **VERIFIED** (Downloadable `glimra-linux-x64` artifact generated in GitHub Actions runs 42323661385 & 42324191241, 289 MB)
@@ -30,7 +30,7 @@
 | **M1** | Real SDK Feasibility | **BLOCKED** | 2026-11-07 | Native FFI runtime verified (`libsmartspectra_capi.so`), REST auth verified (401 on test key), Protobuf decoder verified. **Physical camera and live API key verification are BLOCKED.** |
 | **M2** | Presentation Engine Core | **VERIFIED** | 2026-11-07 | PDF.js slide renderer, canvas aspect ratio management, slide navigation state machine, sample deck generated, automated tests passing (3/3), sloplint clean (commit `207919a`). |
 | **M3** | Gesture-Controlled Engine | **BLOCKED** | 2026-11-07 | Algorithm implemented: Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, stability flag gating, timestamp protection, double-blink bounds, dynamic sensitivity tuning, Presenter HUD. Automated test suite (9/9 passing). **Live camera control with real human subject is BLOCKED on M1.** |
-| **M4** | Public UX & Hallmark Design | **IN PROGRESS** | 2026-11-07 | Darkroom theme applied, camera privacy disclosure, safeStorage OS credential storage, origin-restricted camera permissions, guide modal, timer, blackout mode, sloplint clean (0 errors). Full end-to-end flow blocked on M1. |
+| **M4** | Public UX & Hallmark Design | **IN REVIEW** | 2026-11-07 | Comprehensive Hallmark Darkroom Studio redesign on `feat/hallmark-redesign`. Design direction `docs/DESIGN_DIRECTION_STUDIO.md`. Before & after screenshots at 1280×800 and 1920×1080 across all 5 states in `.hallmark/`. Full rendered audit (`sloplint --render`) 0 FAIL, 0 REFLEX, 0 WARN across 5 files and 1 URL. |
 | **M5** | Packaging & Distribution | **PARTIALLY VERIFIED** | 2026-11-07 | CI packaging pipeline and Linux AppImage artifact verified in GitHub Actions run 42324191241 (289 MB). **Clean-system desktop startup is NOT YET VERIFIED.** |
 | **M6** | Hackathon Submission | **NOT STARTED** | 2026-11-07 | Cannot submit until real end-to-end verification passes on real hardware. |
 
@@ -99,9 +99,21 @@ found 0 vulnerabilities
 
 ## RESUME HERE
 
-- **Current State:** CI pipeline and packaging automation verified live on GitHub Actions ([Run 42325401053](https://github.com/0xaje/Glimra/actions/runs/42325401053)). Milestone M5 accurately distinguished: CI build, Linux packaging, and AppImage artifact generation are **VERIFIED**; clean-computer installation/startup and public release readiness are **NOT YET VERIFIED**; physical webcam detection is **BLOCKED**. Repeatable real-camera verification procedure documented in [`docs/CAMERA_TESTING_PROCEDURE.md`](docs/CAMERA_TESTING_PROCEDURE.md); packaged desktop installation instructions documented in [`docs/PACKAGING_AND_INSTALLATION.md`](docs/PACKAGING_AND_INSTALLATION.md).
-- **Latest Verified Commit:** [`c01d67b`](https://github.com/0xaje/Glimra/commit/c01d67be452e2201bd44472bf1d2b3f06e62c564)
-- **GitHub Push Status:** Verified (`origin/main` synchronized).
-- **Latest Verified GitHub Actions Run:** [`42325401053`](https://github.com/0xaje/Glimra/actions/runs/42325401053) (SUCCESS: Build 19s, Packaging 1m14s)
-- **Generated Linux Desktop Artifact:** `glimra-linux-x64` (289,163,582 bytes, `Glimra-1.0.0.AppImage`, Artifact ID `13554359328`)
-- **Immediate Next Priority:** Perform live hardware testing with physical webcam and genuine Presage credentials following `docs/CAMERA_TESTING_PROCEDURE.md`.
+- **Current State:** Comprehensive Hallmark Darkroom Studio Redesign completed on branch `feat/hallmark-redesign`.
+- **Design Direction:** Authored and saved to `docs/DESIGN_DIRECTION_STUDIO.md`.
+- **Rendered Audit:** Passed with `0 FAIL, 0 REFLEX, 0 WARN` via `sloplint.mjs --render`.
+- **Screenshots:** Captured at 1280×800 and 1920×1080 across all 5 states (first-launch, loaded presentation, settings, guide, presenter HUD) in `.hallmark/screenshots/before/` and `.hallmark/screenshots/after/`. Visual comparison viewer available at `.hallmark/compare.html`.
+- **Unit Tests:** 16/16 passing via `scripts/test-runner.mjs`.
+- **TypeScript & Build:** Clean compilation with 0 errors via `npm run build`.
+- **Security & Audit:** 0 vulnerabilities via `npm audit`.
+- **Branch:** `feat/hallmark-redesign` pushed to GitHub; awaiting user visual review and approval before merging to `main`.
+
+- **Current State:** Branch `feat/hallmark-redesign` created for Hallmark studio redesign. Design direction [`docs/DESIGN_DIRECTION_STUDIO.md`](DESIGN_DIRECTION_STUDIO.md) drafted and implemented. Baseline before and after screenshots captured at 1280×800 and 1920×1080 across 5 states (`.hallmark/screenshots/`). Full rendered audit passing clean with 0 FAIL, 0 REFLEX, 0 WARN. Visual comparison page generated at `.hallmark/compare.html`. Awaiting user review and visual approval before merging into `main`.
+- **Active Branch:** `feat/hallmark-redesign`
+- **Verification Evidence:**
+  - `npm test`: 16/16 unit tests passing (0 failures).
+  - `npm run lint:hallmark`: Clean static audit (0 FAIL, 0 REFLEX, 0 WARN).
+  - `npm run audit:render`: Clean rendered audit across 1280, 1440, 1920, and 375 viewports (0 FAIL, 0 REFLEX, 0 WARN).
+  - `npm run build`: Production bundle and Electron compilation succeed.
+  - `npm audit`: 0 vulnerabilities.
+- **Immediate Next Priority:** User review and approval of the redesign screenshots; upon approval, merge `feat/hallmark-redesign` into `main` and push.

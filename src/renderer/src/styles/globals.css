@@ -1,37 +1,60 @@
-/* Hallmark · theme: Darkroom (deal) · posture: restrained · shape: app screen */
-/* critique: restrained presenter tool for dark lecture halls and auditoriums */
+/* Hallmark · theme: Darkroom Studio · posture: restrained · shape: app screen */
+/* critique: restrained hands-free presentation studio for low-light lecture halls and auditoriums */
 
 :root {
-  --color-bg-base: #0c0e12;
-  --color-bg-surface: #15181f;
-  --color-bg-elevated: #1e222b;
-  --color-bg-overlay: rgba(12, 14, 18, 0.94);
+  /* Default ground and ink for Hallmark audit */
+  --studio-bg: #090b0e;
+  --studio-ink: #f3f5f8;
+  --color-ink: #f3f5f8;
 
-  --color-border-subtle: #252b37;
-  --color-border-strong: #384153;
+  /* Studio Grounds & Surfaces */
+  --studio-surface: #11141a;
+  --studio-elevated: #171c24;
+  --studio-subtle: #1f2532;
+  --studio-overlay: rgba(9, 11, 14, 0.94);
+  --studio-scrim: rgba(5, 7, 10, 0.88);
 
-  --color-text-primary: #f1f3f6;
-  --color-text-secondary: #9aa4b7;
-  --color-text-muted: #616b7e;
-  --color-text-inverse: #0c0e12;
+  /* Hairline Precision Mechanical Borders */
+  --studio-rule: #232b38;
+  --studio-rule-light: #343f52;
+  --studio-rule-subtle: #19202a;
+  --studio-rule-focus: #f59e0b;
 
-  --color-accent: oklch(0.62 0.20 254);
-  --color-accent-hover: oklch(0.56 0.22 254);
-  --color-accent-subtle: oklch(0.62 0.20 254 / 0.14);
+  /* Studio Typography Inks */
+  --studio-ink-primary: #f3f5f8;
+  --studio-ink-secondary: #abbcd0;
+  --studio-ink-muted: #8ea0b8;
+  --studio-ink-dim: #64758d;
+  --studio-ink-inverse: #090b0e;
 
-  --color-signal-active: #10b981;
-  --color-signal-warning: #f59e0b;
-  --color-signal-danger: #ef4444;
+  /* Safelight Amber Signal (Primary Accent) */
+  --studio-amber: #f59e0b;
+  --studio-amber-hover: #d97706;
+  --studio-amber-subtle: rgba(245, 158, 11, 0.12);
+  --studio-amber-border: rgba(245, 158, 11, 0.35);
+  --studio-on-amber: #07090c;
 
-  --color-canvas-bg: #fafbfe;
-  --color-blackout: #040508;
+  /* Functional Verification & Status Signals */
+  --studio-signal-active: #10b981;
+  --studio-signal-active-subtle: rgba(16, 185, 129, 0.12);
+  --studio-signal-warning: #f59e0b;
+  --studio-signal-warning-subtle: rgba(245, 158, 11, 0.12);
+  --studio-signal-alert: #ef4444;
+  --studio-signal-alert-subtle: rgba(239, 68, 68, 0.12);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* Presentation Canvas & Blackout Curtain */
+  --studio-canvas-bg: oklch(0.985 0.005 250);
+  --studio-blackout: #020304;
 
-  --focus-ring: 2px solid #60a5fa;
+  /* Typography Font Stacks */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+  /* Focus Indicator (Instant, No Transition) */
+  --focus-ring: 2px solid #f59e0b;
   --focus-offset: 2px;
 
+  /* Studio Spacing System */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -39,10 +62,33 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
-  --radius-sm: 4px;
+  /* Radii */
+  --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 8px;
+
+  /* Backwards-compatibility aliases for existing subcomponents */
+  --color-bg-base: var(--studio-bg);
+  --color-bg-surface: var(--studio-surface);
+  --color-bg-elevated: var(--studio-elevated);
+  --color-bg-overlay: var(--studio-overlay);
+  --color-border-subtle: var(--studio-rule);
+  --color-border-strong: var(--studio-rule-light);
+  --color-text-primary: var(--studio-ink-primary);
+  --color-text-secondary: var(--studio-ink-secondary);
+  --color-text-muted: var(--studio-ink-muted);
+  --color-text-inverse: var(--studio-ink-inverse);
+  --color-accent: var(--studio-amber);
+  --color-accent-hover: var(--studio-amber-hover);
+  --color-accent-subtle: var(--studio-amber-subtle);
+  --color-signal-active: var(--studio-signal-active);
+  --color-signal-warning: var(--studio-signal-warning);
+  --color-signal-danger: var(--studio-signal-alert);
+  --color-canvas-bg: var(--studio-canvas-bg);
+  --color-blackout: var(--studio-blackout);
 }
 
 *, *::before, *::after {
@@ -52,20 +98,21 @@
 }
 
 ::selection {
-  background-color: var(--color-accent-subtle);
-  color: var(--color-text-primary);
+  background-color: var(--studio-amber-subtle);
+  color: var(--studio-ink-primary);
 }
 
 html, body {
-  background-color: var(--color-bg-base);
-  color: var(--color-text-primary);
+  background-color: var(--studio-bg);
+  color: var(--studio-ink-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   overflow-x: clip;
   height: 100%;
   -webkit-font-smoothing: antialiased;
-  scrollbar-color: var(--color-border-subtle) transparent;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-color: var(--studio-rule-light) var(--studio-bg);
 }
 
 #root {
@@ -105,5 +152,6 @@ button:disabled {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

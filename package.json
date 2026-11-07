@@ -11,6 +11,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint:hallmark": "node .agents/skills/hallmark/scripts/sloplint.mjs src/ --scope app",
+    "audit:render": "node scripts/run-rendered-audit.mjs",
+    "capture:screens": "node scripts/capture-studio.mjs .hallmark/screenshots/after",
     "test": "node scripts/test-runner.mjs",
     "dist:linux": "npm run build && electron-builder --linux",
     "dist:win": "npm run build && electron-builder --win",
@@ -30,6 +32,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^43.8.7",
     "electron-builder": "^26.18.0",
+    "puppeteer-core": "^25.16.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "vite-plugin-electron": "^0.29.0",
@@ -84,4 +87,3 @@
     "asar": true
   }
 }
-

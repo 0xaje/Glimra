@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { CameraState } from '../types';
 
 interface PresenterHUDProps {
@@ -15,10 +15,10 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
   onTogglePause,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [showPreview, setShowPreview] = React.useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && videoStream) {
+    if (videoRef.current && videoStream && showPreview) {
       videoRef.current.srcObject = videoStream;
       videoRef.current.play().catch(() => {});
     }
@@ -26,62 +26,80 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
 
   if (!camera.isActive) return null;
 
+  const isTracking = camera.status === 'tracking' && camera.faceDetected;
+  const isPaused = camera.status === 'paused';
+  const isError = camera.status === 'error';
+
   return (
     <aside
-      aria-label="Gesture control status"
+      aria-label="Hands-free gesture telemetry"
       style={{
         position: 'absolute',
         top: '16px',
         right: '16px',
-        padding: '10px 14px',
+        padding: '12px 16px',
         borderRadius: 'var(--radius-md)',
-        backgroundColor: 'var(--color-bg-overlay)',
-        border: '1px solid var(--color-border-subtle)',
+        backgroundColor: 'var(--studio-overlay)',
+        border: '1px solid var(--studio-rule-light)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
+        gap: '10px',
         zIndex: 50,
-        minWidth: '220px',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+        minWidth: '240px',
+        maxWidth: '300px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Telemetry Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor:
-                camera.status === 'tracking' && camera.faceDetected
-                  ? 'var(--color-signal-active)'
-                  : camera.status === 'paused'
-                  ? 'var(--color-signal-warning)'
-                  : camera.status === 'error'
-                  ? 'var(--color-signal-danger)'
-                  : 'var(--color-border-strong)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-sm)',
+              border: `1px solid ${
+                isTracking
+                  ? 'var(--studio-signal-active)'
+                  : isPaused
+                  ? 'var(--studio-signal-warning)'
+                  : isError
+                  ? 'var(--studio-signal-alert)'
+                  : 'var(--studio-rule)'
+              }`,
+              color: isTracking
+                ? 'var(--studio-signal-active)'
+                : isPaused
+                ? 'var(--studio-signal-warning)'
+                : isError
+                ? 'var(--studio-signal-alert)'
+                : 'var(--studio-ink-secondary)',
+              backgroundColor: isTracking
+                ? 'var(--studio-signal-active-subtle)'
+                : isPaused
+                ? 'var(--studio-signal-warning-subtle)'
+                : isError
+                ? 'var(--studio-signal-alert-subtle)'
+                : 'transparent',
             }}
-          />
-          <span style={{ fontSize: '13px', fontWeight: 500 }}>
-            {camera.status === 'tracking'
-              ? 'Hands-free active'
-              : camera.status === 'paused'
-              ? 'Paused'
-              : camera.status === 'initializing'
-              ? 'Connecting…'
-              : 'Error'}
+          >
+            {isTracking ? 'LOCKED' : isPaused ? 'PAUSED' : isError ? 'ALERT' : 'INIT'}
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--studio-ink-primary)' }}>
+            SmartSpectra
           </span>
         </div>
 
         <button
           onClick={onTogglePause}
           style={{
-            padding: '2px 8px',
+            padding: '3px 8px',
             borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-bg-elevated)',
+            border: '1px solid var(--studio-rule)',
+            backgroundColor: 'var(--studio-elevated)',
             fontSize: '11px',
-            color: 'var(--color-text-secondary)',
+            color: 'var(--studio-ink-secondary)',
           }}
           title="Press Space or P to toggle pause"
         >
@@ -89,90 +107,135 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
         </button>
       </div>
 
-      {/* Status message */}
-      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+      {/* Validation / Calibration Status */}
+      <div
+        style={{
+          fontSize: '12px',
+          color: 'var(--studio-ink-secondary)',
+          lineHeight: 1.4,
+        }}
+      >
         {camera.validationMessage}
       </div>
 
-      {/* Visual charge indicator for prolonged intentional blink dwell */}
+      {/* Intentional Dwell Blink Charge Progress Indicator */}
       {chargeRatio > 0 && (
         <div
           role="progressbar"
           aria-valuenow={Math.round(chargeRatio * 100)}
           aria-valuemin={0}
           aria-valuemax={100}
+          aria-label="Intentional dwell advance charge"
           style={{
+            height: '4px',
             width: '100%',
-            height: '3px',
-            backgroundColor: 'var(--color-border-subtle)',
+            backgroundColor: 'var(--studio-subtle)',
             borderRadius: 'var(--radius-sm)',
             overflow: 'hidden',
           }}
         >
           <div
             style={{
-              width: `${Math.round(chargeRatio * 100)}%`,
               height: '100%',
-              backgroundColor: 'var(--color-accent)',
+              width: `${Math.min(100, Math.round(chargeRatio * 100))}%`,
+              backgroundColor: 'var(--studio-amber)',
+              transition: 'width 60ms linear',
             }}
           />
         </div>
       )}
 
-      {/* Last triggered gesture feedback toast */}
+      {/* Last Triggered Gesture Event Feedback */}
       {camera.lastGesture && (
         <div
           style={{
+            padding: '6px 10px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'var(--studio-elevated)',
+            border: '1px solid var(--studio-rule)',
             fontSize: '11px',
-            color: 'var(--color-accent)',
             fontFamily: 'var(--font-mono)',
+            color: 'var(--studio-amber)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          {camera.lastGesture.label}
+          <span>
+            {camera.lastGesture.label ||
+              (camera.lastGesture.type === 'prolonged-blink'
+                ? 'Dwell Advance'
+                : camera.lastGesture.type === 'double-blink'
+                ? 'Double-Blink Rewind'
+                : 'Gesture Detected')}
+          </span>
+          <span style={{ color: 'var(--studio-ink-muted)' }}>confirmed</span>
         </div>
       )}
 
-      {/* Align Camera Toggle & Mini Video Preview */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
+      {/* Optional Optical Alignment Preview Toggle */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderTop: '1px solid var(--studio-rule)',
+          paddingTop: '8px',
+        }}
+      >
         <button
           onClick={() => setShowPreview((prev) => !prev)}
           style={{
             fontSize: '11px',
-            color: 'var(--color-text-muted)',
-            textAlign: 'left',
-            padding: 0,
+            color: 'var(--studio-ink-muted)',
+            textDecoration: 'none',
           }}
         >
-          {showPreview ? 'Hide camera alignment' : 'Show camera alignment'}
+          {showPreview ? 'Hide optical preview' : 'Show optical preview'}
         </button>
+      </div>
 
-        {showPreview && videoStream && (
-          <div
-            style={{
-              width: '100%',
-              height: '110px',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-              backgroundColor: 'var(--color-bg-base)',
-              border: '1px solid var(--color-border-subtle)',
-              position: 'relative',
-            }}
-          >
+      {showPreview && (
+        <div
+          style={{
+            width: '100%',
+            height: '110px',
+            backgroundColor: 'var(--studio-bg)',
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+            border: '1px solid var(--studio-rule)',
+            position: 'relative',
+          }}
+        >
+          {videoStream ? (
             <video
               ref={videoRef}
               muted
               playsInline
-              poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
+              poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100%25' height='100%25' fill='%2311141a'/%3E%3C/svg%3E"
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                transform: 'scaleX(-1)', // Mirror view for natural presenter alignment
+                transform: 'scaleX(-1)',
               }}
             />
-          </div>
-        )}
-      </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                fontSize: '11px',
+                color: 'var(--studio-ink-muted)',
+              }}
+            >
+              Camera stream standby
+            </div>
+          )}
+        </div>
+      )}
     </aside>
   );
 };

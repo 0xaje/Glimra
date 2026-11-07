@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Glimra — Hallmark Redesign Comparison</title>
+  <style>
+    :root {
+      --bg: #090b0e;
+      --surface: #11141a;
+      --border: #232b38;
+      --ink: #f3f5f8;
+      --muted: #8ea0b8;
+      --amber: #f59e0b;
+    }
+    body {
+      margin: 0;
+      padding: 32px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    header {
+      max-width: 1400px;
+      margin: 0 auto 32px auto;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .badge {
+      display: inline-block;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--amber);
+      border-radius: 3px;
+      margin-bottom: 12px;
+    }
+    .comparison-section {
+      max-width: 1400px;
+      margin: 0 auto 48px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .section-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .card-label {
+      padding: 8px 14px;
+      font-size: 12px;
+      font-family: ui-monospace, monospace;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justifyContent: space-between;
+    }
+    .label-before {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .label-after {
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.08);
+    }
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="badge">HALLMARK FULL REDESIGN AUDIT</div>
+    <h1>Glimra Presentation Studio — Before & After Comparison</h1>
+    <p>Comprehensive visual audit at 1280×800 and 1920×1080 across all 5 core application states.</p>
+  </header>
+
+  <div class="comparison-section">
+    <div class="section-title">1. First-Launch / Workspace Preparation (1280×800)</div>
+    <div class="section-desc">Before: Weak centered box in dark void. After: Asymmetric studio workbench with tactile dropzone, optical gaze interaction blueprint, and studio status telemetry.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label label-before">BEFORE · ORIGINAL</div>
+        <img src="screenshots/before/01-first-launch-1280x800.png" alt="Before First Launch">
+      </div>
+      <div class="card">
+        <div class="card-label label-after">AFTER · HALLMARK STUDIO</div>
+        <img src="screenshots/after/01-first-launch-1280x800.png" alt="After First Launch">
+      </div>
+    </div>
+  </div>
+
+  <div class="comparison-section">
+    <div class="section-title">2. Loaded Presentation Stage (1280×800)</div>
+    <div class="section-desc">Before: Generic canvas with loose nav bar. After: Edge-to-edge cinematic slide canvas with hairline mechanical framing, tabular monospace index dock, and session timer.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label label-before">BEFORE · ORIGINAL</div>
+        <img src="screenshots/before/04-loaded-presentation-1280x800.png" alt="Before Loaded Presentation">
+      </div>
+      <div class="card">
+        <div class="card-label label-after">AFTER · HALLMARK STUDIO</div>
+        <img src="screenshots/after/02-loaded-deck-1280x800.png" alt="After Loaded Deck">
+      </div>
+    </div>
+  </div>
+
+  <div class="comparison-section">
+    <div class="section-title">3. Studio Settings Modal (1280×800)</div>
+    <div class="section-desc">Before: Bland form. After: Darkroom chassis with clear typographic hierarchy, sensitivity cards with dwell duration explanations, and safelight amber buttons.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label label-before">BEFORE · ORIGINAL</div>
+        <img src="screenshots/before/02-settings-1280x800.png" alt="Before Settings">
+      </div>
+      <div class="card">
+        <div class="card-label label-after">AFTER · HALLMARK STUDIO</div>
+        <img src="screenshots/after/03-settings-1280x800.png" alt="After Settings">
+      </div>
+    </div>
+  </div>
+
+  <div class="comparison-section">
+    <div class="section-title">4. Presenter Guide & Cheatsheet (1280×800)</div>
+    <div class="section-desc">Before: Plain text box. After: Structured presenter guide with dwell advance timing, double-blink rewind rules, and monospace keyboard matrix.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label label-before">BEFORE · ORIGINAL</div>
+        <img src="screenshots/before/03-guide-1280x800.png" alt="Before Guide">
+      </div>
+      <div class="card">
+        <div class="card-label label-after">AFTER · HALLMARK STUDIO</div>
+        <img src="screenshots/after/04-guide-1280x800.png" alt="After Guide">
+      </div>
+    </div>
+  </div>
+
+  <div class="comparison-section">
+    <div class="section-title">5. Presenter HUD & Optical Telemetry (1280×800)</div>
+    <div class="section-desc">Before: Floating box with decorative status dot (Rule 10 violation). After: Broadcast-grade telemetry capsule with tracking pill, dwell charge progress, and optical alignment feed.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label label-before">BEFORE · ORIGINAL</div>
+        <img src="screenshots/before/05-presenter-hud-1280x800.png" alt="Before Presenter HUD">
+      </div>
+      <div class="card">
+        <div class="card-label label-after">AFTER · HALLMARK STUDIO</div>
+        <img src="screenshots/after/05-presenter-hud-1280x800.png" alt="After Presenter HUD">
+      </div>
+    </div>
+  </div>
+</body>
+</html>
