@@ -31,6 +31,7 @@ export class SmartSpectraController {
   private isPaused = false;
   private isValidated = false;
   private isSdkRunning = false;
+  private firstStreamReport = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -55,6 +56,7 @@ export class SmartSpectraController {
     this.isPaused = false;
     this.isValidated = false;
     this.isSdkRunning = false;
+    this.firstStreamReport = false;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -69,6 +71,7 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('processingStatus', (status: number) => {
+        console.info('[Glimra/SmartSpectra] processingStatus', status, Object.entries(ProcessingStatus).find(([, value]) => value === status)?.[0] ?? 'unknown');
         if (this.hasSdkError) return;
         if (status === ProcessingStatus.kRunning) {
           this.isSdkRunning = true;
@@ -91,11 +94,26 @@ export class SmartSpectraController {
       });
 
       this.sdk.on('streamAvailable', (stream: MediaStream) => {
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          const settings = track.getSettings();
+          console.info('[Glimra/Camera] negotiated settings', { width: settings.width, height: settings.height, frameRate: settings.frameRate, deviceIdPresent: !!settings.deviceId, readyState: track.readyState });
+          if (!this.firstStreamReport) {
+            this.firstStreamReport = true;
+            // Measure frames rendered by the preview separately from the
+            // requested/negotiated camera frameRate when available.
+            console.info('[Glimra/Camera] Note: negotiated frameRate is not a measured processing FPS');
+          }
+          track.addEventListener('ended', () => console.warn('[Glimra/Camera] video track ended'), { once: true });
+        } else {
+          console.warn('[Glimra/Camera] SDK stream has no video track');
+        }
         this.callbacks.onStreamAvailable(stream);
       });
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
         if (this.hasSdkError) return;
+        if (code !== ValidationCode.kOk) console.warn('[Glimra/SmartSpectra] validationStatus', { code, hint, timestampUs: _ts });
         const isOk = code === ValidationCode.kOk;
         this.isValidated = isOk;
         this.gestureEngine.setFaceValidation(isOk);
