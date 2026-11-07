@@ -292,7 +292,7 @@ export default function App() {
   };
 
   return (
-    <div className="glimra-app" data-theme={theme}>
+    <div className={`glimra-app ${presentation.isFullscreen ? "is-presenting" : ""}`} data-theme={theme}>
       <header className="studio-topbar">
         <div className="studio-brand"><span className="brand-mark"><Eye size={20} strokeWidth={2.6}/></span><span className="brand-name">Glimra<span className="brand-subtitle"> Studio</span></span></div>
         <div className="topbar-actions">
@@ -328,7 +328,7 @@ export default function App() {
                 {loadError && <div className="studio-error" role="alert">{loadError}</div>}
               </div>
             ) : (
-              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout}/>
+              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout} embedded={!presentation.isFullscreen}/>
             )}
           </div>
           {!presentation.isFullscreen && <footer className="studio-footer">
