@@ -13,6 +13,7 @@ interface SlideViewerProps {
   isFullscreen: boolean;
   isBlackout?: boolean;
   onToggleBlackout?: () => void;
+  embedded?: boolean;
 }
 
 export const SlideViewer: React.FC<SlideViewerProps> = ({
@@ -27,6 +28,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   isFullscreen,
   isBlackout = false,
   onToggleBlackout,
+  embedded = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -217,7 +219,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       </div>
 
       {/* Floating Presenter Navigation Bar */}
-      <nav
+      {!embedded && <nav
         aria-label="Slide navigation"
         style={{
           display: 'flex',
@@ -383,7 +385,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
             {fileName}
           </span>
         )}
-      </nav>
+      </nav>}
     </div>
   );
 };
