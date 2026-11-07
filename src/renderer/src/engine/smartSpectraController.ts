@@ -127,7 +127,7 @@ export class SmartSpectraController {
         if (hint) this.lastValidationHint = hint;
         // Do not retry automatically: a manual restart may select a lower
         // bandwidth camera mode after a sustained FPS validation failure.
-        if (code === 11) this.preferLowBandwidthMode = true;
+        if (code === ValidationCode.kFrameRateTooLow) this.preferLowBandwidthMode = true;
         if (code !== ValidationCode.kOk) {
           const now = Date.now();
           if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
