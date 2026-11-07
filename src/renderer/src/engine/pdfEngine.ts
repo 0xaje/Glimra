@@ -12,6 +12,7 @@ export interface PresentationDocument {
     maxWidth: number,
     maxHeight: number,
   ) => Promise<void>;
+  renderThumbnail: (pageNumber: number, canvas: HTMLCanvasElement, maxWidth: number) => Promise<void>;
   destroy: () => void;
 }
 
@@ -82,6 +83,20 @@ export async function loadPresentationFromBuffer(
           activeRenderTask = null;
         }
       }
+    },
+    renderThumbnail: async (pageNumber, canvas, maxWidth) => {
+      const page = await pdfDoc.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const scale = maxWidth / base.width;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const viewport = page.getViewport({ scale: scale * dpr });
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      canvas.style.width = `${Math.round(viewport.width / dpr)}px`;
+      canvas.style.height = `${Math.round(viewport.height / dpr)}px`;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Thumbnail canvas unavailable');
+      await page.render({ canvasContext: context, viewport }).promise;
     },
     destroy: () => {
       if (activeRenderTask) {
