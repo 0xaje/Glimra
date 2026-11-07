@@ -18,6 +18,9 @@ export function CameraPreview({ stream }: { stream: MediaStream | null }) {
     let intervalStart = performance.now();
     let callbackId: number | null = null;
     let lastFrameAt = 0;
+    let longestFrameGapMs = 0;
+    let delayedFrames = 0;
+    let callbackCount = 0;
 
     const report = (now: number, reason: string) => {
       const elapsed = now - intervalStart;
@@ -26,11 +29,18 @@ export function CameraPreview({ stream }: { stream: MediaStream | null }) {
         previewFps: Number((frameCount * 1000 / elapsed).toFixed(1)),
         observedMs: Math.round(elapsed),
         frames: frameCount,
+        callbackCount,
+        longestFrameGapMs: Math.round(longestFrameGapMs),
+        gapsOver80ms: delayedFrames,
+        trackState: stream?.getVideoTracks()[0]?.readyState,
         reason,
         negotiatedFps: stream?.getVideoTracks()[0]?.getSettings().frameRate,
-        note: 'Preview FPS is not SDK processing FPS',
+        note: 'Preview presentation timing only; not camera capture or SDK processing FPS',
       });
       frameCount = 0;
+      callbackCount = 0;
+      longestFrameGapMs = 0;
+      delayedFrames = 0;
       intervalStart = now;
     };
 
@@ -40,6 +50,12 @@ export function CameraPreview({ stream }: { stream: MediaStream | null }) {
       // Count presented frames, including any missed between callbacks.
       frameCount += previousPresented ? Math.max(1, presented - previousPresented) : 1;
       previousPresented = presented;
+      if (lastFrameAt) {
+        const gapMs = now - lastFrameAt;
+        longestFrameGapMs = Math.max(longestFrameGapMs, gapMs);
+        if (gapMs > 80) delayedFrames += 1;
+      }
+      callbackCount += 1;
       lastFrameAt = now;
       if (now - intervalStart >= 1000) report(now, 'interval');
       callbackId = video.requestVideoFrameCallback(onFrame);
