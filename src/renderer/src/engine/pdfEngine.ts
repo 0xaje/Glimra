@@ -16,73 +16,41 @@ export interface PresentationDocument {
   destroy: () => void;
 }
 
-let activeRenderTask: pdfjsLib.RenderTask | null = null;
-
 export async function loadPresentationFromBuffer(
   data: ArrayBuffer,
 ): Promise<PresentationDocument> {
   const loadingTask = pdfjsLib.getDocument({ data });
   const pdfDoc = await loadingTask.promise;
+  // PDF.js cannot render two pages into the same canvas at once.
+  // Serialize main-stage renders and skip outdated requests.
+  let renderQueue: Promise<void> = Promise.resolve();
+  let latestRequest = 0;
+  let disposed = false;
 
   return {
     numPages: pdfDoc.numPages,
-    renderPage: async (
-      pageNumber: number,
-      canvas: HTMLCanvasElement,
-      maxWidth: number,
-      maxHeight: number,
-    ) => {
-      // Cancel any ongoing render task to avoid canvas tearing
-      if (activeRenderTask) {
-        try {
-          activeRenderTask.cancel();
-        } catch {
-          // Task already completed or cancelled
-        }
-        activeRenderTask = null;
-      }
-
-      const page = await pdfDoc.getPage(pageNumber);
-      const unscaledViewport = page.getViewport({ scale: 1 });
-
-      // Calculate scale to fit within maxWidth and maxHeight while preserving aspect ratio
-      const scaleX = maxWidth / unscaledViewport.width;
-      const scaleY = maxHeight / unscaledViewport.height;
-      const fitScale = Math.min(scaleX, scaleY);
-
-      // Support high-DPI displays (Retina/4K)
-      const dpr = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: fitScale * dpr });
-
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
-      canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not acquire 2D canvas context');
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const renderContext = {
-        canvasContext: ctx,
-        viewport,
+    renderPage: (pageNumber, canvas, maxWidth, maxHeight) => {
+      const request = ++latestRequest;
+      const render = async () => {
+        if (disposed || request !== latestRequest) return;
+        const page = await pdfDoc.getPage(pageNumber);
+        if (disposed || request !== latestRequest) return;
+        const unscaled = page.getViewport({ scale: 1 });
+        const scale = Math.min(maxWidth / unscaled.width, maxHeight / unscaled.height);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const viewport = page.getViewport({ scale: scale * dpr });
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not acquire 2D canvas context');
+        canvas.width = Math.max(1, Math.floor(viewport.width));
+        canvas.height = Math.max(1, Math.floor(viewport.height));
+        canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
+        await page.render({ canvasContext: ctx, viewport }).promise;
       };
-
-      const task = page.render(renderContext);
-      activeRenderTask = task;
-
-      try {
-        await task.promise;
-      } catch (err: any) {
-        if (err?.name !== 'RenderingCancelledException') {
-          throw err;
-        }
-      } finally {
-        if (activeRenderTask === task) {
-          activeRenderTask = null;
-        }
-      }
+      const result = renderQueue.then(render);
+      // Keep the queue alive after an error, but report that error to the caller.
+      renderQueue = result.catch(() => {});
+      return result;
     },
     renderThumbnail: async (pageNumber, canvas, maxWidth) => {
       const page = await pdfDoc.getPage(pageNumber);
@@ -99,15 +67,10 @@ export async function loadPresentationFromBuffer(
       await page.render({ canvasContext: context, viewport }).promise;
     },
     destroy: () => {
-      if (activeRenderTask) {
-        try {
-          activeRenderTask.cancel();
-        } catch {
-          // Clean up
-        }
-        activeRenderTask = null;
-      }
-      pdfDoc.destroy();
+      disposed = true;
+      latestRequest++;
+      // Let an in-flight render settle before releasing the PDF document.
+      void renderQueue.finally(() => pdfDoc.destroy());
     },
   };
 }
