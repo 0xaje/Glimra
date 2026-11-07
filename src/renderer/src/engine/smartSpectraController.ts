@@ -2,6 +2,7 @@ import {
   SmartSpectraSDK,
   faceMetrics,
   ValidationCode,
+  ProcessingStatus,
   ValidationCodeValue,
   SmartSpectraErrorCodeValue,
 } from '@smartspectra/node-sdk/renderer';
@@ -27,6 +28,9 @@ export class SmartSpectraController {
   private isRunning: boolean = false;
   private stopPromise: Promise<void> | null = null;
   private hasSdkError = false;
+  private isPaused = false;
+  private isValidated = false;
+  private isSdkRunning = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -34,13 +38,11 @@ export class SmartSpectraController {
   }
 
   public setPaused(paused: boolean): void {
+    if (!this.sdk || this.hasSdkError || !this.isSdkRunning) return;
+    this.isPaused = paused;
     this.gestureEngine.setPaused(paused);
-    if (!this.sdk || this.hasSdkError) return;
     this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
-    this.callbacks.onValidationChange(
-      paused ? 'Paused by presenter' : 'Tracking active',
-      !paused,
-    );
+    this.callbacks.onValidationChange(paused ? 'Paused by presenter' : 'Waiting for a valid face signal', !paused && this.isValidated);
   }
 
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
@@ -50,6 +52,9 @@ export class SmartSpectraController {
   public async start(apiKey: string): Promise<void> {
     if (this.isRunning || this.sdk || this.stopPromise) return;
     this.hasSdkError = false;
+    this.isPaused = false;
+    this.isValidated = false;
+    this.isSdkRunning = false;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -63,6 +68,28 @@ export class SmartSpectraController {
         enableAccumulatedOutput: false,
       });
 
+      this.sdk.on('processingStatus', (status: number) => {
+        if (this.hasSdkError) return;
+        if (status === ProcessingStatus.kRunning) {
+          this.isSdkRunning = true;
+          this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
+        } else if (status === ProcessingStatus.kStarting) {
+          this.isSdkRunning = false;
+          this.callbacks.onStatusChange('initializing');
+        } else if (status === ProcessingStatus.kStopping || status === ProcessingStatus.kIdle || status === ProcessingStatus.kUninitialized) {
+          this.isSdkRunning = false;
+          this.isValidated = false;
+          this.gestureEngine.setFaceValidation(false);
+          this.callbacks.onValidationChange('Camera not tracking', false);
+          this.callbacks.onStatusChange('idle');
+        } else if (status === ProcessingStatus.kError) {
+          this.isSdkRunning = false;
+          this.isValidated = false;
+          this.gestureEngine.setFaceValidation(false);
+          this.callbacks.onStatusChange('error');
+        }
+      });
+
       this.sdk.on('streamAvailable', (stream: MediaStream) => {
         this.callbacks.onStreamAvailable(stream);
       });
@@ -70,6 +97,7 @@ export class SmartSpectraController {
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
         if (this.hasSdkError) return;
         const isOk = code === ValidationCode.kOk;
+        this.isValidated = isOk;
         this.gestureEngine.setFaceValidation(isOk);
 
         let statusText = 'Tracking active';
@@ -85,11 +113,11 @@ export class SmartSpectraController {
           statusText = hint;
         }
 
-        this.callbacks.onValidationChange(statusText, isOk);
+        this.callbacks.onValidationChange(statusText, isOk && !this.isPaused && this.isSdkRunning);
       });
 
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
-        if (this.hasSdkError) return;
+        if (this.hasSdkError || !this.isSdkRunning) return;
         try {
           const decoded = decodeMetrics(buf);
           const blinkingSamples = decoded.face?.blinking;
@@ -128,20 +156,22 @@ export class SmartSpectraController {
         this.callbacks.onValidationChange('Camera tracking stopped — restart to try again', false);
         this.callbacks.onChargeProgress(0);
         this.callbacks.onError(code, message);
-        // Do not tear down the native SDK inside its own event callback.
-        // Schedule cleanup after the callback returns to the SDK bridge.
-        queueMicrotask(() => { void this.stop(true); });
+        // Do not destroy the native SDK from inside its callback. Preserve
+        // its error state for diagnosis; a user Stop will clean it up.
+        // A terminal SDK error may require reset(), not immediate destruction.
       });
 
       const sdk = this.sdk;
       await sdk.start();
       if (this.sdk === sdk && !this.hasSdkError) {
         this.isRunning = true;
-        this.callbacks.onStatusChange('tracking');
-        this.callbacks.onValidationChange('Waiting for a valid face signal', false);
+        // processingStatus is authoritative; start() resolving alone
+        // does not prove the native engine is processing frames.
+        if (!this.isSdkRunning) this.callbacks.onValidationChange('Waiting for SmartSpectra to start', false);
       }
     } catch (err: any) {
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
+      this.hasSdkError = true;
       this.callbacks.onStatusChange('error');
       this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
       await this.stop(true);
@@ -156,6 +186,9 @@ export class SmartSpectraController {
     // Detach this instance first so another event cannot start a second teardown.
     this.sdk = null;
     this.isRunning = false;
+    this.isSdkRunning = false;
+    this.isValidated = false;
+    this.isPaused = false;
     this.gestureEngine.reset();
 
     const cleanup = async () => {
@@ -171,7 +204,8 @@ export class SmartSpectraController {
           console.warn('[Glimra] Error during SDK destroy:', err);
         }
         this.callbacks.onChargeProgress(0);
-        if (!preserveError && !this.hasSdkError) {
+        if (!preserveError) {
+          this.hasSdkError = false;
           this.callbacks.onStatusChange('idle');
           this.callbacks.onValidationChange('Camera idle', false);
         }
