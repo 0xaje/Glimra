@@ -10,10 +10,6 @@ class AudioFeedbackController {
     this.isEnabled = enabled;
   }
 
-  public getEnabled(): boolean {
-    return this.isEnabled;
-  }
-
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
     if (!this.audioCtx) {

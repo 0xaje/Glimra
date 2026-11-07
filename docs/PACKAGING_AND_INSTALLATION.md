@@ -16,7 +16,7 @@
 Glimra relies on the Presage SmartSpectra native C ABI and TensorFlow Lite models to perform low-latency on-device face and blink detection. In packaged desktop distributions, these resources must be accessible to Electron's runtime without requiring a developer environment or global dependencies.
 
 ### Bundled Native Resources (`extraResources/smartspectra`)
-In [package.json](file:///home/oyeolorun/Glimra/package.json), the Linux distribution explicitly copies `@smartspectra/node-sdk-linux-x64` into the application's unpacked resource directory:
+In [package.json](../package.json), the Linux distribution explicitly copies `@smartspectra/node-sdk-linux-x64` into the application's unpacked resource directory:
 
 ```json
 "linux": {
@@ -41,7 +41,7 @@ In [package.json](file:///home/oyeolorun/Glimra/package.json), the Linux distrib
 - Supporting media libraries (`libavcodec.so.60`, `libturbojpeg.so.0`, `libv4l2.so.0`, `libvulkan.so.1`, etc.)
 
 ### Runtime Resolution
-In [src/main/main.ts](file:///home/oyeolorun/Glimra/src/main/main.ts), when `app.isPackaged` is true, the main process sets:
+In [src/main/main.ts](../src/main/main.ts), when `app.isPackaged` is true, the main process sets:
 ```ts
 process.env.SMARTSPECTRA_CAPI_PATH = path.join(process.resourcesPath, 'smartspectra', 'libsmartspectra_capi.so');
 ```

@@ -12,8 +12,8 @@ interface Window {
   __smartspectraBridge?: {
     diagnostics: boolean;
     attach: () => void;
-    postMessage: (message: any) => void;
-    onMessage: (callback: (data: any) => void) => void;
+    postMessage: (message: unknown) => void;
+    onMessage: (callback: (data: unknown) => void) => void;
     close: () => void;
   };
 }

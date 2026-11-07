@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { CameraState } from '../types';
 
 interface PresenterHUDProps {
@@ -8,14 +8,14 @@ interface PresenterHUDProps {
   onTogglePause: () => void;
 }
 
-export const PresenterHUD: React.FC<PresenterHUDProps> = ({
+export function PresenterHUD({
   camera,
   chargeRatio,
   videoStream,
   onTogglePause,
-}) => {
+}: PresenterHUDProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [showPreview, setShowPreview] = React.useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (videoRef.current && videoStream) {
@@ -49,19 +49,37 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor:
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              padding: '1px 5px',
+              borderRadius: 'var(--radius-sm)',
+              border: `1px solid ${
                 camera.status === 'tracking' && camera.faceDetected
                   ? 'var(--color-signal-active)'
                   : camera.status === 'paused'
                   ? 'var(--color-signal-warning)'
                   : camera.status === 'error'
                   ? 'var(--color-signal-danger)'
-                  : 'var(--color-border-strong)',
+                  : 'var(--color-border-strong)'
+              }`,
+              color:
+                camera.status === 'tracking' && camera.faceDetected
+                  ? 'var(--color-signal-active)'
+                  : camera.status === 'paused'
+                  ? 'var(--color-signal-warning)'
+                  : camera.status === 'error'
+                  ? 'var(--color-signal-danger)'
+                  : 'var(--color-text-muted)',
             }}
-          />
+          >
+            {camera.status === 'tracking' && camera.faceDetected
+              ? 'ACTIVE'
+              : camera.status === 'paused'
+              ? 'PAUSED'
+              : camera.status === 'initializing'
+              ? 'INIT'
+              : 'OFFLINE'}
+          </span>
           <span style={{ fontSize: '13px', fontWeight: 500 }}>
             {camera.status === 'tracking'
               ? 'Hands-free active'
@@ -175,4 +193,4 @@ export const PresenterHUD: React.FC<PresenterHUDProps> = ({
       </div>
     </aside>
   );
-};
+}

@@ -14,11 +14,11 @@ In strict adherence to engineering integrity rules, we clearly distinguish betwe
 
 - **Verified Capabilities:**
   - **PDF Presentation Engine:** Fully offline PDF slide viewer powered by PDF.js, with canvas scaling, slide navigation state machine, keyboard controls, and fullscreen mode (`tests/presentation.test.mjs` passing 3/3).
-  - **Gesture Engine Logic:** Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, involuntary blink rejection (<250ms), double-blink rewind, stability flag filtering, and non-monotonic timestamp protection (`tests/gestureEngine.test.mjs` passing 8/8).
-  - **Hallmark Design Craft:** Strict Darkroom Amber presenter design passing `sloplint.mjs` with 0 failures, 0 reflex flags, and 0 warnings.
+  - **Gesture Engine Logic:** Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, involuntary blink rejection (<250ms), double-blink rewind, stability flag filtering, non-monotonic timestamp protection, and dynamic sensitivity configuration (`tests/gestureEngine.test.mjs` passing 9/9).
+  - **Hallmark Design Craft:** Strict Glimra Studio Dark and Light themes passing `sloplint.mjs` with 0 failures, 0 reflex flags, and 0 warnings.
   - **Security Architecture:** Presage API keys are encrypted locally using Electron's `safeStorage` (OS Keychain / DPAPI / libsecret) via IPC; camera permissions are strictly origin-checked and blocked without explicit presenter consent.
   - **Native SDK Integration:** Native `libsmartspectra_capi.so` loads via `koffi` FFI; communicates with Presage REST endpoints; decodes `face.blinking` and `face.landmarks` Protobuf buffers accurately (`tests/sdk-diagnostic.mjs` passing 4/4).
-  - **Automated CI/CD & Linux Packaging:** GitHub Actions builds the production bundle, runs tests, and packages `Glimra-1.0.0.AppImage` (289 MB) as a downloadable workflow artifact (`glimra-linux-x64`).
+  - **Automated CI/CD & Linux Packaging:** GitHub Actions builds the production bundle, runs all 16 test cases, and packages `Glimra-1.0.0.AppImage` (289 MB) as a downloadable workflow artifact (`glimra-linux-x64`).
 
 - **Pending Verification & Blockers:**
   - **Physical Camera Hardware:** The development environment (WSL2) does not expose `/dev/video*`. Live camera frame acquisition and end-to-end human gesture testing on a physical webcam require a physical machine or USB camera pass-through (see [docs/CAMERA_TESTING_PROCEDURE.md](docs/CAMERA_TESTING_PROCEDURE.md)).
@@ -43,11 +43,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full architectural document
 ## Getting Started
 
 ### Prerequisites
-- Node.js >= 20 (Node 22 or 24 recommended)
+- Node.js >= 22.12.0
 - A webcam (built-in or USB)
 - A Presage SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com)
 
-### Installation
+### Installation & Development
 
 ```bash
 # Clone the repository
@@ -59,6 +59,19 @@ npm install
 
 # Run development mode
 npm run dev
+```
+
+### Packaging & Distribution
+
+```bash
+# Package for Linux (AppImage)
+npm run dist:linux
+
+# Package for Windows (NSIS installer)
+npm run dist:win
+
+# Package for macOS (DMG/zip)
+npm run dist:mac
 ```
 
 ### Entering your API Key

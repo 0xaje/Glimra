@@ -41,23 +41,27 @@ node .agents/skills/hallmark/scripts/sloplint.mjs \
 
 ## 3. Automated Test Verification
 
-All 12 automated test cases pass with zero failures:
+All 16 automated test cases across foundation, gesture engine, and presentation engine pass with zero failures:
 
 ```bash
 $ npm test
-✔ Glimra Foundation — Core Documentation Suite (4.71ms)
-✔ Glimra Foundation — Security Audit (No Committed Credentials) (1.07ms)
-✔ Glimra Foundation — SmartSpectra SDK Native Export Surface (106.81ms)
-✔ Glimra Foundation — Build Artifacts Generated (0.32ms)
-✔ M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored (3.02ms)
-✔ M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide (0.78ms)
-✔ M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances (0.48ms)
-✔ M3 Gesture Engine: Double Blink Triggers Previous Slide (0.67ms)
-✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.76ms)
-✔ M2 Presentation Engine: Real PDF Document Import & Page Count (157.68ms)
-✔ M2 Presentation Engine: Slide Navigation State Machine (1.21ms)
-✔ M2 Presentation Engine: Corrupted Buffer Error Handling (4.48ms)
-ℹ tests 12, suites 0, pass 12, fail 0
+✔ Glimra Foundation — Core Documentation Suite (3.26ms)
+✔ Glimra Foundation — Security Audit (No Committed Credentials) (0.93ms)
+✔ Glimra Foundation — SmartSpectra SDK Native Export Surface (75.31ms)
+✔ Glimra Foundation — Build Artifacts Generated (0.38ms)
+✔ M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored (1.43ms)
+✔ M3 Gesture Engine: Unstable Biometric Samples Are Discarded (0.27ms)
+✔ M3 Gesture Engine: Non-monotonic & Stalled Timestamps Handled Safely (0.28ms)
+✔ M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide (0.56ms)
+✔ M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances (0.31ms)
+✔ M3 Gesture Engine: Verified Double Blink Triggers Previous Slide (0.39ms)
+✔ M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations (0.20ms)
+✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.51ms)
+✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.52ms)
+✔ M2 Presentation Engine: Real PDF Document Import & Page Count (86.69ms)
+✔ M2 Presentation Engine: Slide Navigation State Machine (0.46ms)
+✔ M2 Presentation Engine: Corrupted Buffer Error Handling (2.17ms)
+ℹ tests 16, suites 0, pass 16, fail 0
 ```
 
 ---

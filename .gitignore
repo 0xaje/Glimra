@@ -38,6 +38,7 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-# Temporary files
+# Temporary files & test artifacts
 /tmp/
 *.tmp
+.hallmark/
