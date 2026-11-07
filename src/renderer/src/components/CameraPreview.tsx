@@ -13,7 +13,7 @@ export function CameraPreview({ stream }: { stream: MediaStream | null }) {
     return () => { video.srcObject = null; };
   }, [stream]);
   return <div className="camera-preview">
-    <video ref={videoRef} className="camera-preview-video" autoPlay muted playsInline aria-label="Live camera preview" style={{ display: stream ? 'block' : 'none' }}/>
+    <video ref={videoRef} className="camera-preview-video" autoPlay muted playsInline aria-label="Live camera preview" poster="/camera-preview-poster.svg" style={{ display: stream ? 'block' : 'none' }}/>
     {!stream && <><CameraOff size={32}/><span>Camera preview appears here after you connect</span></>}
   </div>;
 }
