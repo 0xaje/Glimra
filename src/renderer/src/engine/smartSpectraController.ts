@@ -36,6 +36,8 @@ export class SmartSpectraController {
   private lastValidationWarningAt = 0;
   private lastValidationHint = '';
   private sessionGeneration = 0;
+  private ownedCameraStream: MediaStream | null = null;
+  private preferLowBandwidthMode = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
@@ -123,6 +125,9 @@ export class SmartSpectraController {
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
         if (this.hasSdkError || generation !== this.sessionGeneration) return;
         if (hint) this.lastValidationHint = hint;
+        // Do not retry automatically: a manual restart may select a lower
+        // bandwidth camera mode after a sustained FPS validation failure.
+        if (code === 11) this.preferLowBandwidthMode = true;
         if (code !== ValidationCode.kOk) {
           const now = Date.now();
           if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
@@ -201,6 +206,32 @@ export class SmartSpectraController {
       });
 
       const sdk = this.sdk;
+      // Own capture explicitly so camera FPS and dimensions are not left to
+      // the SDK's default getUserMedia request. A lower-bandwidth mode is
+      // selected only on a subsequent user-initiated attempt after code 11.
+      const cameraMode = this.preferLowBandwidthMode
+        ? { width: 640, height: 480, frameRate: 30 }
+        : { width: 1280, height: 720, frameRate: 30 };
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          width: { ideal: cameraMode.width },
+          height: { ideal: cameraMode.height },
+          frameRate: { ideal: cameraMode.frameRate, min: 25 },
+        },
+      });
+      if (this.sdk !== sdk || generation !== this.sessionGeneration) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      this.ownedCameraStream = stream;
+      const settings = stream.getVideoTracks()[0]?.getSettings();
+      console.info('[Glimra/Camera] explicit capture mode', {
+        requested: cameraMode,
+        actual: settings && { width: settings.width, height: settings.height, frameRate: settings.frameRate },
+        fallbackAfterPreviousFpsFailure: this.preferLowBandwidthMode,
+      });
+      sdk.useMediaStream(stream);
       await sdk.start();
       if (this.sdk === sdk && !this.hasSdkError) {
         this.isRunning = true;
@@ -225,6 +256,8 @@ export class SmartSpectraController {
     // Detach this instance first so another event cannot start a second teardown.
     this.sdk = null;
     ++this.sessionGeneration;
+    const ownedStream = this.ownedCameraStream;
+    this.ownedCameraStream = null;
     this.isRunning = false;
     this.isSdkRunning = false;
     this.isValidated = false;
@@ -237,6 +270,9 @@ export class SmartSpectraController {
       } catch (err) {
         console.warn('[Glimra] Error during SDK stop:', err);
       } finally {
+        // Host-owned streams passed to useMediaStream are not released by
+        // SmartSpectra; stop our tracks after the SDK frame pump has stopped.
+        ownedStream?.getTracks().forEach(track => track.stop());
         try {
           // The renderer bridge documents destroy() as synchronous.
           sdk.destroy();
