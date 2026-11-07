@@ -1,19 +1,24 @@
 # PROGRESS.md — Live Progress Tracking
 
 ## Current State
-- **Current Milestone:** **M1 & M3 (BLOCKED on physical hardware/credentials) / M4 (IN PROGRESS)**
+- **Current Milestone:** **M1 & M3 (BLOCKED on physical hardware/credentials) / M4 (IN PROGRESS) / M5 (PARTIALLY VERIFIED)**
 - **Last Updated:** 2026-11-07
 - **M0 Status:** **VERIFIED** (Commit `d8517f7`)
 - **M1 Status:** **BLOCKED** (Requires physical webcam device `/dev/video*` and genuine Presage API key; native C ABI runtime load and REST auth error handling verified)
 - **M2 Status:** **VERIFIED** (Commit `207919a` — PDF Presentation Engine & Unit Tests)
-- **M3 Status:** **BLOCKED** (Requires M1 hardware/credentials; Gesture engine logic, stability gating, timestamp validation, refractory cooldown, double-blink rewind, and Presenter HUD implemented and unit tested 8/8)
-- **M4 Status:** **IN PROGRESS** (SafeStorage OS credential storage implemented, origin-restricted camera permissions with presenter consent gate implemented, Hallmark Darkroom theme sloplint clean 0 FAIL, 0 REFLEX, 0 WARN; full end-to-end user testing blocked on M1)
-- **M5 Status:** **BLOCKED** (Local electron-builder packaging blocked by Electron archive download timeout)
+- **M3 Status:** **BLOCKED** (Requires M1 hardware/credentials; Gesture engine logic, stability gating, timestamp validation, refractory cooldown, double-blink rewind, dynamic sensitivity, and Presenter HUD implemented and unit tested 9/9)
+- **M4 Status:** **IN PROGRESS** (SafeStorage OS credential storage, origin-restricted camera permissions with presenter consent gate, Guide modal, timer, blackout mode, Hallmark Darkroom theme sloplint clean 0 FAIL, 0 REFLEX, 0 WARN; full end-to-end user testing blocked on M1)
+- **M5 Status:** **PARTIALLY VERIFIED**
+  - **CI build and Linux packaging:** **VERIFIED** (GitHub Actions CI/CD workflow compiles and packages without error)
+  - **Linux AppImage artifact generation:** **VERIFIED** (Downloadable `glimra-linux-x64` artifact generated in GitHub Actions runs 42323661385 & 42324191241, 289 MB)
+  - **Installation and startup on clean computer:** **NOT YET VERIFIED** (Pending execution on independent Linux machine)
+  - **Physical webcam and real SmartSpectra detection:** **BLOCKED** (Pending physical webcam and production Presage credentials)
+  - **Public release readiness:** **NOT YET VERIFIED** (Blocked on clean-system launch test and physical gesture verification)
 - **M6 Status:** **NOT STARTED** (Blocked on real end-to-end verification)
-- **Current Blocker:**
+- **Current Blockers:**
   1. **Physical Camera:** `/dev/video*` is not present in the current WSL2 environment. Real-world camera frame capture and gesture testing on a physical webcam cannot be verified until tested on physical hardware or with USB pass-through.
   2. **Presage API Key:** A genuine production API key is required to establish an authenticated SmartSpectra session.
-  3. **Package Download Timeout:** `electron-builder` times out downloading the ~100MB prebuilt Electron binary over this throttled network connection.
+  3. **Clean-System Launch Test:** The generated Linux AppImage must be launched and verified on an independent non-dev desktop before claiming public readiness.
 
 ---
 
@@ -24,9 +29,9 @@
 | **M0** | Repository & Foundation | **VERIFIED** | 2026-11-07 | Electron+Vite+React baseline, Hallmark skill installed, test suite passing, committed to GitHub `origin/main` (commit `d8517f7`). |
 | **M1** | Real SDK Feasibility | **BLOCKED** | 2026-11-07 | Native FFI runtime verified (`libsmartspectra_capi.so`), REST auth verified (401 on test key), Protobuf decoder verified. **Physical camera and live API key verification are BLOCKED.** |
 | **M2** | Presentation Engine Core | **VERIFIED** | 2026-11-07 | PDF.js slide renderer, canvas aspect ratio management, slide navigation state machine, sample deck generated, automated tests passing (3/3), sloplint clean (commit `207919a`). |
-| **M3** | Gesture-Controlled Engine | **BLOCKED** | 2026-11-07 | Algorithm implemented: Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, stability flag gating, timestamp protection, double-blink bounds, Presenter HUD. Automated test suite (8/8 passing). **Live camera control with real human subject is BLOCKED on M1.** |
-| **M4** | Public UX & Hallmark Design | **IN PROGRESS** | 2026-11-07 | Darkroom theme applied, camera privacy disclosure, safeStorage OS credential storage, origin-restricted camera permissions, sloplint clean (0 errors). Full end-to-end flow blocked on M1. |
-| **M5** | Packaging & Distribution | **BLOCKED** | 2026-11-07 | Bundling tested (`tsc && vite build`), native resource layout (`resources/smartspectra/`), multi-platform scripts configured. **Local binary packaging BLOCKED by Electron archive download timeout.** |
+| **M3** | Gesture-Controlled Engine | **BLOCKED** | 2026-11-07 | Algorithm implemented: Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, stability flag gating, timestamp protection, double-blink bounds, dynamic sensitivity tuning, Presenter HUD. Automated test suite (9/9 passing). **Live camera control with real human subject is BLOCKED on M1.** |
+| **M4** | Public UX & Hallmark Design | **IN PROGRESS** | 2026-11-07 | Darkroom theme applied, camera privacy disclosure, safeStorage OS credential storage, origin-restricted camera permissions, guide modal, timer, blackout mode, sloplint clean (0 errors). Full end-to-end flow blocked on M1. |
+| **M5** | Packaging & Distribution | **PARTIALLY VERIFIED** | 2026-11-07 | CI packaging pipeline and Linux AppImage artifact verified in GitHub Actions run 42324191241 (289 MB). **Clean-system desktop startup is NOT YET VERIFIED.** |
 | **M6** | Hackathon Submission | **NOT STARTED** | 2026-11-07 | Cannot submit until real end-to-end verification passes on real hardware. |
 
 ---
@@ -94,9 +99,9 @@ found 0 vulnerabilities
 
 ## RESUME HERE
 
-- **Current State:** CI pipeline fully repaired, hardened, and verified live on GitHub Actions (Run [`42323951018`](https://github.com/0xaje/Glimra/actions/runs/42323951018)). Both `Test & Build Verification` and `Package Linux Desktop Binary` succeeded cleanly with 0 vulnerabilities, 16/16 tests passing, Hallmark design compliance verified, and downloadable Linux desktop binary artifact (`glimra-linux-x64`, 289MB AppImage) generated.
-- **Latest Verified Commit:** [`4562746`](https://github.com/0xaje/Glimra/commit/4562746255b80ce9c92fe79b95b0e1454e2fa57b)
+- **Current State:** CI pipeline and packaging automation verified live on GitHub Actions ([Run 42324191241](https://github.com/0xaje/Glimra/actions/runs/42324191241)). Milestone M5 accurately distinguished: CI build, Linux packaging, and AppImage artifact generation are **VERIFIED**; clean-computer installation/startup and public release readiness are **NOT YET VERIFIED**; physical webcam detection is **BLOCKED**. Repeatable real-camera verification procedure documented in [`docs/CAMERA_TESTING_PROCEDURE.md`](docs/CAMERA_TESTING_PROCEDURE.md); packaged desktop installation instructions documented in [`docs/PACKAGING_AND_INSTALLATION.md`](docs/PACKAGING_AND_INSTALLATION.md).
+- **Latest Verified Commit:** [`9241bd5`](https://github.com/0xaje/Glimra/commit/9241bd56a1c7a673bbd770cf306ac31d518e8442)
 - **GitHub Push Status:** Verified (`origin/main` synchronized).
-- **GitHub Actions Run:** [`42323951018`](https://github.com/0xaje/Glimra/actions/runs/42323951018) (SUCCESS)
-- **Artifact Generated:** `glimra-linux-x64` (289,163,548 bytes AppImage, Artifact ID `13554815785`)
-- **Immediate Next Task:** Test with live physical camera hardware and genuine Presage credentials when connected to host.
+- **Latest Verified GitHub Actions Run:** [`42324191241`](https://github.com/0xaje/Glimra/actions/runs/42324191241) (SUCCESS: Build 16s, Packaging 1m27s)
+- **Generated Linux Desktop Artifact:** `glimra-linux-x64` (289,163,548 bytes, `Glimra-1.0.0.AppImage`)
+- **Immediate Next Priority:** Perform live hardware testing with physical webcam and genuine Presage credentials following `docs/CAMERA_TESTING_PROCEDURE.md`.

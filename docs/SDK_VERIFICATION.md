@@ -85,9 +85,11 @@ To achieve reliable hands-free slide navigation, Glimra establishes the followin
   1. The `@smartspectra/node-sdk` native C ABI runtime (`libsmartspectra_capi.so`) loads cleanly in Node.js / Linux x64 with glibc 2.35+.
   2. The REST API client establishes real network communication with Presage authentication servers and handles 401 Unauthorized responses gracefully without process crashes.
   3. Protobuf decoding of Metric 12 (`face.blinking` / `IDetectionStatus`) and `face.landmarks` preserves 64-bit microsecond timestamps and detection flags with 100% precision.
-  4. The gesture interpretation algorithm (intentional dwell $\ge 350\text{ ms}$, stability filtering, timestamp validation, refractory cooldown, double-blink rewind) is implemented and passed 8/8 automated unit tests.
+  4. The gesture interpretation algorithm (intentional dwell $\ge 350\text{ ms}$, stability filtering, timestamp validation, refractory cooldown, double-blink rewind, dynamic sensitivity tuning) is implemented and passed 9/9 automated unit tests.
 - **What Remains Blocked:**
   1. **Physical Webcam:** `/dev/video*` is unavailable in the WSL2 container environment. Real webcam frame capture and live camera streaming cannot be executed in this container without physical hardware or USB pass-through (`usbipd`).
   2. **Production API Key:** Live session authentication requires a genuine developer API key from [physiology.presagetech.com](https://physiology.presagetech.com).
   3. **Human Subject Gesture Benchmark:** Recording physical false-positive rates, missed gestures, and slide navigation with a real human presenter is blocked until physical webcam hardware and credentials are connected.
+- **Verification Protocol:**
+  - Complete 10-point physical testing procedure documented in [`docs/CAMERA_TESTING_PROCEDURE.md`](CAMERA_TESTING_PROCEDURE.md).
 - **Integrity Rule:** In accordance with repository rules, no simulated data or mock hardware will be presented as genuine. Physical gesture control remains **BLOCKED** until verified on real hardware.

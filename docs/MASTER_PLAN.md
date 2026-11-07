@@ -93,73 +93,78 @@ Do not claim that anything was pushed without confirming it. If pushing fails, i
   - Multi-page PDF imports cleanly, rendering each page accurately.
   - Slides navigate instantaneously via keyboard without memory leaks.
   - Seamless toggle in and out of fullscreen mode.
-96: - **Verification Method:** Automated unit tests for deck store + manual test with sample presentation deck.
-97: - **Status:** **VERIFIED (3/3 automated unit tests passed, PDF.js canvas aspect ratio engine verified)**
-98:
-99: ---
-100:
-101: ### M3 — Gesture-Controlled Presentation
-102: - **Goal:** Connect verified SmartSpectra detection signals to slide navigation with debounce, confidence thresholds, and user feedback.
-103: - **Scope:**
-104:   - Integration of SmartSpectra Electron main/preload/renderer bridge.
-105:   - Gesture recognition engine:
-106:     - Intentional long blink (dwell time e.g., 400ms–800ms) for Next Slide.
-107:     - Double blink or specific pattern for Previous Slide (subject to M1 feasibility).
-108:     - Accidental blink filter (filtering standard 100–250ms involuntary blinks).
-109:   - Visual gesture HUD: unobtrusive safelight indicator showing blink detection, hold progress, and command trigger.
-110:   - Gesture pause/resume toggle with keyboard shortcut (`Space` or `P`).
-111:   - Camera resource release on stop or window close.
-112: - **Acceptance Criteria:**
-113:   - Real user can advance slides hands-free using intentional eye gesture.
-114:   - Accidental slide triggers during natural conversation measured and minimized.
-115:   - HUD provides instantaneous visual feedback without obscuring presentation content.
-116: - **Verification Method:** Timed live presentation trial with recorded metrics (total gestures, successful triggers, false triggers, missed gestures).
-117: - **Status:** **BLOCKED (Engine and HUD unit-tested; end-to-end real camera control blocked on M1 physical hardware & API key)**
-118:
-119: ---
-120:
-121: ### M4 — Public-User Experience & Design Polish
-122: - **Goal:** Create an intuitive, accessible application that ordinary non-technical presenters can understand and operate.
-123: - **Scope:**
-124:   - Implementation of the Hallmark Darkroom design system.
-125:   - First-run onboarding flow explaining how eye gesture detection works.
-126:   - Camera and privacy permissions modal with clear explanation of local processing vs cloud authentication.
-127:   - Sensitive API key setup screen (with options for personal key entry and secure local storage via OS safeStorage).
-128:   - Settings panel: gesture sensitivity tuning, dwell time adjustment, audio/visual cues toggle.
-129:   - Error states and troubleshooting guide for low light, missing camera, or lost face tracking.
-130: - **Acceptance Criteria:**
-131:   - Plain English UI with zero developer jargon or unhelpful error codes.
-132:   - Full keyboard accessibility and WCAG AA contrast compliance.
-133:   - Passes Hallmark's `sloplint.mjs` Floor checks.
-134: - **Verification Method:** Hallmark linter run + end-to-end user journey walkthrough.
-135: - **Status:** **IN PROGRESS (Hallmark design clean, safeStorage and consent gates verified; full end-to-end flow blocked on M1)**
-136:
-137: ---
-138:
-139: ### M5 — Packaging & Clean-System Testing
-140: - **Goal:** Package Glimra into an installable desktop binary ready for public distribution.
-141: - **Scope:**
-142:   - Electron Builder configuration for Linux (`AppImage`) and Windows/macOS.
-143:   - Correct bundling of `@smartspectra/node-sdk` native libraries into `extraResources/smartspectra`.
-144:   - Verification that no `.env` or development secrets are included in the build output.
-145:   - Clean environment test: install and run on a machine without dev dependencies.
-146: - **Acceptance Criteria:**
-147:   - Packaged application launches, runs presentation mode, and connects to camera without crash.
-148:   - Application bundle size optimized and binary signed/packaged cleanly.
-149: - **Verification Method:** Execution of generated package binary on clean target OS.
-150: - **Status:** **VERIFIED (Automated GitHub Actions CI/CD pipeline packages installable Linux desktop AppImage binary, verified in workflow run 42323661385 with downloadable artifact glimra-linux-x64, 289 MB)**
-151:
-152: ---
-153:
-154: ### M6 — Hackathon Submission
-155: - **Goal:** Deliver a transparent, verified competition entry before November 22, 2026.
-156: - **Scope:**
-157:   - Public GitHub repository with clean commits, README, and MIT license.
-158:   - Demonstration video showing genuine hands-free presentation control with real-time HUD and webcam feed.
-159:   - Comprehensive Dev.to article with `#presagechallenge`.
-160:   - Evidence documentation (`docs/SDK_VERIFICATION.md`, `docs/TEST_REPORT.md`).
-161: - **Acceptance Criteria:**
-162:   - All claims in the submission are backed by recorded test results and reproducible steps.
-163:   - No simulated results or fabricated telemetry.
-164: - **Verification Method:** Peer review of repository and submission link check.
-165: - **Status:** **NOT STARTED (Blocked on M1, M3, M5 real end-to-end verification)**
+- **Verification Method:** Automated unit tests for deck store + manual test with sample presentation deck.
+- **Status:** **VERIFIED (3/3 automated unit tests passed, PDF.js canvas aspect ratio engine verified)**
+
+---
+
+### M3 — Gesture-Controlled Presentation
+- **Goal:** Connect verified SmartSpectra detection signals to slide navigation with debounce, confidence thresholds, and user feedback.
+- **Scope:**
+  - Integration of SmartSpectra Electron main/preload/renderer bridge.
+  - Gesture recognition engine:
+    - Intentional long blink (dwell time e.g., 400ms–800ms) for Next Slide.
+    - Double blink or specific pattern for Previous Slide (subject to M1 feasibility).
+    - Accidental blink filter (filtering standard 100–250ms involuntary blinks).
+  - Visual gesture HUD: unobtrusive safelight indicator showing blink detection, hold progress, and command trigger.
+  - Gesture pause/resume toggle with keyboard shortcut (`Space` or `P`).
+  - Camera resource release on stop or window close.
+- **Acceptance Criteria:**
+  - Real user can advance slides hands-free using intentional eye gesture.
+  - Accidental slide triggers during natural conversation measured and minimized.
+  - HUD provides instantaneous visual feedback without obscuring presentation content.
+- **Verification Method:** Timed live presentation trial with recorded metrics (total gestures, successful triggers, false triggers, missed gestures).
+- **Status:** **BLOCKED (Engine and HUD unit-tested; end-to-end real camera control blocked on M1 physical hardware & API key)**
+
+---
+
+### M4 — Public-User Experience & Design Polish
+- **Goal:** Create an intuitive, accessible application that ordinary non-technical presenters can understand and operate.
+- **Scope:**
+  - Implementation of the Hallmark Darkroom design system.
+  - First-run onboarding flow explaining how eye gesture detection works.
+  - Camera and privacy permissions modal with clear explanation of local processing vs cloud authentication.
+  - Sensitive API key setup screen (with options for personal key entry and secure local storage via OS safeStorage).
+  - Settings panel: gesture sensitivity tuning, dwell time adjustment, audio/visual cues toggle.
+  - Error states and troubleshooting guide for low light, missing camera, or lost face tracking.
+- **Acceptance Criteria:**
+  - Plain English UI with zero developer jargon or unhelpful error codes.
+  - Full keyboard accessibility and WCAG AA contrast compliance.
+  - Passes Hallmark's `sloplint.mjs` Floor checks.
+- **Verification Method:** Hallmark linter run + end-to-end user journey walkthrough.
+- **Status:** **IN PROGRESS (Hallmark design clean, safeStorage and consent gates verified; full end-to-end flow blocked on M1)**
+
+---
+
+### M5 — Packaging & Clean-System Testing
+- **Goal:** Package Glimra into an installable desktop binary ready for public distribution.
+- **Scope:**
+  - Electron Builder configuration for Linux (`AppImage`) and Windows/macOS.
+  - Correct bundling of `@smartspectra/node-sdk` native libraries into `extraResources/smartspectra`.
+  - Verification that no `.env` or development secrets are included in the build output.
+  - Clean environment test: install and run on a machine without dev dependencies.
+- **Acceptance Criteria:**
+  - Packaged application launches, runs presentation mode, and connects to camera without crash.
+  - Application bundle size optimized and binary signed/packaged cleanly.
+- **Verification Method:** Execution of generated package binary on clean target OS.
+- **Status:** **PARTIALLY VERIFIED**
+  - **CI build and Linux packaging:** **VERIFIED** (GitHub Actions runner compiles production bundle and packages Linux AppImage cleanly)
+  - **Linux AppImage artifact generation:** **VERIFIED** (Downloadable `glimra-linux-x64` artifact generated in GitHub Actions runs 42323661385 & 42324191241, 289 MB)
+  - **Installation and startup on a clean computer:** **NOT YET VERIFIED** (Pending physical desktop execution on an independent Linux machine)
+  - **Physical webcam and real SmartSpectra detection:** **BLOCKED** (Pending physical webcam hardware and production Presage credentials)
+  - **Public release readiness:** **NOT YET VERIFIED** (Blocked on clean-system launch test and physical gesture verification)
+
+---
+
+### M6 — Hackathon Submission
+- **Goal:** Deliver a transparent, verified competition entry before November 22, 2026.
+- **Scope:**
+  - Public GitHub repository with clean commits, README, and MIT license.
+  - Demonstration video showing genuine hands-free presentation control with real-time HUD and webcam feed.
+  - Comprehensive Dev.to article with `#presagechallenge`.
+  - Evidence documentation (`docs/SDK_VERIFICATION.md`, `docs/TEST_REPORT.md`).
+- **Acceptance Criteria:**
+  - All claims in the submission are backed by recorded test results and reproducible steps.
+  - No simulated results or fabricated telemetry.
+- **Verification Method:** Peer review of repository and submission link check.
+- **Status:** **NOT STARTED (Blocked on M1, M3, M5 real end-to-end verification)**

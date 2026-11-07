@@ -18,11 +18,12 @@ In strict adherence to engineering integrity rules, we clearly distinguish betwe
   - **Hallmark Design Craft:** Strict Darkroom Amber presenter design passing `sloplint.mjs` with 0 failures, 0 reflex flags, and 0 warnings.
   - **Security Architecture:** Presage API keys are encrypted locally using Electron's `safeStorage` (OS Keychain / DPAPI / libsecret) via IPC; camera permissions are strictly origin-checked and blocked without explicit presenter consent.
   - **Native SDK Integration:** Native `libsmartspectra_capi.so` loads via `koffi` FFI; communicates with Presage REST endpoints; decodes `face.blinking` and `face.landmarks` Protobuf buffers accurately (`tests/sdk-diagnostic.mjs` passing 4/4).
+  - **Automated CI/CD & Linux Packaging:** GitHub Actions builds the production bundle, runs tests, and packages `Glimra-1.0.0.AppImage` (289 MB) as a downloadable workflow artifact (`glimra-linux-x64`).
 
-- **Current Blockers:**
-  - **Physical Camera Hardware:** The current development environment (WSL2) does not expose `/dev/video*`. Live camera frame acquisition and end-to-end human gesture testing on a physical webcam require a physical machine or USB camera pass-through.
+- **Pending Verification & Blockers:**
+  - **Physical Camera Hardware:** The development environment (WSL2) does not expose `/dev/video*`. Live camera frame acquisition and end-to-end human gesture testing on a physical webcam require a physical machine or USB camera pass-through (see [docs/CAMERA_TESTING_PROCEDURE.md](docs/CAMERA_TESTING_PROCEDURE.md)).
   - **Production Presage API Key:** A genuine API key from Presage is required to establish an authenticated live session.
-  - **Local Binary Packaging:** Local `electron-builder` AppImage packaging timed out downloading the ~100MB Electron base archive over throttled network connectivity.
+  - **Clean-Computer Desktop Startup:** Running and launching the packaged AppImage on an independent desktop without dev dependencies is pending (see [docs/PACKAGING_AND_INSTALLATION.md](docs/PACKAGING_AND_INSTALLATION.md)).
 
 ---
 
