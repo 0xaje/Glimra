@@ -57,7 +57,10 @@ export class SmartSpectraController {
   }
 
   public async start(apiKey: string): Promise<void> {
-    if (this.isRunning || this.sdk || this.stopPromise) return;
+    // Never report a successful start when the previous session is still
+    // tearing down. Wait for native cleanup before constructing a new SDK.
+    if (this.stopPromise) await this.stopPromise;
+    if (this.isRunning || this.sdk) return;
     this.hasSdkError = false;
     this.isPaused = false;
     this.isValidated = false;
@@ -124,7 +127,8 @@ export class SmartSpectraController {
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
         if (this.hasSdkError || generation !== this.sessionGeneration) return;
-        if (hint) this.lastValidationHint = hint;
+        if (code === ValidationCode.kOk) this.lastValidationHint = '';
+        else if (hint) this.lastValidationHint = hint;
         // Do not retry automatically: a manual restart may select a lower
         // bandwidth camera mode after a sustained FPS validation failure.
         if (code === ValidationCode.kFrameRateTooLow) this.preferLowBandwidthMode = true;
@@ -240,6 +244,9 @@ export class SmartSpectraController {
         if (!this.isSdkRunning) this.callbacks.onValidationChange('Waiting for SmartSpectra to start', false);
       }
     } catch (err: any) {
+      // A user may have stopped the session while getUserMedia/start was
+      // pending. Do not turn that intentional cancellation into an error.
+      if (generation !== this.sessionGeneration) return;
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
       this.hasSdkError = true;
       this.callbacks.onStatusChange('error');
