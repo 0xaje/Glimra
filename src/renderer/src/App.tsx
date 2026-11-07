@@ -102,6 +102,10 @@ export default function App() {
       },
       onChargeProgress: (ratio) => setChargeRatio(ratio),
       onError: (_code, message) => {
+        // A failed SDK session must not leave a stale live preview or
+        // appear active. Do not silently restart and spend more credits.
+        setVideoStream(null);
+        void window.glimraDesktop?.setCameraConsent(false);
         setCamera((prev) => ({
           ...prev,
           isActive: false,
@@ -113,7 +117,10 @@ export default function App() {
     });
 
     return () => {
-      void controllerRef.current?.stop();
+      const controller = controllerRef.current;
+      controllerRef.current = null;
+      void controller?.stop();
+      void window.glimraDesktop?.setCameraConsent(false);
     };
   }, []);
 
