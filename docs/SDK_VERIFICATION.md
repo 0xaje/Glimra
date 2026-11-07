@@ -52,7 +52,7 @@ interface IDetectionStatus {
 ## 3. Human Eye Gesture Feasibility & Biological Limits
 
 ### The Problem with Direct Blink Mapping
-Human eyes spontaneously blink at a rate of **12 to 20 blinks per minute**, with each involuntary blink lasting between **100ms and 250ms**. 
+Human eyes spontaneously blink at a rate of **12 to 20 blinks per minute**, with each involuntary blink lasting between **100ms and 250ms**.
 If a naive presentation tool mapped every `blinking.detected == true` event to `nextSlide()`, a presenter would unintentionally advance 15 slides per minute merely by maintaining eye lubrication.
 
 ### Glimra's Validated Intentional Gesture Protocol
@@ -78,9 +78,16 @@ To achieve reliable hands-free slide navigation, Glimra establishes the followin
 
 ---
 
-## 5. M1 Stop Gate Conclusion
+## 5. M1 Stop Gate Evaluation & Blocker Report
 
-- **Verdict:** **PASSED WITH EMPIRICAL EVIDENCE**
-- The `@smartspectra/node-sdk` runtime is genuine, functional, and responsive.
-- Facial and blinking protobuf schemas are verified.
-- The intentional dwell gesture filter ($\ge 350\text{ ms}$) provides a mathematically sound, physiologically validated interaction model for presentation control.
+- **Status:** **STOP GATE BLOCKED (Physical Camera & Genuine API Key Required)**
+- **What Was Empirically Verified:**
+  1. The `@smartspectra/node-sdk` native C ABI runtime (`libsmartspectra_capi.so`) loads cleanly in Node.js / Linux x64 with glibc 2.35+.
+  2. The REST API client establishes real network communication with Presage authentication servers and handles 401 Unauthorized responses gracefully without process crashes.
+  3. Protobuf decoding of Metric 12 (`face.blinking` / `IDetectionStatus`) and `face.landmarks` preserves 64-bit microsecond timestamps and detection flags with 100% precision.
+  4. The gesture interpretation algorithm (intentional dwell $\ge 350\text{ ms}$, stability filtering, timestamp validation, refractory cooldown, double-blink rewind) is implemented and passed 8/8 automated unit tests.
+- **What Remains Blocked:**
+  1. **Physical Webcam:** `/dev/video*` is unavailable in the WSL2 container environment. Real webcam frame capture and live camera streaming cannot be executed in this container without physical hardware or USB pass-through (`usbipd`).
+  2. **Production API Key:** Live session authentication requires a genuine developer API key from [physiology.presagetech.com](https://physiology.presagetech.com).
+  3. **Human Subject Gesture Benchmark:** Recording physical false-positive rates, missed gestures, and slide navigation with a real human presenter is blocked until physical webcam hardware and credentials are connected.
+- **Integrity Rule:** In accordance with repository rules, no simulated data or mock hardware will be presented as genuine. Physical gesture control remains **BLOCKED** until verified on real hardware.

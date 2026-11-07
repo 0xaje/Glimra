@@ -5,17 +5,23 @@ export interface GestureFeedback {
 }
 
 export interface GestureEngineConfig {
-  minIntentionalBlinkMs: number; // e.g., 350ms
-  maxIntentionalBlinkMs: number; // e.g., 850ms
-  refractoryCooldownMs: number;  // e.g., 1200ms
-  doubleBlinkWindowMs: number;   // e.g., 600ms
+  minIntentionalBlinkMs: number; // Intentional dwell threshold (e.g., 350ms)
+  maxIntentionalBlinkMs: number; // Cap on dwell (e.g., 850ms, longer is resting/looking away)
+  refractoryCooldownMs: number;  // Cooldown lockout window after any command (e.g., 1200ms)
+  minDoubleBlinkDurationMs: number; // Min duration for a valid sub-blink in double-blink (100ms)
+  maxDoubleBlinkDurationMs: number; // Max duration for a valid sub-blink in double-blink (280ms)
+  minInterBlinkGapMs: number;    // Min gap between blinks to prevent flutter (80ms)
+  maxInterBlinkGapMs: number;    // Max gap between blinks for double-blink sequence (450ms)
 }
 
 export const DEFAULT_GESTURE_CONFIG: GestureEngineConfig = {
   minIntentionalBlinkMs: 350,
   maxIntentionalBlinkMs: 850,
   refractoryCooldownMs: 1200,
-  doubleBlinkWindowMs: 650,
+  minDoubleBlinkDurationMs: 100,
+  maxDoubleBlinkDurationMs: 280,
+  minInterBlinkGapMs: 80,
+  maxInterBlinkGapMs: 450,
 };
 
 export type GestureCommand = 'next' | 'prev' | 'none';
@@ -32,9 +38,11 @@ export class GestureEngine {
   private blinkStartMs: number = 0;
   private lastTriggerMs: number = 0;
   private lastBlinkCompletionMs: number = 0;
+  private lastBlinkDurationMs: number = 0;
   private recentBlinkCount: number = 0;
   private isPaused: boolean = false;
   private isValidFaceTrack: boolean = false;
+  private lastTimestampUs: number = 0;
 
   constructor(config: Partial<GestureEngineConfig> = {}) {
     this.config = { ...DEFAULT_GESTURE_CONFIG, ...config };
@@ -42,109 +50,155 @@ export class GestureEngine {
 
   public setPaused(paused: boolean): void {
     this.isPaused = paused;
-    if (paused) {
-      this.isBlinking = false;
-      this.blinkStartMs = 0;
-    }
+    this.resetTransientState();
   }
 
   public setFaceValidation(isValid: boolean): void {
     this.isValidFaceTrack = isValid;
     if (!isValid) {
-      this.isBlinking = false;
-      this.blinkStartMs = 0;
+      this.resetTransientState();
     }
   }
 
   public reset(): void {
+    this.resetTransientState();
+    this.lastTriggerMs = 0;
+    this.lastTimestampUs = 0;
+  }
+
+  private resetTransientState(): void {
     this.isBlinking = false;
     this.blinkStartMs = 0;
-    this.lastTriggerMs = 0;
-    this.lastBlinkCompletionMs = 0;
     this.recentBlinkCount = 0;
+    this.lastBlinkCompletionMs = 0;
+    this.lastBlinkDurationMs = 0;
   }
 
   /**
    * Process a single detection sample from SmartSpectra face.blinking stream.
    *
    * @param detected Whether eyes are detected as closed/blinking.
-   * @param stable Whether detection status is stable.
+   * @param stable Whether detection status is stable (unstable samples ignored).
    * @param timestampUs Linux epoch timestamp in microseconds.
    */
   public processSample(
     detected: boolean,
-    _stable: boolean,
+    stable: boolean,
     timestampUs: number,
   ): GestureEvaluationResult {
-    const nowMs = timestampUs / 1000;
-
-    // Guard: If paused or face tracking is invalid, ignore
-    if (this.isPaused || !this.isValidFaceTrack) {
-      this.isBlinking = false;
-      this.blinkStartMs = 0;
+    // 1. Guard against non-monotonic or invalid timestamps
+    if (timestampUs <= 0) {
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
 
-    // Guard: Refractory cooldown period
+    if (this.lastTimestampUs > 0) {
+      const deltaUs = timestampUs - this.lastTimestampUs;
+      if (deltaUs <= 0) {
+        // Discard duplicate or backwards timestamp
+        return { command: 'none', feedback: null, chargeRatio: 0 };
+      }
+      if (deltaUs > 2_000_000) {
+        // Timestamp gap > 2 seconds (e.g. frame drop / system stall) -> reset state
+        this.resetTransientState();
+      }
+    }
+    this.lastTimestampUs = timestampUs;
+
+    const nowMs = timestampUs / 1000;
+
+    // 2. Guard: If paused or face tracking is lost, immediately disarm
+    if (this.isPaused || !this.isValidFaceTrack) {
+      this.resetTransientState();
+      return { command: 'none', feedback: null, chargeRatio: 0 };
+    }
+
+    // 3. Guard: Stability check. If detection is unstable/noisy, do not start or commit gestures
+    if (!stable) {
+      if (this.isBlinking) {
+        // Abort in-progress blink to prevent false dwell trigger
+        this.isBlinking = false;
+        this.blinkStartMs = 0;
+      }
+      return { command: 'none', feedback: null, chargeRatio: 0 };
+    }
+
+    // 4. Guard: Refractory cooldown period following any executed command
     const timeSinceLastTrigger = nowMs - this.lastTriggerMs;
     if (timeSinceLastTrigger < this.config.refractoryCooldownMs) {
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
 
-    // Rising edge: Presenter closed eyes
+    // 5. Rising edge: Presenter closed eyes
     if (detected && !this.isBlinking) {
       this.isBlinking = true;
       this.blinkStartMs = nowMs;
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
 
-    // Sustained closure: Calculate charge ratio for HUD
+    // 6. Sustained closure: Calculate charge ratio for HUD feedback
     if (detected && this.isBlinking) {
       const elapsed = nowMs - this.blinkStartMs;
       const chargeRatio = Math.min(1.0, elapsed / this.config.minIntentionalBlinkMs);
       return { command: 'none', feedback: null, chargeRatio };
     }
 
-    // Falling edge: Presenter reopened eyes
+    // 7. Falling edge: Presenter reopened eyes
     if (!detected && this.isBlinking) {
       const durationMs = nowMs - this.blinkStartMs;
       this.isBlinking = false;
       this.blinkStartMs = 0;
 
-      // 1. Involuntary blink: Ignore (< 350ms)
-      if (durationMs < this.config.minIntentionalBlinkMs) {
-        // Record for potential rapid double-blink detection
-        const timeSincePreviousBlink = nowMs - this.lastBlinkCompletionMs;
-        if (timeSincePreviousBlink < this.config.doubleBlinkWindowMs && durationMs > 100) {
-          this.recentBlinkCount++;
-          if (this.recentBlinkCount >= 2) {
-            this.lastTriggerMs = nowMs;
-            this.recentBlinkCount = 0;
-            return {
-              command: 'prev',
-              feedback: {
-                type: 'double-blink',
-                timestamp: nowMs,
-                label: 'Double blink: Previous slide',
-              },
-              chargeRatio: 0,
-            };
-          }
-        } else {
-          this.recentBlinkCount = 1;
-        }
+      // Scenario A: Candidate for rapid double-blink
+      const isQuickBlink =
+        durationMs >= this.config.minDoubleBlinkDurationMs &&
+        durationMs <= this.config.maxDoubleBlinkDurationMs;
 
-        this.lastBlinkCompletionMs = nowMs;
+      if (isQuickBlink) {
+        const gapSinceLastBlink = nowMs - this.lastBlinkCompletionMs;
+
+        if (
+          this.recentBlinkCount === 1 &&
+          gapSinceLastBlink >= this.config.minInterBlinkGapMs &&
+          gapSinceLastBlink <= this.config.maxInterBlinkGapMs &&
+          this.lastBlinkDurationMs <= this.config.maxDoubleBlinkDurationMs
+        ) {
+          // Verified intentional double-blink
+          this.lastTriggerMs = nowMs;
+          this.resetTransientState();
+          return {
+            command: 'prev',
+            feedback: {
+              type: 'double-blink',
+              timestamp: nowMs,
+              label: 'Double blink: Previous slide',
+            },
+            chargeRatio: 0,
+          };
+        } else {
+          // First quick blink recorded
+          this.recentBlinkCount = 1;
+          this.lastBlinkCompletionMs = nowMs;
+          this.lastBlinkDurationMs = durationMs;
+          return { command: 'none', feedback: null, chargeRatio: 0 };
+        }
+      }
+
+      // If duration was too short (<100ms) or too long for double blink, clear double-blink state
+      this.recentBlinkCount = 0;
+      this.lastBlinkCompletionMs = 0;
+
+      // Scenario B: Involuntary spontaneous blink (<350ms) -> Discard
+      if (durationMs < this.config.minIntentionalBlinkMs) {
         return { command: 'none', feedback: null, chargeRatio: 0 };
       }
 
-      // 2. Intentional prolonged blink: [350ms, 850ms] -> Advance slide
+      // Scenario C: Intentional prolonged dwell blink [350ms, 850ms] -> Advance slide
       if (
         durationMs >= this.config.minIntentionalBlinkMs &&
         durationMs <= this.config.maxIntentionalBlinkMs
       ) {
         this.lastTriggerMs = nowMs;
-        this.recentBlinkCount = 0;
+        this.resetTransientState();
         return {
           command: 'next',
           feedback: {
@@ -156,7 +210,7 @@ export class GestureEngine {
         };
       }
 
-      // 3. Excessively long closure (> 850ms, e.g. resting eyes or looking down): Discard
+      // Scenario D: Prolonged closure > 850ms (resting eyes, reading notes) -> Discard without action
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
 

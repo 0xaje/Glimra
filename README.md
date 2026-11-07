@@ -8,13 +8,21 @@ Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who b
 
 ---
 
-## Key Highlights
+## Current Status & Verification Transparency
 
-- **Intentional Eye Gesture Control:** Advances slides via deliberate dwell gestures detected by Presage SmartSpectra's optical facial models, distinguishing intentional signals from spontaneous physiological blinks.
-- **Privacy First:** Video frames are processed locally on your machine. No video or audio is ever recorded, saved, or uploaded. Camera activation requires explicit presenter consent.
-- **Full Presentation Viewer:** Works out of the box as a clean, distraction-free PDF presentation viewer with instant keyboard and mouse controls.
-- **Hallmark Design:** Crafted under the **Hallmark** design discipline (Darkroom theme). Zero AI slop, no distracting glowing borders, no unnecessary cards, and complete adherence to accessibility standards.
-- **Immediate Pause & Fallback:** Instant keyboard pause (`Space` or `P`) and physical key navigation (`ArrowRight`, `ArrowLeft`, `F` for fullscreen) always available.
+In strict adherence to engineering integrity rules, we clearly distinguish between verified features and items pending hardware or credentials:
+
+- **Verified Capabilities:**
+  - **PDF Presentation Engine:** Fully offline PDF slide viewer powered by PDF.js, with canvas scaling, slide navigation state machine, keyboard controls, and fullscreen mode (`tests/presentation.test.mjs` passing 3/3).
+  - **Gesture Engine Logic:** Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, involuntary blink rejection (<250ms), double-blink rewind, stability flag filtering, and non-monotonic timestamp protection (`tests/gestureEngine.test.mjs` passing 8/8).
+  - **Hallmark Design Craft:** Strict Darkroom Amber presenter design passing `sloplint.mjs` with 0 failures, 0 reflex flags, and 0 warnings.
+  - **Security Architecture:** Presage API keys are encrypted locally using Electron's `safeStorage` (OS Keychain / DPAPI / libsecret) via IPC; camera permissions are strictly origin-checked and blocked without explicit presenter consent.
+  - **Native SDK Integration:** Native `libsmartspectra_capi.so` loads via `koffi` FFI; communicates with Presage REST endpoints; decodes `face.blinking` and `face.landmarks` Protobuf buffers accurately (`tests/sdk-diagnostic.mjs` passing 4/4).
+
+- **Current Blockers:**
+  - **Physical Camera Hardware:** The current development environment (WSL2) does not expose `/dev/video*`. Live camera frame acquisition and end-to-end human gesture testing on a physical webcam require a physical machine or USB camera pass-through.
+  - **Production Presage API Key:** A genuine API key from Presage is required to establish an authenticated live session.
+  - **Local Binary Packaging:** Local `electron-builder` AppImage packaging timed out downloading the ~100MB Electron base archive over throttled network connectivity.
 
 ---
 
@@ -48,23 +56,12 @@ cd Glimra
 # Install dependencies
 npm install
 
-# Configure environment
-cp .env.example .env
-# Enter your PRE_PAGE_SMARTSPECTRA_API_KEY in .env
-
 # Run development mode
 npm run dev
 ```
 
-### Build & Package
-
-```bash
-# Compile and build desktop binary
-npm run build
-npm run dist:linux   # Linux AppImage
-npm run dist:win     # Windows NSIS installer
-npm run dist:mac     # macOS DMG / zip
-```
+### Entering your API Key
+Open **Settings** in Glimra and enter your Presage API key. The key is encrypted locally using Electron's `safeStorage` and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
 
 ---
 

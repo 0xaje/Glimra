@@ -31,12 +31,19 @@ export default function App() {
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem('glimra_presage_api_key') || ''
-  );
+  const [apiKey, setApiKey] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
+
+  // Load API key from secure Electron storage on mount
+  useEffect(() => {
+    if (window.glimraDesktop?.retrieveApiKey) {
+      window.glimraDesktop.retrieveApiKey().then((storedKey) => {
+        if (storedKey) setApiKey(storedKey);
+      });
+    }
+  }, []);
 
   // Initialize SmartSpectra controller once
   useEffect(() => {
@@ -189,7 +196,8 @@ export default function App() {
 
   const handleEnableCameraClick = async () => {
     if (camera.isActive) {
-      // Disarm camera
+      // Disarm camera and revoke session consent
+      await window.glimraDesktop?.setCameraConsent(false);
       await controllerRef.current?.stop();
       setCamera({
         isActive: false,
@@ -212,6 +220,9 @@ export default function App() {
       return;
     }
 
+    // Explicitly grant camera consent through verified IPC
+    await window.glimraDesktop?.setCameraConsent(true);
+
     setCamera((prev) => ({
       ...prev,
       isActive: true,
@@ -225,7 +236,9 @@ export default function App() {
   const saveApiKey = async (key: string) => {
     const trimmed = key.trim();
     setApiKey(trimmed);
-    localStorage.setItem('glimra_presage_api_key', trimmed);
+    if (window.glimraDesktop?.storeApiKey) {
+      await window.glimraDesktop.storeApiKey(trimmed);
+    }
     setShowSettingsModal(false);
 
     // If camera was pending key, restart with key

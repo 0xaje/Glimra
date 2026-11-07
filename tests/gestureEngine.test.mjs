@@ -24,6 +24,48 @@ test('M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored', () => {
   assert.equal(res.chargeRatio, 0);
 });
 
+test('M3 Gesture Engine: Unstable Biometric Samples Are Discarded', () => {
+  const engine = new GestureEngine({ minIntentionalBlinkMs: 350 });
+  engine.setFaceValidation(true);
+
+  let t = 2000000;
+
+  // Eyes close with stable = false (noisy frame, lighting flicker, motion blur)
+  let res = engine.processSample(true, false, t);
+  assert.equal(res.command, 'none');
+  assert.equal(res.chargeRatio, 0, 'Unstable sample must not accumulate charge');
+
+  // Next sample remains unstable
+  t += 400000;
+  res = engine.processSample(true, false, t);
+  assert.equal(res.command, 'none');
+
+  // Eye reopens but sample was unstable
+  t += 50000;
+  res = engine.processSample(false, false, t);
+  assert.equal(res.command, 'none', 'Unstable closure must never trigger command');
+});
+
+test('M3 Gesture Engine: Non-monotonic & Stalled Timestamps Handled Safely', () => {
+  const engine = new GestureEngine({ minIntentionalBlinkMs: 350 });
+  engine.setFaceValidation(true);
+
+  let t = 3000000;
+  engine.processSample(true, true, t);
+
+  // Duplicate timestamp (deltaUs = 0)
+  let res = engine.processSample(true, true, t);
+  assert.equal(res.command, 'none');
+
+  // Backwards timestamp (deltaUs < 0)
+  res = engine.processSample(true, true, t - 50000);
+  assert.equal(res.command, 'none', 'Backwards timestamp discarded');
+
+  // Large timestamp gap (> 2 seconds stall)
+  res = engine.processSample(true, true, t + 3000000);
+  assert.equal(res.command, 'none', 'Stalled gap resets transient blink');
+});
+
 test('M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide', () => {
   const engine = new GestureEngine({ minIntentionalBlinkMs: 350, refractoryCooldownMs: 1200 });
   engine.setFaceValidation(true);
@@ -79,20 +121,25 @@ test('M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances', () => 
   assert.equal(res.command, 'next', 'Blink after refractory period succeeds');
 });
 
-test('M3 Gesture Engine: Double Blink Triggers Previous Slide', () => {
-  const engine = new GestureEngine({ minIntentionalBlinkMs: 350, doubleBlinkWindowMs: 650 });
+test('M3 Gesture Engine: Verified Double Blink Triggers Previous Slide', () => {
+  const engine = new GestureEngine({
+    minDoubleBlinkDurationMs: 100,
+    maxDoubleBlinkDurationMs: 280,
+    minInterBlinkGapMs: 80,
+    maxInterBlinkGapMs: 450,
+  });
   engine.setFaceValidation(true);
 
   let t = 20000000; // 20,000 ms
 
-  // First quick blink (150ms)
+  // First quick voluntary blink (150ms)
   engine.processSample(true, true, t);
   t += 150000;
   let res = engine.processSample(false, true, t);
   assert.equal(res.command, 'none');
 
-  // Second quick blink 200ms later (150ms)
-  t += 200000;
+  // Second quick voluntary blink 180ms later (150ms)
+  t += 180000;
   engine.processSample(true, true, t);
   t += 150000;
   res = engine.processSample(false, true, t);
@@ -100,6 +147,31 @@ test('M3 Gesture Engine: Double Blink Triggers Previous Slide', () => {
   assert.equal(res.command, 'prev', 'Rhythmic double blink triggers previous slide');
   assert.ok(res.feedback);
   assert.equal(res.feedback.type, 'double-blink');
+});
+
+test('M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations', () => {
+  const engine = new GestureEngine({
+    minDoubleBlinkDurationMs: 100,
+    maxDoubleBlinkDurationMs: 280,
+    minInterBlinkGapMs: 80,
+    maxInterBlinkGapMs: 450,
+  });
+  engine.setFaceValidation(true);
+
+  let t = 25000000;
+
+  // First blink is 320ms (too long to be a rapid double-blink sub-blink)
+  engine.processSample(true, true, t);
+  t += 320000;
+  let res = engine.processSample(false, true, t);
+  assert.equal(res.command, 'none');
+
+  // Second blink follows
+  t += 150000;
+  engine.processSample(true, true, t);
+  t += 150000;
+  res = engine.processSample(false, true, t);
+  assert.equal(res.command, 'none', 'First blink was too long to form a valid double blink');
 });
 
 test('M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately', () => {
