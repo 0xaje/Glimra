@@ -89,6 +89,8 @@ export default function App() {
       onError: (_code, message) => {
         setCamera((prev) => ({
           ...prev,
+          isActive: false,
+          faceDetected: false,
           status: 'error',
           validationMessage: message,
         }));
@@ -216,6 +218,7 @@ export default function App() {
         isFullscreen: false,
       });
       setIsBlackout(false);
+      setSeconds(0);
     } catch (err: unknown) {
       console.error('[Glimra] Failed to load presentation:', err);
       setLoadError('Failed to parse PDF presentation. Please check the file.');
@@ -276,7 +279,14 @@ export default function App() {
       validationMessage: 'Connecting to SmartSpectra…',
     }));
 
-    await controllerRef.current?.start(apiKey);
+    try {
+      if (!controllerRef.current) throw new Error('Camera controller is unavailable.');
+      await controllerRef.current.start(apiKey);
+    } catch (error) {
+      setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not start the camera.' }));
+      setVideoStream(null);
+      await window.glimraDesktop?.setCameraConsent(false);
+    }
   };
 
   const saveApiKey = async (key: string) => {
@@ -289,7 +299,13 @@ export default function App() {
 
     if (camera.isActive && controllerRef.current) {
       await controllerRef.current.stop();
-      await controllerRef.current.start(trimmed);
+      try {
+        await controllerRef.current.start(trimmed);
+      } catch (error) {
+        setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not restart the camera.' }));
+        setVideoStream(null);
+        await window.glimraDesktop?.setCameraConsent(false);
+      }
     }
   };
 
