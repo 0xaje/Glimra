@@ -36,7 +36,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron'],
+              external: ['electron', '@smartspectra/node-sdk/preload'],
             },
           },
         },
