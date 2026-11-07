@@ -137,13 +137,12 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           flex: 1,
           width: '100%',
           position: 'relative',
           minHeight: 0,
           overflow: 'auto',
-          justifyContent: 'flex-start',
         }}
       >
         <canvas
