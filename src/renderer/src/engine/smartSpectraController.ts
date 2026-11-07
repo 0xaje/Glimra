@@ -156,9 +156,9 @@ export class SmartSpectraController {
         this.callbacks.onValidationChange('Camera tracking stopped — restart to try again', false);
         this.callbacks.onChargeProgress(0);
         this.callbacks.onError(code, message);
-        // Do not destroy the native SDK from inside its callback. Preserve
-        // its error state for diagnosis; a user Stop will clean it up.
-        // A terminal SDK error may require reset(), not immediate destruction.
+        // Stop the frame pump after the SDK callback has returned.
+        // Do not destroy native resources synchronously inside the callback.
+        window.setTimeout(() => { void this.stop(true); }, 0);
       });
 
       const sdk = this.sdk;
