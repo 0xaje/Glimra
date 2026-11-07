@@ -19,6 +19,7 @@ export interface SmartSpectraControllerCallbacks {
   onGestureDetected: (feedback: GestureFeedback) => void;
   onChargeProgress: (chargeRatio: number) => void;
   onError: (code: number, message: string) => void;
+  onCalibrationSample: (durationMs: number) => void;
 }
 
 export class SmartSpectraController {
@@ -38,10 +39,21 @@ export class SmartSpectraController {
   private sessionGeneration = 0;
   private ownedCameraStream: MediaStream | null = null;
   private preferLowBandwidthMode = false;
+  private calibrating = false;
+  private calibrationBlinkStartUs: number | null = null;
+  private calibrationLastTimestampUs = 0;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
     this.gestureEngine = new GestureEngine();
+  }
+
+  public setCalibrationMode(enabled: boolean): void {
+    this.calibrating = enabled;
+    this.calibrationBlinkStartUs = null;
+    this.calibrationLastTimestampUs = 0;
+    this.gestureEngine.reset();
+    this.callbacks.onChargeProgress(0);
   }
 
   public setPaused(paused: boolean): void {
@@ -174,6 +186,23 @@ export class SmartSpectraController {
               const stable = !!sample.stable;
               const tsUs = Number(sample.timestamp || 0);
 
+              if (this.calibrating) {
+                // Calibration observes real SmartSpectra blink samples but
+                // never executes slide commands. Unstable/lost tracking
+                // cancels an incomplete sample rather than fabricating it.
+                if (!this.isValidated || !stable || !Number.isFinite(tsUs) || tsUs <= this.calibrationLastTimestampUs) {
+                  this.calibrationBlinkStartUs = null;
+                  continue;
+                }
+                this.calibrationLastTimestampUs = tsUs;
+                if (detected && this.calibrationBlinkStartUs === null) this.calibrationBlinkStartUs = tsUs;
+                else if (!detected && this.calibrationBlinkStartUs !== null) {
+                  const durationMs = (tsUs - this.calibrationBlinkStartUs) / 1000;
+                  this.calibrationBlinkStartUs = null;
+                  if (durationMs >= 250 && durationMs <= 2500) this.callbacks.onCalibrationSample(Math.round(durationMs));
+                }
+                continue;
+              }
               const result = this.gestureEngine.processSample(detected, stable, tsUs);
 
               // Update visual charge feedback on HUD
@@ -266,6 +295,8 @@ export class SmartSpectraController {
     const ownedStream = this.ownedCameraStream;
     this.ownedCameraStream = null;
     this.isRunning = false;
+    this.calibrating = false;
+    this.calibrationBlinkStartUs = null;
     this.isSdkRunning = false;
     this.isValidated = false;
     this.isPaused = false;
