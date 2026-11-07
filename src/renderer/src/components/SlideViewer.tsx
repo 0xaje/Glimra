@@ -35,6 +35,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [fitWidth, setFitWidth] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
   // Presenter Elapsed Timer
@@ -73,7 +74,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
 
       // Available presentation stage with padding
       const maxW = Math.max(1, (containerWidth - 32) * zoom);
-      const maxH = Math.max(1, (containerHeight - 32) * zoom);
+      const maxH = fitWidth ? maxW * 100 : Math.max(1, (containerHeight - 32) * zoom);
 
       await doc.renderPage(currentSlide, canvasRef.current, maxW, maxH);
     } catch (err: unknown) {
@@ -85,7 +86,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
     } finally {
       setIsRendering(false);
     }
-  }, [doc, currentSlide, zoom]);
+  }, [doc, currentSlide, zoom, fitWidth]);
 
   // Re-render when current slide changes or window is resized
   useEffect(() => {
@@ -151,8 +152,8 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           style={{
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
             borderRadius: 'var(--radius-sm)',
-            maxWidth: zoom === 1 ? '100%' : 'none',
-            maxHeight: zoom === 1 ? '100%' : 'none',
+            maxWidth: zoom === 1 && !fitWidth ? '100%' : 'none',
+            maxHeight: zoom === 1 && !fitWidth ? '100%' : 'none',
             flexShrink: 0,
             margin: 'auto',
             objectFit: 'contain',
@@ -239,13 +240,15 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)',
           borderRadius: 'var(--radius-md)', padding: '4px 8px',
         }}>
-          <button type="button" aria-label="Zoom out" title="Zoom out" disabled={zoom <= 1}
-            onClick={() => setZoom(value => Math.max(1, Math.round((value - .25) * 100) / 100))}>−</button>
-          <span style={{ minWidth: '44px', textAlign: 'center', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="Zoom out" title="Zoom out" disabled={!fitWidth && zoom <= 1}
+            onClick={() => { setFitWidth(false); setZoom(value => Math.max(1, Math.round((value - .25) * 100) / 100)); }}>−</button>
+          <span style={{ minWidth: '44px', textAlign: 'center', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>{fitWidth ? 'Width' : `${Math.round(zoom * 100)}%`}</span>
           <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom >= 3}
-            onClick={() => setZoom(value => Math.min(3, Math.round((value + .25) * 100) / 100))}>+</button>
-          <button type="button" title="Fit the entire page" onClick={() => setZoom(1)}
-            style={{ fontSize: '12px', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: '8px' }}>Fit</button>
+            onClick={() => { setFitWidth(false); setZoom(value => Math.min(3, Math.round((value + .25) * 100) / 100)); }}>+</button>
+          <button type="button" title="Fit the entire page" onClick={() => { setFitWidth(false); setZoom(1); }}
+            style={{ fontSize: '12px', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: '8px' }}>Fit page</button>
+          <button type="button" title="Fill the available width and scroll vertically" aria-pressed={fitWidth}
+            onClick={() => { setFitWidth(true); setZoom(1); }} style={{ fontSize: '12px', color: fitWidth ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}>Fit width</button>
         </div>
       )}
       {/* Floating Presenter Navigation Bar */}
