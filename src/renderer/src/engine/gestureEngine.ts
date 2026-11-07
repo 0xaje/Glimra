@@ -43,6 +43,9 @@ export class GestureEngine {
   private isPaused: boolean = false;
   private isValidFaceTrack: boolean = false;
   private lastTimestampUs: number = 0;
+  private lastStableSampleMs = 0;
+  private invalidFaceSinceMs = 0;
+  private readonly signalGraceMs = 180;
 
   constructor(config: Partial<GestureEngineConfig> = {}) {
     this.config = { ...DEFAULT_GESTURE_CONFIG, ...config };
@@ -64,15 +67,17 @@ export class GestureEngine {
 
   public setFaceValidation(isValid: boolean): void {
     this.isValidFaceTrack = isValid;
-    if (!isValid) {
-      this.resetTransientState();
-    }
+    // Brief validation flicker is handled by the timestamp-based grace
+    // window in processSample. A prolonged loss still disarms the gesture.
+    if (isValid) this.invalidFaceSinceMs = 0;
   }
 
   public reset(): void {
     this.resetTransientState();
     this.lastTriggerMs = 0;
     this.lastTimestampUs = 0;
+    this.invalidFaceSinceMs = 0;
+    this.lastStableSampleMs = 0;
   }
 
   private resetTransientState(): void {
@@ -81,6 +86,7 @@ export class GestureEngine {
     this.recentBlinkCount = 0;
     this.lastBlinkCompletionMs = 0;
     this.lastBlinkDurationMs = 0;
+    this.lastStableSampleMs = 0;
   }
 
   /**
@@ -115,21 +121,32 @@ export class GestureEngine {
 
     const nowMs = timestampUs / 1000;
 
-    // 2. Guard: If paused or face tracking is lost, immediately disarm
-    if (this.isPaused || !this.isValidFaceTrack) {
+    // 2. A brief camera validation flicker must not erase a real eye hold.
+    // A sustained loss of face tracking still cancels the gesture safely.
+    if (this.isPaused) {
       this.resetTransientState();
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
-
-    // 3. Guard: Stability check. If detection is unstable/noisy, do not start or commit gestures
-    if (!stable) {
-      if (this.isBlinking) {
-        // Abort in-progress blink to prevent false dwell trigger
-        this.isBlinking = false;
-        this.blinkStartMs = 0;
+    if (!this.isValidFaceTrack) {
+      if (!this.invalidFaceSinceMs) this.invalidFaceSinceMs = nowMs;
+      if (nowMs - this.invalidFaceSinceMs > this.signalGraceMs) {
+        this.resetTransientState();
       }
       return { command: 'none', feedback: null, chargeRatio: 0 };
     }
+    this.invalidFaceSinceMs = 0;
+
+    // 3. Ignore isolated unstable samples without interpreting them as
+    // opening the eyes. Cancel only after sustained noisy tracking.
+    if (!stable) {
+      if (this.isBlinking && nowMs - this.lastStableSampleMs > this.signalGraceMs) {
+        this.resetTransientState();
+      }
+      return { command: 'none', feedback: null, chargeRatio: this.isBlinking
+        ? Math.min(1, (nowMs - this.blinkStartMs) / this.config.minIntentionalBlinkMs)
+        : 0 };
+    }
+    this.lastStableSampleMs = nowMs;
 
     // 4. Guard: Refractory cooldown period following any executed command
     const timeSinceLastTrigger = nowMs - this.lastTriggerMs;
@@ -147,7 +164,9 @@ export class GestureEngine {
     // 6. Sustained closure: Calculate charge ratio for HUD feedback
     if (detected && this.isBlinking) {
       const elapsed = nowMs - this.blinkStartMs;
-      const chargeRatio = Math.min(1.0, elapsed / this.config.minIntentionalBlinkMs);
+      const chargeRatio = elapsed > this.config.maxIntentionalBlinkMs
+        ? 0
+        : Math.min(1.0, elapsed / this.config.minIntentionalBlinkMs);
       return { command: 'none', feedback: null, chargeRatio };
     }
 
