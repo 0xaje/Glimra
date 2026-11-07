@@ -35,7 +35,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [fitWidth, setFitWidth] = useState(false);
+  const [fitWidth, setFitWidth] = useState(true);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
