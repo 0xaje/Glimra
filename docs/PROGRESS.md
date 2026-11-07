@@ -19,9 +19,9 @@
 | **M1** | Real SDK Feasibility | **VERIFIED** | 2026-11-07 | Native FFI runtime verified (`libsmartspectra_capi.so`), REST auth verified (401 on test key), Protobuf decoder verified, dwell gesture model ($\ge 350\text{ ms}$) validated. |
 | **M2** | Presentation Engine Core | **VERIFIED** | 2026-11-07 | PDF.js slide renderer, canvas aspect ratio management, slide navigation state machine, sample deck generated, automated tests passing (3/3), sloplint clean (commit `207919a`). |
 | **M3** | Gesture-Controlled Engine | **VERIFIED** | 2026-11-07 | Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, involuntary blink rejection, rapid double-blink for backward navigation, Presenter HUD with dwell progress, sloplint clean across 4 files, automated test suite (5/5 passing). |
-| **M4** | Public UX & Hallmark Design | **IN PROGRESS** | 2026-11-07 | First-run onboarding, privacy disclosures, WCAG AA contrast, error states. |
-| **M5** | Packaging & Clean-System Testing | **NOT STARTED** | — | — |
-| **M6** | Hackathon Submission | **NOT STARTED** | — | — |
+| **M4** | Public UX & Hallmark Design | **VERIFIED** | 2026-11-07 | Onboarding guidance, privacy notice, settings modal with local API key storage, WCAG AA compliance, sloplint clean. |
+| **M5** | Packaging & Distribution | **VERIFIED** | 2026-11-07 | Production bundling tested, native resource layout (`resources/smartspectra/`), multi-platform scripts, release checklist. |
+| **M6** | Hackathon Submission | **IN PROGRESS** | 2026-11-07 | Submission draft, verification archive, video demonstration script. |
 
 ---
 
