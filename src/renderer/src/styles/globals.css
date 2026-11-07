@@ -97,8 +97,8 @@ button:disabled{opacity:.38;cursor:not-allowed}
 .camera-status.tracking{color:var(--color-signal-active);border-color:var(--color-signal-active)}
 .timer-readout{display:inline-flex;gap:var(--space-2);align-items:center;font:12px var(--font-mono);color:var(--color-text-secondary);margin-right:var(--space-2)}
 .footer-setup{font-size:12px}.restore-rail{position:absolute;top:10px;left:12px;z-index:4;background:var(--color-bg-surface);color:var(--color-text-secondary);border:1px solid var(--color-border-subtle);border-radius:6px;display:flex;gap:var(--space-2);align-items:center;padding:var(--space-2) var(--space-3);font-size:12px}
-.studio-scrim{position:fixed;inset:0;background:var(--color-bg-overlay);z-index:80;display:flex;justify-content:flex-end}
-.camera-panel{width:100%;max-width:440px;height:100%;background:var(--color-bg-surface);color:var(--color-text-primary);border-left:1px solid var(--color-border-subtle);padding:28px;display:flex;flex-direction:column;gap:var(--space-5);overflow-y:auto}
+.studio-scrim{position:fixed;inset:0;background:var(--color-bg-overlay);z-index:80;display:flex;justify-content:flex-start}
+.camera-panel{width:100%;max-width:440px;height:100%;background:var(--color-bg-surface);color:var(--color-text-primary);border-right:1px solid var(--color-border-subtle);padding:28px;display:flex;flex-direction:column;gap:var(--space-5);overflow-y:auto}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}.panel-head h2{margin:var(--space-2) 0 0;font-size:22px;letter-spacing:-.035em}.panel-overline{font-size:11px;color:var(--color-text-muted);letter-spacing:0}
 .panel-description,.panel-field p{color:var(--color-text-secondary);font-size:13px;margin:0}.camera-preview{height:190px;background:var(--color-bg-base);border:1px solid var(--color-border-subtle);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);color:var(--color-text-muted);font-size:12px;text-align:center;padding:var(--space-4)}
 .panel-field{display:flex;flex-direction:column;gap:var(--space-3)}.panel-field label{font-weight:600;font-size:13px}.sensitivity-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}.sensitivity-options button{border:1px solid var(--color-border-subtle);border-radius:8px;background:transparent;padding:var(--space-3) var(--space-1);font-size:12px}.sensitivity-options button.active{border-color:var(--color-accent);color:var(--color-accent)}.sensitivity-options small{display:block;color:var(--color-text-muted);margin-top:var(--space-1)}.panel-primary{width:100%}.text-button{border:0;background:none;color:var(--color-text-secondary);font-size:12px;text-decoration:underline}
@@ -125,3 +125,28 @@ button:active:not(:disabled){filter:brightness(.94)}
 /* Browser-native surfaces follow the active Glimra palette. */
 .glimra-app{scrollbar-color:var(--color-border-strong) var(--color-bg-surface)}
 .glimra-app ::selection{background:var(--color-accent-subtle);color:var(--color-text-primary)}
+
+
+/* Studio polish: deliberate hierarchy, accessible interaction and a left-side setup drawer. */
+.studio-topbar{height:64px}
+.studio-brand{gap:12px}
+.brand-mark{box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.studio-stage{padding:clamp(16px,3vw,36px)}
+.welcome-stage{max-width:900px;border-color:var(--color-border-subtle);gap:18px}
+.welcome-symbol{width:72px;height:72px;border-radius:19px}
+.welcome-stage h1{font-weight:720;letter-spacing:-.05em}
+.welcome-stage p{line-height:1.65}
+.primary-button{transition:background-color .16s ease,transform .16s ease}
+.primary-button:active:not(:disabled){transform:translateY(1px)}
+.camera-panel{max-width:420px;box-shadow:16px 0 50px rgba(0,0,0,.15)}
+.panel-head h2{line-height:1.2}
+.panel-description{line-height:1.65}
+.panel-field p{line-height:1.55}
+.sensitivity-options button{min-height:65px;transition:background-color .15s,border-color .15s}
+.sensitivity-options button:hover{background:var(--color-bg-elevated)}
+.sensitivity-options button.active{background:var(--color-accent-subtle);color:var(--color-text-primary)}
+.sensitivity-options button.active small{color:var(--color-text-secondary)}
+.camera-status:hover{background:var(--color-bg-elevated)}
+.rail-slide:hover .rail-slide-sheet{border-color:var(--color-border-strong)}
+.rail-slide.selected:hover .rail-slide-sheet{border-color:var(--color-accent)}
+@media(max-width:520px){.camera-panel{max-width:100%;padding:20px}.studio-topbar{height:56px}.welcome-stage{gap:14px}.welcome-stage p{font-size:14px}}
