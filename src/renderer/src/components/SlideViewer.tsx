@@ -34,6 +34,8 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
   // Presenter Elapsed Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -70,8 +72,8 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       const containerHeight = containerRef.current.clientHeight;
 
       // Available presentation stage with padding
-      const maxW = Math.max(320, containerWidth - 32);
-      const maxH = Math.max(240, containerHeight - 32);
+      const maxW = Math.max(1, (containerWidth - 32) * zoom);
+      const maxH = Math.max(1, (containerHeight - 32) * zoom);
 
       await doc.renderPage(currentSlide, canvasRef.current, maxW, maxH);
     } catch (err: unknown) {
@@ -83,7 +85,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
     } finally {
       setIsRendering(false);
     }
-  }, [doc, currentSlide]);
+  }, [doc, currentSlide, zoom]);
 
   // Re-render when current slide changes or window is resized
   useEffect(() => {
@@ -94,8 +96,16 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [renderCurrentPage]);
+    const observer = typeof ResizeObserver !== 'undefined' && containerRef.current
+      ? new ResizeObserver(() => {
+          const element = containerRef.current;
+          if (element) setStageSize(previous => previous.width === element.clientWidth && previous.height === element.clientHeight
+            ? previous : { width: element.clientWidth, height: element.clientHeight });
+        })
+      : null;
+    if (observer && containerRef.current) observer.observe(containerRef.current);
+    return () => { window.removeEventListener('resize', handleResize); observer?.disconnect(); };
+  }, [renderCurrentPage, stageSize.width, stageSize.height]);
 
   const handleJumpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +141,8 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           flex: 1,
           width: '100%',
           position: 'relative',
+          minHeight: 0,
+          overflow: 'auto',
         }}
       >
         <canvas
@@ -139,8 +151,9 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
           style={{
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
             borderRadius: 'var(--radius-sm)',
-            maxWidth: '100%',
-            maxHeight: '100%',
+            maxWidth: zoom === 1 ? '100%' : 'none',
+            maxHeight: zoom === 1 ? '100%' : 'none',
+            flexShrink: 0,
             objectFit: 'contain',
             backgroundColor: 'var(--color-canvas-bg)',
             opacity: isBlackout ? 0 : 1,
@@ -218,6 +231,22 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         )}
       </div>
 
+      {!isFullscreen && (
+        <div aria-label="PDF zoom controls" style={{
+          position: 'absolute', right: '16px', top: '12px', zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)',
+          borderRadius: 'var(--radius-md)', padding: '4px 8px',
+        }}>
+          <button type="button" aria-label="Zoom out" title="Zoom out" disabled={zoom <= 1}
+            onClick={() => setZoom(value => Math.max(1, Math.round((value - .25) * 100) / 100))}>−</button>
+          <span style={{ minWidth: '44px', textAlign: 'center', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom >= 3}
+            onClick={() => setZoom(value => Math.min(3, Math.round((value + .25) * 100) / 100))}>+</button>
+          <button type="button" title="Fit the entire page" onClick={() => setZoom(1)}
+            style={{ fontSize: '12px', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: '8px' }}>Fit</button>
+        </div>
+      )}
       {/* Floating Presenter Navigation Bar */}
       {!embedded && <nav
         aria-label="Slide navigation"
