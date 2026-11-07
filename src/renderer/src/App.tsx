@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, FolderOpen, BookOpen, Settings2, Sun, Moon, ChevronLeft, ChevronRight, Maximize2, Minimize2, Camera, CameraOff, PanelLeftClose, PanelLeftOpen, Presentation, MonitorOff, Timer, Pause, Play, X, Plus } from 'lucide-react';
+import { Eye, FolderOpen, BookOpen, Settings2, Sun, Moon, ChevronLeft, ChevronRight, Maximize2, Camera, CameraOff, PanelLeftClose, PanelLeftOpen, Presentation, MonitorOff, Timer, X } from 'lucide-react';
 import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
@@ -237,21 +237,6 @@ export default function App() {
     } catch (err) {
       console.error('[Glimra] Error reading file:', err);
       setLoadError('Could not read the selected presentation file.');
-    }
-  };
-
-  const handleLoadSampleDeck = async () => {
-    try {
-      setIsLoadingDeck(true);
-      setLoadError(null);
-      const response = await fetch('/glimra-sample-deck.pdf');
-      if (!response.ok) throw new Error('Could not fetch sample presentation');
-      const buffer = await response.arrayBuffer();
-      await loadPdfData(buffer, 'Glimra Starter Presentation.pdf');
-    } catch (err: unknown) {
-      console.error('[Glimra] Failed to load sample presentation:', err);
-      setLoadError('Could not load the built-in starter presentation.');
-      setIsLoadingDeck(false);
     }
   };
 
