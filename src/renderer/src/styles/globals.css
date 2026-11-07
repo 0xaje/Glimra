@@ -74,3 +74,7 @@ button:disabled{opacity:.38;cursor:not-allowed}
 @media(max-width:750px){.studio-topbar{padding:0 12px}.brand-subtitle,.document-title{display:none}.studio-stage{padding:12px}.slide-rail{width:86px}.rail-list{padding:4px 8px}.studio-footer{padding:0 8px}.footer-center .camera-status span{display:none}.welcome-stage{padding:24px 16px}.welcome-stage h1{font-size:28px}}
 @media(max-height:600px){.welcome-symbol{width:50px;height:50px}.welcome-stage{gap:10px;padding:16px}.studio-stage{padding:10px}.welcome-stage h1{font-size:28px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Presentation mode: remove studio chrome and let the PDF own the display. */
+.glimra-app.is-presenting .studio-topbar,.glimra-app.is-presenting .slide-rail,.glimra-app.is-presenting .studio-footer{display:none}
+.glimra-app.is-presenting .studio-stage{padding:0}
