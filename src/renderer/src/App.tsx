@@ -56,6 +56,8 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
+  // SDK listeners live for the window lifetime; delegate to the latest render.
+  const slideActionsRef = useRef<{ next: () => void; prev: () => void }>({ next: () => {}, prev: () => {} });
 
   useEffect(() => { try { localStorage.setItem('glimra-theme', theme); } catch { /* preference storage unavailable */ } }, [theme]);
   useEffect(() => {
@@ -89,8 +91,8 @@ export default function App() {
   // Initialize SmartSpectra controller once
   useEffect(() => {
     controllerRef.current = new SmartSpectraController({
-      onNextSlide: () => nextSlide(),
-      onPrevSlide: () => prevSlide(),
+      onNextSlide: () => slideActionsRef.current.next(),
+      onPrevSlide: () => slideActionsRef.current.prev(),
       onStreamAvailable: (stream) => setVideoStream(stream),
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
@@ -111,7 +113,7 @@ export default function App() {
     });
 
     return () => {
-      controllerRef.current?.stop();
+      void controllerRef.current?.stop();
     };
   }, []);
 
@@ -164,6 +166,9 @@ export default function App() {
       return { ...prev, currentSlide: prev.currentSlide - 1 };
     });
   };
+
+  slideActionsRef.current.next = nextSlide;
+  slideActionsRef.current.prev = prevSlide;
 
   const jumpToSlide = (slideNum: number) => {
     setIsBlackout(false);
