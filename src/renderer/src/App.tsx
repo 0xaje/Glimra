@@ -319,7 +319,7 @@ export default function App() {
             <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause}/>
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
-              <div className="welcome-stage">
+              <div className="welcome-stage" onDragOver={(event) => event.preventDefault()} onDrop={async (event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (!file) return; if (!file.name.toLowerCase().endsWith('.pdf')) { setLoadError('Please choose a PDF file.'); return; } try { await loadPdfData(await file.arrayBuffer(), file.name); } catch { setLoadError('Could not read this PDF file.'); } }}>
                 <div className="welcome-symbol"><Presentation size={38} strokeWidth={1.6}/></div>
                 <h1>Your stage is ready.</h1>
                 <p>Open a PDF. Present without touching your computer.</p>
