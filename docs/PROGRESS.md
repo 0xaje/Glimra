@@ -94,9 +94,9 @@ found 0 vulnerabilities
 
 ## RESUME HERE
 
-- **Current State:** CI pipeline fully repaired, hardened, and verified live on GitHub Actions (Run [`42323661385`](https://github.com/0xaje/Glimra/actions/runs/42323661385)). Both `Test & Build Verification` and `Package Linux Desktop Binary` succeeded cleanly with 0 vulnerabilities, 16/16 tests passing, Hallmark design compliance verified, and downloadable Linux desktop binary artifact (`glimra-linux-x64`, 289MB AppImage) generated.
-- **Latest Verified Commit:** [`a904230`](https://github.com/0xaje/Glimra/commit/a904230056caae3656ab5c1cc932003db60988d8)
+- **Current State:** CI pipeline fully repaired, hardened, and verified live on GitHub Actions (Run [`42323951018`](https://github.com/0xaje/Glimra/actions/runs/42323951018)). Both `Test & Build Verification` and `Package Linux Desktop Binary` succeeded cleanly with 0 vulnerabilities, 16/16 tests passing, Hallmark design compliance verified, and downloadable Linux desktop binary artifact (`glimra-linux-x64`, 289MB AppImage) generated.
+- **Latest Verified Commit:** [`4562746`](https://github.com/0xaje/Glimra/commit/4562746255b80ce9c92fe79b95b0e1454e2fa57b)
 - **GitHub Push Status:** Verified (`origin/main` synchronized).
-- **GitHub Actions Run:** [`42323661385`](https://github.com/0xaje/Glimra/actions/runs/42323661385) (SUCCESS)
-- **Artifact Generated:** `glimra-linux-x64` (289,163,575 bytes AppImage)
+- **GitHub Actions Run:** [`42323951018`](https://github.com/0xaje/Glimra/actions/runs/42323951018) (SUCCESS)
+- **Artifact Generated:** `glimra-linux-x64` (289,163,548 bytes AppImage, Artifact ID `13554815785`)
 - **Immediate Next Task:** Test with live physical camera hardware and genuine Presage credentials when connected to host.
