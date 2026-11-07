@@ -99,9 +99,9 @@ found 0 vulnerabilities
 
 ## RESUME HERE
 
-- **Current State:** CI pipeline and packaging automation verified live on GitHub Actions ([Run 42324191241](https://github.com/0xaje/Glimra/actions/runs/42324191241)). Milestone M5 accurately distinguished: CI build, Linux packaging, and AppImage artifact generation are **VERIFIED**; clean-computer installation/startup and public release readiness are **NOT YET VERIFIED**; physical webcam detection is **BLOCKED**. Repeatable real-camera verification procedure documented in [`docs/CAMERA_TESTING_PROCEDURE.md`](docs/CAMERA_TESTING_PROCEDURE.md); packaged desktop installation instructions documented in [`docs/PACKAGING_AND_INSTALLATION.md`](docs/PACKAGING_AND_INSTALLATION.md).
-- **Latest Verified Commit:** [`9241bd5`](https://github.com/0xaje/Glimra/commit/9241bd56a1c7a673bbd770cf306ac31d518e8442)
+- **Current State:** CI pipeline and packaging automation verified live on GitHub Actions ([Run 42325401053](https://github.com/0xaje/Glimra/actions/runs/42325401053)). Milestone M5 accurately distinguished: CI build, Linux packaging, and AppImage artifact generation are **VERIFIED**; clean-computer installation/startup and public release readiness are **NOT YET VERIFIED**; physical webcam detection is **BLOCKED**. Repeatable real-camera verification procedure documented in [`docs/CAMERA_TESTING_PROCEDURE.md`](docs/CAMERA_TESTING_PROCEDURE.md); packaged desktop installation instructions documented in [`docs/PACKAGING_AND_INSTALLATION.md`](docs/PACKAGING_AND_INSTALLATION.md).
+- **Latest Verified Commit:** [`c01d67b`](https://github.com/0xaje/Glimra/commit/c01d67be452e2201bd44472bf1d2b3f06e62c564)
 - **GitHub Push Status:** Verified (`origin/main` synchronized).
-- **Latest Verified GitHub Actions Run:** [`42324191241`](https://github.com/0xaje/Glimra/actions/runs/42324191241) (SUCCESS: Build 16s, Packaging 1m27s)
-- **Generated Linux Desktop Artifact:** `glimra-linux-x64` (289,163,548 bytes, `Glimra-1.0.0.AppImage`)
+- **Latest Verified GitHub Actions Run:** [`42325401053`](https://github.com/0xaje/Glimra/actions/runs/42325401053) (SUCCESS: Build 19s, Packaging 1m14s)
+- **Generated Linux Desktop Artifact:** `glimra-linux-x64` (289,163,582 bytes, `Glimra-1.0.0.AppImage`, Artifact ID `13554359328`)
 - **Immediate Next Priority:** Perform live hardware testing with physical webcam and genuine Presage credentials following `docs/CAMERA_TESTING_PROCEDURE.md`.
