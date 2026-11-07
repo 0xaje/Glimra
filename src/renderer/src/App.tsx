@@ -66,6 +66,9 @@ export default function App() {
   const sensitivity = gesturePreference.preset;
   const gestureTiming = sensitivity === 'custom' ? gesturePreference.custom : GESTURE_PRESETS[sensitivity];
   const [soundFeedbackEnabled, setSoundFeedbackEnabled] = useState(true);
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  const [calibrationSamples, setCalibrationSamples] = useState<number[]>([]);
+  const calibrationActiveRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
@@ -114,6 +117,10 @@ export default function App() {
         setCamera((prev) => ({ ...prev, lastGesture: feedback }));
       },
       onChargeProgress: (ratio) => setChargeRatio(ratio),
+      onCalibrationSample: (durationMs) => {
+        if (!calibrationActiveRef.current) return;
+        setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
+      },
       onError: (_code, message) => {
         // A failed SDK session must not leave a stale live preview or
         // appear active. Do not silently restart and spend more credits.
@@ -228,6 +235,33 @@ export default function App() {
     try { localStorage.setItem('glimra-gesture-timing', JSON.stringify(gesturePreference)); } catch { /* optional preference storage */ }
     controllerRef.current?.updateGestureConfig(gestureTiming);
   }, [gesturePreference]);
+
+  const endCalibration = () => {
+    calibrationActiveRef.current = false;
+    controllerRef.current?.setCalibrationMode(false);
+    setCalibrationOpen(false);
+  };
+  const beginCalibration = () => {
+    if (camera.status !== 'tracking' && camera.status !== 'paused') return;
+    if (camera.status === 'paused') controllerRef.current?.setPaused(false);
+    setCalibrationSamples([]);
+    calibrationActiveRef.current = true;
+    controllerRef.current?.setCalibrationMode(true);
+    setShowSettingsModal(false);
+    setCalibrationOpen(true);
+  };
+  const calibrationSuggestion = (() => {
+    if (calibrationSamples.length < 5) return null;
+    const sorted = [...calibrationSamples].sort((a, b) => a - b);
+    const median = sorted[2];
+    const min = Math.max(300, Math.min(1200, Math.round(median * 0.75 / 50) * 50));
+    return { minIntentionalBlinkMs: min, maxIntentionalBlinkMs: min + 950, refractoryCooldownMs: 1200 };
+  })();
+  const applyCalibration = () => {
+    if (!calibrationSuggestion) return;
+    setGesturePreference({ preset: 'custom', custom: calibrationSuggestion });
+    endCalibration();
+  };
 
   const handleSensitivityChange = (newSens: GestureSensitivity) => {
     setGesturePreference(prev => ({ ...prev, preset: newSens }));
@@ -678,6 +712,16 @@ export default function App() {
               </p>
             </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button type="button" disabled={camera.status !== 'tracking' && camera.status !== 'paused'} onClick={beginCalibration}
+                style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
+                Practice and find my eye timing
+              </button>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Start the camera first. Practice five comfortable eye holds. Slides will not move during practice.
+              </p>
+            </div>
+
             {/* Audio Feedback Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
               <div>
@@ -737,6 +781,28 @@ export default function App() {
               >
                 Save settings
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {calibrationOpen && (
+        <div role="dialog" aria-modal="true" aria-labelledby="calibration-title"
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--color-bg-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', zIndex: 110 }}>
+          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-lg)', padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <h2 id="calibration-title" style={{ fontSize: '18px' }}>Practice eye control</h2>
+            <p>Look at the camera. Close your eyes comfortably, then open them. Repeat five times, with a short break between each try.</p>
+            <p style={{ fontWeight: 600 }}>{calibrationSamples.length} of 5 gestures detected</p>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{camera.validationMessage}</p>
+            {calibrationSamples.length > 0 && <p style={{ fontSize: '12px' }}>Detected holds: {calibrationSamples.map(ms => (ms / 1000).toFixed(2) + 's').join(', ')}</p>}
+            {calibrationSuggestion && (
+              <p>Suggested minimum hold: {(calibrationSuggestion.minIntentionalBlinkMs / 1000).toFixed(2)} seconds. You can adjust it later in Settings.</p>
+            )}
+            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Only valid, stable SmartSpectra readings count. Practice does not change slides or save video.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={endCalibration}>Cancel</button>
+              <button type="button" onClick={() => setCalibrationSamples([])}>Try again</button>
+              {calibrationSuggestion && <button type="button" onClick={applyCalibration}>Use this timing</button>}
             </div>
           </div>
         </div>
