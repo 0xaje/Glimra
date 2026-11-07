@@ -3,6 +3,7 @@ import { Eye, FolderOpen, BookOpen, Settings2, Sun, Moon, ChevronLeft, ChevronRi
 import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
+import { SlideThumbnail } from './components/SlideThumbnail';
 import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
 import { audioFeedback } from './utils/audioChime';
@@ -307,9 +308,7 @@ export default function App() {
           <aside className="slide-rail" aria-label="Slide navigator">
             <div className="rail-heading"><span>Slides</span><button className="icon-button small" title="Hide slides" onClick={() => setShowSlides(false)}><PanelLeftClose size={16}/></button></div>
             <div className="rail-list">{Array.from({length:presentation.totalSlides},(_,i)=>i+1).map(page=>(
-              <button key={page} className={`rail-slide ${presentation.currentSlide===page?'selected':''}`} onClick={()=>jumpToSlide(page)} aria-current={presentation.currentSlide===page?'page':undefined}>
-                <span className="rail-slide-sheet"><span className="rail-slide-number">{page}</span><Presentation size={20} strokeWidth={1.25}/></span><span className="rail-page-label">{page}</span>
-              </button>
+              pdfDoc && <SlideThumbnail key={page} document={pdfDoc} page={page} selected={presentation.currentSlide===page} onSelect={()=>jumpToSlide(page)}/>
             ))}</div>
           </aside>
         )}
