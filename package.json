@@ -52,30 +52,34 @@
       "!node_modules/@smartspectra/node-sdk/test/**",
       "!node_modules/@smartspectra/node-sdk/samples/**"
     ],
-    "extraResources": [
-      {
-        "from": "node_modules/@smartspectra/node-sdk-linux-${arch}/",
-        "to": "smartspectra"
-      },
-      {
-        "from": "node_modules/@smartspectra/node-sdk-win32-${arch}/",
-        "to": "smartspectra"
-      },
-      {
-        "from": "node_modules/@smartspectra/node-sdk-darwin-${arch}/",
-        "to": "smartspectra"
-      }
-    ],
     "linux": {
       "target": "AppImage",
-      "category": "Office"
+      "category": "Office",
+      "extraResources": [
+        {
+          "from": "node_modules/@smartspectra/node-sdk-linux-${arch}/",
+          "to": "smartspectra"
+        }
+      ]
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "extraResources": [
+        {
+          "from": "node_modules/@smartspectra/node-sdk-win32-${arch}/",
+          "to": "smartspectra"
+        }
+      ]
     },
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "extraResources": [
+        {
+          "from": "node_modules/@smartspectra/node-sdk-darwin-${arch}/",
+          "to": "smartspectra"
+        }
+      ]
     },
     "asar": true
   }

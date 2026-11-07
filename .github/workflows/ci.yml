@@ -24,14 +24,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run test suite
-        run: npm test
+      - name: Compile production bundle
+        run: npm run build
 
       - name: Run Hallmark design floor audit
         run: npm run lint:hallmark
 
-      - name: Production build check
-        run: npm run build
+      - name: Run test suite
+        run: npm test
 
   package-linux:
     name: Package Linux Desktop Binary
