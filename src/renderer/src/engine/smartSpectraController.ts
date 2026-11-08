@@ -279,9 +279,16 @@ export class SmartSpectraController {
         });
         this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
-        this.callbacks.onValidationChange('Camera processing stopped — disconnect and reconnect to retry', false);
+        const creditsExhausted = code === 4 && /credits? (have |has )?been exhausted|credits? exhausted/i.test(message);
+        const errorMessage = creditsExhausted
+          ? 'SmartSpectra measurement credits are exhausted. Camera control is unavailable until credits are restored.'
+          : this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message;
+        this.callbacks.onValidationChange(
+          creditsExhausted ? 'Measurement credits exhausted — reconnecting will not help' : 'Camera processing stopped — disconnect and reconnect to retry',
+          false,
+        );
         this.callbacks.onChargeProgress(0);
-        this.callbacks.onError(code, this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message);
+        this.callbacks.onError(code, errorMessage);
         // Stop the frame pump after the SDK callback has returned.
         // Do not destroy native resources synchronously inside the callback.
         window.setTimeout(() => {
