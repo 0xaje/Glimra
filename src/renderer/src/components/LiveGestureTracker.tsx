@@ -22,12 +22,14 @@ export function LiveGestureTracker({
   const videoRef = useRef<HTMLVideoElement>(null);
   const commandRef = useRef(onCommand);
   const errorRef = useRef(onTrackingError);
+  const enabledRef = useRef(enabled);
   commandRef.current = onCommand;
   errorRef.current = onTrackingError;
+  enabledRef.current = enabled;
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !stream || !enabled) return;
+    if (!video || !stream) return;
     let disposed = false;
     let raf = 0;
     let face: FaceLandmarker | null = null;
@@ -61,6 +63,8 @@ export function LiveGestureTracker({
         const frame = (now: number) => {
           if (disposed) return;
           raf = requestAnimationFrame(frame);
+          if (!enabledRef.current) { engine.setPaused(true); return; }
+          engine.setPaused(false);
           if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0) return;
           // Limit inference cost while preserving an always-on session.
           if (now - lastInferenceAt < 120 || video.currentTime === lastVideoTime) return;
@@ -128,7 +132,7 @@ export function LiveGestureTracker({
       face?.close();
       hand?.close();
     };
-  }, [stream, enabled]);
+  }, [stream]);
 
   return <video ref={videoRef} muted playsInline aria-hidden="true"
     style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}/>;
