@@ -21,6 +21,15 @@ export function PresenterHUD({
 }: PresenterHUDProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [, refreshGestureFeedback] = useState(0);
+
+  // Do not leave a stale "Head up" / "Head down" action visible for minutes.
+  useEffect(() => {
+    if (!camera.lastGesture) return;
+    const id = window.setTimeout(() => refreshGestureFeedback(value => value + 1), 2400);
+    return () => window.clearTimeout(id);
+  }, [camera.lastGesture]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -49,7 +58,10 @@ export function PresenterHUD({
         flexDirection: 'column',
         gap: '8px',
         zIndex: 50,
-        minWidth: '220px',
+        width: showDetails ? '300px' : '260px',
+        maxWidth: 'calc(100% - 32px)',
+        boxSizing: 'border-box',
+        overflowWrap: 'anywhere',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
       }}
     >
@@ -81,7 +93,7 @@ export function PresenterHUD({
             }}
           >
             {camera.status === 'tracking'
-              ? 'READY'
+              ? (controlMode === 'eyes' ? (camera.faceDetected ? 'READY' : 'WAIT') : trackingReady ? 'READY' : 'WAIT')
               : camera.status === 'paused'
               ? 'PAUSED'
               : camera.status === 'initializing'
@@ -100,6 +112,12 @@ export function PresenterHUD({
         </div>
 
         <button
+          type="button"
+          onClick={() => { setShowDetails(value => !value); setShowPreview(false); }}
+          aria-expanded={showDetails}
+          style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--color-text-secondary)' }}
+        >{showDetails ? 'Less' : 'Details'}</button>
+        <button
           disabled={camera.status !== 'tracking' && camera.status !== 'paused'}
           onClick={onTogglePause}
           style={{
@@ -117,24 +135,30 @@ export function PresenterHUD({
       </div>
 
       {/* Status message */}
-      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-        {camera.validationMessage}
-      </div>
+      {showDetails ? (
+        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+          {camera.validationMessage}
+        </div>
+      ) : /SmartSpectra unavailable|SmartSpectra processing failed|SmartSpectra credits/i.test(camera.validationMessage) ? (
+        <div style={{ fontSize: '11px', color: 'var(--color-signal-warning)' }}>
+          SmartSpectra readings unavailable
+        </div>
+      ) : null}
 
-      {camera.status === 'tracking' && controlMode !== 'eyes' && trackingReady && (
+      {showDetails && camera.status === 'tracking' && controlMode !== 'eyes' && trackingReady && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
           {controlMode === 'hand' ? 'Open hand: left/right = slides, up/down = scroll' : 'Small head moves: left/right = slides, up/down = scroll'}
         </div>
       )}
 
       {/* Optional SmartSpectra eye mode only: hold and release blink. */}
-      {camera.status === 'tracking' && controlMode === 'eyes' && camera.faceDetected && (
+      {showDetails && camera.status === 'tracking' && controlMode === 'eyes' && camera.faceDetected && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
           {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
         </div>
       )}
       {/* Visual charge indicator for prolonged intentional blink dwell */}
-      {controlMode === 'eyes' && chargeRatio > 0 && (
+      {showDetails && controlMode === 'eyes' && chargeRatio > 0 && (
         <div
           role="progressbar"
           aria-valuenow={Math.round(chargeRatio * 100)}
@@ -159,7 +183,7 @@ export function PresenterHUD({
       )}
 
       {/* Last triggered gesture feedback toast */}
-      {camera.lastGesture && (
+      {camera.lastGesture && Date.now() - camera.lastGesture.timestamp < 2400 && (
         <div
           style={{
             fontSize: '11px',
@@ -172,7 +196,7 @@ export function PresenterHUD({
       )}
 
       {/* Align Camera Toggle & Mini Video Preview */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
+      {showDetails && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
         <button
           onClick={() => setShowPreview((prev) => !prev)}
           style={{
@@ -212,7 +236,7 @@ export function PresenterHUD({
             />
           </div>
         )}
-      </div>
+      </div>}
     </aside>
   );
 }
