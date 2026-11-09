@@ -50,7 +50,6 @@ export default function App() {
   });
 
   const [chargeRatio, setChargeRatio] = useState(0);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
   const [gestureMode, setGestureMode] = useState<GestureControlMode>(() => {
     try {
@@ -139,7 +138,6 @@ export default function App() {
         setCalibrationOpen(false);
         // A failed SDK session must not leave a stale live preview or
         // appear active. Do not silently restart and spend more credits.
-        setVideoStream(null);
         void window.glimraDesktop?.setCameraConsent(false);
         setCamera((prev) => ({
           ...prev,
@@ -391,7 +389,6 @@ export default function App() {
         validationMessage: 'Camera idle',
         lastGesture: null,
       });
-      setVideoStream(null);
     } else {
       setShowPrivacyModal(true);
     }
@@ -419,7 +416,6 @@ export default function App() {
       await controllerRef.current.start(apiKey);
     } catch (error) {
       setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not start the camera.' }));
-      setVideoStream(null);
       await window.glimraDesktop?.setCameraConsent(false);
     }
   };
@@ -440,7 +436,6 @@ export default function App() {
         await controllerRef.current.start(trimmed);
       } catch (error) {
         setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not restart the camera.' }));
-        setVideoStream(null);
         await window.glimraDesktop?.setCameraConsent(false);
       }
     }
@@ -477,7 +472,7 @@ export default function App() {
         <section className="studio-center">
           {!presentation.isFullscreen && presentation.isLoaded && !showSlides && <button className="restore-rail" onClick={() => setShowSlides(true)}><PanelLeftOpen size={16}/> Show slides</button>}
           <div className={`studio-stage ${presentation.isLoaded?'has-presentation':''}`}>
-            <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
+            <PresenterHUD camera={camera} chargeRatio={chargeRatio} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
             {camera.isActive && gestureTrackingError && <div role="alert" className="studio-error">{gestureTrackingError}</div>}
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
