@@ -86,6 +86,9 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
+  const gestureModeRef = useRef(gestureMode);
+  gestureModeRef.current = gestureMode;
+  const switchingModeRef = useRef(false);
   // SDK listeners live for the window lifetime; delegate to the latest render.
   const slideActionsRef = useRef<{ next: () => void; prev: () => void }>({ next: () => {}, prev: () => {} });
 
@@ -139,10 +142,13 @@ export default function App() {
       onSdkUnavailable: (_code, message) => {
         calibrationActiveRef.current = false;
         setCalibrationOpen(false);
-        // SmartSpectra is optional to head/hand navigation once the camera
-        // is open. Do not revoke consent or clear the camera stream here.
-        setCamera(prev => ({ ...prev, isActive: true, status: 'tracking', faceDetected: false,
-          validationMessage: `${message}. Head and hand control stays on.` }));
+        // SmartSpectra runs in Eyes mode only. An SDK error must not claim
+        // that a head/hand tracker is running when it is not.
+        const inEyes = gestureModeRef.current === 'eyes';
+        setCamera(prev => ({ ...prev, isActive: true, status: inEyes ? 'error' : 'tracking', faceDetected: false,
+          validationMessage: inEyes
+            ? `${message}. Switch to Head or Hands for local control.`
+            : `${message}. Head/hand tracking remains available.` }));
       },
       onError: (_code, message) => {
         calibrationActiveRef.current = false;
@@ -410,7 +416,7 @@ export default function App() {
   const confirmCameraConsent = async () => {
     setShowPrivacyModal(false);
 
-    if (!apiKey.trim()) {
+    if (gestureMode === 'eyes' && !apiKey.trim()) {
       setShowSettingsModal(true);
       return;
     }
@@ -421,12 +427,12 @@ export default function App() {
       ...prev,
       isActive: true,
       status: 'initializing',
-      validationMessage: 'Connecting to SmartSpectra…',
+      validationMessage: gestureMode === 'eyes' ? 'Connecting to SmartSpectra…' : 'Starting local camera gestures…',
     }));
 
     try {
       if (!controllerRef.current) throw new Error('Camera controller is unavailable.');
-      await controllerRef.current.start(apiKey);
+      await controllerRef.current.start(apiKey, gestureMode === 'eyes');
     } catch (error) {
       setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not start the camera.' }));
       setVideoStream(null);
@@ -442,15 +448,53 @@ export default function App() {
     }
     setShowSettingsModal(false);
 
-    if (camera.isActive && controllerRef.current) {
+    // Updating an SDK key must NEVER restart a healthy local Head/Hands
+    // presentation. Only Eyes mode consumes the SmartSpectra key.
+    if (camera.isActive && gestureMode === 'eyes' && controllerRef.current) {
       await controllerRef.current.stop();
       try {
-        await controllerRef.current.start(trimmed);
+        await controllerRef.current.start(trimmed, true);
       } catch (error) {
         setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not restart the camera.' }));
         setVideoStream(null);
         await window.glimraDesktop?.setCameraConsent(false);
       }
+    }
+  };
+
+  const changeGestureMode = async (nextMode: GestureControlMode) => {
+    if (nextMode === gestureMode || switchingModeRef.current) return;
+    if (nextMode === 'eyes' && !apiKey.trim()) {
+      setShowSettingsModal(true);
+      return;
+    }
+    const controller = controllerRef.current;
+    const needsCameraRestart = camera.isActive && (gestureMode === 'eyes' || nextMode === 'eyes');
+    if (!needsCameraRestart || !controller) {
+      setGestureMode(nextMode);
+      return;
+    }
+
+    switchingModeRef.current = true;
+    setGestureTrackingReady(false);
+    setGestureTrackingError(null);
+    setVideoStream(null);
+    setCamera(prev => ({ ...prev, status: 'initializing',
+      validationMessage: 'Switching control method…', faceDetected: false }));
+    try {
+      // SmartSpectra and local gestures are separate camera sessions. This
+      // intentional mode change is the only point where capture is restarted.
+      await controller.stop();
+      controller.setBlinkNavigationEnabled(nextMode === 'eyes');
+      setGestureMode(nextMode);
+      await controller.start(apiKey, nextMode === 'eyes');
+    } catch (error) {
+      console.error('[Glimra] Could not change control mode:', error);
+      setCamera(prev => ({ ...prev, status: 'error', isActive: false,
+        validationMessage: 'Could not switch camera mode. Disconnect and reconnect.' }));
+      setVideoStream(null);
+    } finally {
+      switchingModeRef.current = false;
     }
   };
 
@@ -539,12 +583,12 @@ export default function App() {
           <p className="panel-description" id="camera-setup-description">Move your head gently to control the PDF. Left or right changes slides; up or down scrolls the current page. No need to face the camera perfectly.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => setGestureMode(option)}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head: small, natural movements. Hands: open-hand swipes. Eyes: optional SmartSpectra blink control.</p></div>
+          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => { void changeGestureMode(option); }}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head: small, natural movements. Hands: open-hand swipes. Eyes: optional SmartSpectra blink control.</p></div>
           {gestureMode === 'eyes' && (
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           )}
           <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
-          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
+          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>SmartSpectra key (Eyes mode)</button>
         </section>
       </div>}
       {/* Guide & Onboarding Modal */}
@@ -718,7 +762,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 {(['hand', 'head', 'eyes'] as GestureControlMode[]).map(option => (
                   <button type="button" key={option} aria-pressed={gestureMode===option}
-                    onClick={() => setGestureMode(option)}
+                    onClick={() => { void changeGestureMode(option); }}
                     style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid', borderColor: gestureMode===option ? 'var(--color-accent)' : 'var(--color-border-subtle)', color: gestureMode===option ? 'var(--color-accent)' : 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-elevated)' }}>
                     {option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}
                   </button>
