@@ -72,11 +72,11 @@ export class HeadPoseGestureEngine {
     if (!pose) {
       // A brief loss must not fire anything. Reacquire a natural baseline
       // if the presenter has moved somewhere else.
-      if (now - this.previousAt > 650) this.reset();
+      if (now - this.previousAt > 1200) this.reset();
       return null;
     }
 
-    if (this.previousAt !== -Infinity && (now < this.previousAt || now - this.previousAt > 850)) {
+    if (this.previousAt !== -Infinity && (now < this.previousAt || now - this.previousAt > 1800)) {
       this.reset();
     }
     this.previousAt = now;
