@@ -328,7 +328,9 @@ export class SmartSpectraController {
         video: {
           width: { ideal: cameraMode.width },
           height: { ideal: cameraMode.height },
-          frameRate: { ideal: cameraMode.frameRate, min: 25 },
+          // Do not reject a usable camera just because it cannot meet the
+          // SDK's 25 FPS measurement requirement. MediaPipe needs fewer frames.
+          frameRate: { ideal: cameraMode.frameRate },
         },
       });
       this.cameraRequestPending = cameraRequest;
