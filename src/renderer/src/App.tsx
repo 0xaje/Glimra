@@ -579,7 +579,7 @@ export default function App() {
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Head : default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  SmartSpectra's real facial landmarks power head control. Make a small comfortable turn left or right to change slides, or nod up or down to scroll inside the current page. Return to your relaxed pose between moves.
+                  SmartSpectra’s real facial landmarks power head control. Make a small comfortable turn left or right to change slides, or nod up or down to scroll inside the current page. Return to your relaxed pose between moves.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
@@ -744,7 +744,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <button type="button" disabled={camera.status !== 'tracking' || !camera.faceDetected} onClick={beginCalibration}
                 style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
-                Practice and find my eye timing
+                Practice eye control
               </button>
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
                 Start the camera first. Practice five comfortable eye holds. Slides will not move during practice.
