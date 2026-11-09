@@ -75,7 +75,13 @@ export function LiveGestureTracker({
             numFaces: 1,
           });
         }
-        if (disposed) return;
+        if (disposed) {
+          // Asynchronous model loading can finish after mode switch/unmount.
+          // Release that late model instead of leaking its WASM resources.
+          face?.close();
+          hand?.close();
+          return;
+        }
         console.info('[Glimra/Gestures] Real ' + mode + ' tracking ready');
         readyRef.current?.(mode);
 
