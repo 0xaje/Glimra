@@ -57,7 +57,7 @@ export function PresenterHUD({
               padding: '1px 5px',
               borderRadius: 'var(--radius-sm)',
               border: `1px solid ${
-                camera.status === 'tracking' && camera.faceDetected
+                camera.status === 'tracking'
                   ? 'var(--color-signal-active)'
                   : camera.status === 'paused'
                   ? 'var(--color-signal-warning)'
@@ -66,7 +66,7 @@ export function PresenterHUD({
                   : 'var(--color-border-strong)'
               }`,
               color:
-                camera.status === 'tracking' && camera.faceDetected
+                camera.status === 'tracking'
                   ? 'var(--color-signal-active)'
                   : camera.status === 'paused'
                   ? 'var(--color-signal-warning)'
@@ -75,8 +75,8 @@ export function PresenterHUD({
                   : 'var(--color-text-muted)',
             }}
           >
-            {camera.status === 'tracking' && camera.faceDetected
-              ? 'ACTIVE'
+            {camera.status === 'tracking'
+              ? 'READY'
               : camera.status === 'paused'
               ? 'PAUSED'
               : camera.status === 'initializing'
@@ -85,7 +85,7 @@ export function PresenterHUD({
           </span>
           <span style={{ fontSize: '13px', fontWeight: 500 }}>
             {camera.status === 'tracking'
-              ? 'Hands-free active'
+              ? 'Hands-free ready'
               : camera.status === 'paused'
               ? 'Paused'
               : camera.status === 'initializing'
@@ -117,7 +117,7 @@ export function PresenterHUD({
       </div>
 
       {/* Eye hold progress reaches ready at 100%; release completes the command. */}
-      {camera.status === 'tracking' && camera.faceDetected && (
+      {camera.status === 'tracking' && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
           {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
         </div>
