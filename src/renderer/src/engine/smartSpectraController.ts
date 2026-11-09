@@ -28,6 +28,8 @@ export class SmartSpectraController {
   private callbacks: SmartSpectraControllerCallbacks;
   private isRunning: boolean = false;
   private stopPromise: Promise<void> | null = null;
+  // A stop must not destroy the SDK while its native start is still pending.
+  private sdkStartSettled: Promise<void> | null = null;
   private hasSdkError = false;
   private isPaused = false;
   private isValidated = false;
@@ -323,7 +325,15 @@ export class SmartSpectraController {
         fallbackAfterPreviousFpsFailure: this.preferLowBandwidthMode,
       });
       sdk.useMediaStream(stream);
-      await sdk.start();
+      const startOperation = sdk.start();
+      // A rejection must not prevent stop() from completing its cleanup.
+      const startSettled = startOperation.then(() => undefined, () => undefined);
+      this.sdkStartSettled = startSettled;
+      try {
+        await startOperation;
+      } finally {
+        if (this.sdkStartSettled === startSettled) this.sdkStartSettled = null;
+      }
       if (this.sdk === sdk && !this.hasSdkError) {
         this.isRunning = true;
         // processingStatus is authoritative; start() resolving alone
@@ -352,6 +362,7 @@ export class SmartSpectraController {
     ++this.sessionGeneration;
     const ownedStream = this.ownedCameraStream;
     this.ownedCameraStream = null;
+    const pendingStart = this.sdkStartSettled;
     this.isRunning = false;
     this.calibrating = false;
     this.calibrationBlinkStartUs = null;
@@ -362,6 +373,8 @@ export class SmartSpectraController {
 
     const cleanup = async () => {
       try {
+        // Avoid racing native SDK initialization against SDK shutdown.
+        if (pendingStart) await pendingStart;
         await sdk.stop();
       } catch (err) {
         console.warn('[Glimra] Error during SDK stop:', err);
