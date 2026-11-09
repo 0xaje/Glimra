@@ -2,40 +2,34 @@
 
 > **Control without a touch.**
 
-Glimra is a hands-free desktop PDF presentation application. **Gentle head movement is the default control**: small right/left turns change slides and up/down nods scroll inside the current PDF page. Glimra uses the earlier working head-position tracking method, with a movement threshold adjusted to your face size, instead of requiring large camera-wide head movement. Open-hand swipes and SmartSpectra-powered blink controls remain optional. The Presage SmartSpectra SDK is integrated for genuine live human-signal processing.
-
+Glimra is a hands-free PDF presentation application powered by the **official Presage SmartSpectra SDK**. Its default Head mode interprets actual live Presage facial landmarks to move between slides and scroll within the current PDF page. Optional Eyes mode uses real SmartSpectra blinking detections. **No MediaPipe or other automatic gesture-tracking SDK is used.**
 Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who benefits from touchless presentation control.
 
 ---
 
-## Presage-only challenge direction (November 9, 2026)
+## Current verification status
 
-**Strict decision:** SmartSpectra is the only allowed source of automatic human-sensing commands in the final challenge build. The current MediaPipe-based default Head/Hands pipeline is **not yet compliant with that product decision**. We are replacing it with genuine SmartSpectra native facial landmarks and blinking, not portraying the existing local gesture controls as Presage signals.
+**Confirmed with a genuine Windows webcam and Presage's native Node SDK (November 9, 2026):**
 
-A non-invasive real-hardware diagnostic was added at `scripts/check-presage-live-facial-signals.cjs`; the [Presage-only implementation contract](docs/PRESAGE_ONLY_IMPLEMENTATION.md) records supported metrics, the target architecture, the migration order, and objective pass/fail criteria. **The native SDK landmark test and main-app migration are not yet verified.** The current app is not presented as Presage-only until that is complete.
+- 487 real SDK metrics packets, all decoded
+- 416 stable Presage facial-landmark samples
+- 478 facial points per sample
+- 566 valid SDK quality checks, **0** low-frame-rate warnings, **0** SDK errors
+- Real face-centroid movement ranges: horizontal **0.539** and vertical **0.266** face widths
 
-```powershell
-# Run only after closing Glimra and other webcam apps.
-# This real SDK diagnostic may consume measurement credits.
-$env:PRESAGE_API_KEY = Read-Host 'Your new SmartSpectra API key'
-node .\\scripts\\check-presage-live-facial-signals.cjs
-Remove-Item Env:\\PRESAGE_API_KEY
-```
+This established that Presage can supply the signals required for Glimra's head navigation. **The diagnostic detected zero blinking starts**; the optional Eyes interaction is not yet independently verified.
 
-**Never paste an API key into issues, logs, demos or chats.** If a key was exposed, rotate it.
+**Implemented on `main` (Windows desktop verification still required):**
 
----
+- Native camera worker in a dedicated Node child process, using `SmartSpectraSDK.useCamera(CameraSelection.default)` to avoid the old Electron renderer-frame-transfer bottleneck.
+- Head movements derived from **real, stable** `metrics.face.landmarks[]` samples, with smoothing, a deliberate two-frame movement, and rearming after return to a relaxed position.
+- Eyes mode from genuine `metrics.face.blinking[]` samples only. No fake blink feedback.
+- Gesture commands and quality status passed to the renderer via a restricted Electron IPC bridge. No raw camera images or face coordinates are sent.
+- MediaPipe and old browser camera gesture processing removed. User permission and API key are required for native capture. Keyboard navigation remains available without the camera.
 
-## Current status and honest verification
+**Not yet proven:** `npm run build`, `npm test`, and the next full Windows in-app camera run on the final commit. CI runs on every push and is being checked. We will not claim the challenge demonstration succeeds until real Presage head gestures work in the packaged app.
 
-- **Confirmed on real Windows hardware:** the native SmartSpectra SDK, running without Electron/MediaPipe, delivered 495 metrics callbacks, 508 valid signal validations, zero low-frame-rate warnings and no errors in a live session.
-- **Previously observed in Glimra:** head left/right slide navigation worked before the experimental gesture Web Worker change. The attempted Worker generated `ModuleFactory not set` in the user’s video and was removed.
-- **Current controls:** Head (default) for subtle turns, tilts and nods, including PDF-only vertical scrolling; Hands (optional) for open-hand swipes; Eyes (optional) for SmartSpectra long/double blink navigation. Keyboard controls remain available.
-- **New stability isolation (awaiting Windows confirmation):** Head and Hands run with the browser camera and MediaPipe only, without SmartSpectra initialization, API key, or credit usage. Eyes exclusively runs the genuine SmartSpectra SDK for intentional blink navigation. Switching between Eyes and other modes intentionally restarts the camera. The previous concurrent Electron pipeline repeatedly produced low-FPS validation and error 8. The last full recording showed Head navigation continued even after that error, so gesture responsiveness and SDK measurements must be verified separately.
-- **Hackathon verification still required:** demonstrate a successful live SmartSpectra-driven command in Eyes mode. Head/Hands alone are MediaPipe features and cannot be presented as proof of SmartSpectra SDK use.
-- **No simulated biometric readings or camera activity.** Models download on first use, run locally, and use the camera only after permission. SmartSpectra may perform SDK telemetry according to Presage policy.
-
-See [Live Gesture Verification](docs/LIVE_GESTURE_VERIFICATION.md) for a focused Windows test plan.
+Read the [strict Presage-first implementation plan](docs/PRESAGE_ONLY_IMPLEMENTATION.md).
 
 ---
 
@@ -45,7 +39,8 @@ See [Live Gesture Verification](docs/LIVE_GESTURE_VERIFICATION.md) for a focused
 - **User Interface:** React + TypeScript
 - **Build Tooling:** Vite
 - **Live SmartSpectra Signals:** `@smartspectra/node-sdk` (Presage Technologies)
-- **Default Head/Optional Hand Gestures:** `@mediapipe/tasks-vision`
+- **Genuine Head/Eye Sensing:** Native SmartSpectra facial landmarks and blinking detection; no external sensing engine
+- **Native Camera Service:** Dedicated Node child process + Electron IPC
 - **Slide Rendering:** PDF.js (`pdfjs-dist`)
 - **Design System:** Hallmark (Darkroom Amber theme)
 
@@ -58,7 +53,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full architectural document
 ### Prerequisites
 - Node.js >= 22.12.0
 - A webcam (built-in or USB)
-- A Presage SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com) **only for Eyes mode**
+- A valid Presage SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com), required for **Head and Eyes**
 
 ### Installation & Development
 
@@ -88,7 +83,7 @@ npm run dist:mac
 ```
 
 ### Entering your API Key
-Head and Hands work without a Presage API key. For optional **Eyes** mode, open **Settings** in Glimra and enter your Presage API key. The key is encrypted locally using Electron's `safeStorage` and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
+Both Head and Eyes use the real native Presage SDK. Enter your SmartSpectra API key in **Settings**. No automatic gesture control is offered when Presage is unavailable. The key is encrypted locally using Electron's `safeStorage` and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
 
 ---
 
