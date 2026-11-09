@@ -45,3 +45,23 @@ test('low confidence, diagonal motion and pause do not fire', () => {
   engine.setPaused(true);
   assert.equal(engine.observe('head', point(.9, .5), 300), null);
 });
+
+test('default open-hand left/right swipes give one slide per deliberate move', () => {
+  const engine = new DirectionalGestureEngine();
+  assert.equal(engine.observe('hand', point(.5, .5), 0), null);
+  assert.deepEqual(engine.observe('hand', point(.65, .5), 120), { source: 'hand', direction: 'right' });
+  assert.equal(engine.observe('hand', point(.8, .5), 700), null, 'holding a swipe must not change another slide');
+  engine.observe('hand', point(.5, .5), 1100);
+  engine.observe('hand', point(.5, .5), 1350);
+  assert.deepEqual(engine.observe('hand', point(.33, .5), 1900), { source: 'hand', direction: 'left' });
+});
+
+test('head nod up/down produces vertical commands without slide navigation', () => {
+  const engine = new DirectionalGestureEngine();
+  assert.equal(engine.observe('head', point(.5, .5), 0), null);
+  assert.deepEqual(engine.observe('head', point(.5, .44), 100), { source: 'head', direction: 'up' });
+  assert.equal(engine.observe('head', point(.5, .38), 800), null);
+  engine.observe('head', point(.5, .5), 1200);
+  engine.observe('head', point(.5, .5), 1450);
+  assert.deepEqual(engine.observe('head', point(.5, .57), 2000), { source: 'head', direction: 'down' });
+});
