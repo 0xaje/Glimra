@@ -59,3 +59,27 @@ Interpretation:
 - **No camera discovered:** Check Windows privacy permissions or device drivers. This is not a MediaPipe model-loading error.
 
 The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an INFO message from MediaPipe initialization, not evidence of SmartSpectra failure.
+
+## Renderer bottleneck correction (Nov 9, 2026)
+
+A **real native-only Windows camera test** on the same machine returned 495 metrics callbacks, 508 valid SmartSpectra signals, zero low-FPS warnings, and no SDK errors. This establishes the webcam and the standalone SmartSpectra SDK can succeed. The problem is specific to the integrated Electron path or concurrent work, not a universal camera failure.
+
+The renderer SDK uses a frame-processing pipeline. MediaPipe's synchronous `detectForVideo()` previously ran on that same renderer main thread and could delay SDK frame delivery. This is now changed:
+
+- `src/renderer/src/components/LiveGestureTracker.tsx`: asynchronously captures a small `ImageBitmap` no more than about 6 times a second, transfers it to a dedicated Web Worker, and drops frames while that worker is busy.
+- `src/renderer/src/workers/gestureWorker.ts`: performs face and hand model inference away from the renderer, returns **real** observed commands, and closes every received `ImageBitmap` in `finally`.
+- The browser camera and SDK still share one actual MediaStream. SmartSpectra processing retains priority on the renderer thread.
+- If SDK still reports error 8, this change has not solved the complete Electron path; examine SDK renderer frame pump/IPC against the official Electron quickstart. Do **not** report a successful SmartSpectra session until real `kRunning`, valid `kOk` and metrics have been observed together.
+
+Test on Windows after updating main:
+
+```powershell
+git pull origin main
+npm run build
+npm test
+npm run dev
+```
+
+Look for `[Glimra/Gestures] Worker models ready (off renderer thread)` and SmartSpectra `processingStatus 3 kRunning`, then let the camera run in front light for 20+ seconds. A valid SDK session must produce metrics and validation kOk; simply having no visible error is insufficient.
+
+Rotate any API key accidentally pasted into chats or shared logs before continuing.
