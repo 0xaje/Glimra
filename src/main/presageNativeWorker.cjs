@@ -1,0 +1,220 @@
+'use strict';
+
+/**
+ * Only genuine @smartspectra/node-sdk measurements can issue a command.
+ * Runs as a Node child process of Electron (ELECTRON_RUN_AS_NODE=1):
+ * native SDK owns camera and gets full native video cadence, not renderer
+ * MediaStreamTrackProcessor/IPC pixels. No MediaPipe / simulated readings.
+ */
+const {
+  SmartSpectraSDK,
+  CameraSelection,
+  faceMetrics,
+  decodeMetrics,
+  ProcessingStatus,
+  ValidationCode,
+} = require('@smartspectra/node-sdk');
+const { PresageHeadMotion } = require('./presageHeadMotion.cjs');
+
+let sdk = null;
+let active = false;
+let starting = false;
+let closing = false;
+let mode = 'head';
+let paused = false;
+let sdkRunning = false;
+let lastValid = 0;
+let lastLandmarkTimestamp = 0;
+let lastBlinkTimestamp = 0;
+let blinkStartedAt = null;
+let lastQuickBlinkAt = -Infinity;
+let lastBlinkDetected = false;
+let lastCommandAt = -Infinity;
+let headCount = 0;
+let blinkStableCount = 0;
+let metricsCount = 0;
+const head = new PresageHeadMotion();
+
+const emit = (type, payload = {}) => {
+  if (typeof process.send === 'function' && process.connected) {
+    process.send({ type, ...payload });
+  }
+};
+
+function processBlink(samples) {
+  if (!Array.isArray(samples) || mode !== 'eyes' || paused) return;
+  for (const sample of samples) {
+    if (!sample || sample.stable !== true) {
+      blinkStartedAt = null;
+      lastBlinkDetected = false;
+      continue;
+    }
+    const ts = Number(sample.timestamp);
+    if (!Number.isFinite(ts) || ts <= lastBlinkTimestamp) continue;
+    lastBlinkTimestamp = ts;
+    blinkStableCount++;
+    const detected = sample.detected === true;
+    if (detected && !lastBlinkDetected) blinkStartedAt = ts;
+    else if (!detected && lastBlinkDetected && blinkStartedAt !== null) {
+      const heldMs = (ts - blinkStartedAt) / 1000;
+      blinkStartedAt = null;
+      const now = Date.now();
+      // Explicit long intentional blink advances, normal quick blinks do not.
+      if (heldMs >= 400 && heldMs <= 1800 && now - lastCommandAt >= 800) {
+        lastCommandAt = now;
+        emit('gesture', { direction: 'right', source: 'blink', label: 'Long blink' });
+        lastQuickBlinkAt = -Infinity;
+      } else if (heldMs >= 70 && heldMs < 350) {
+        // Two distinct short blinks within 650ms = previous slide.
+        if (now - lastQuickBlinkAt >= 130 && now - lastQuickBlinkAt <= 650 && now - lastCommandAt >= 800) {
+          lastCommandAt = now;
+          emit('gesture', { direction: 'left', source: 'blink', label: 'Double blink' });
+          lastQuickBlinkAt = -Infinity;
+        } else lastQuickBlinkAt = now;
+      }
+    }
+    lastBlinkDetected = detected;
+  }
+}
+
+function onMetrics(buffer) {
+  if (!active || paused || !sdkRunning) return;
+  let decoded;
+  try { decoded = decodeMetrics(buffer); }
+  catch (e) {
+    emit('warning', { message: 'Presage metrics could not be decoded: ' + (e?.message ?? 'unknown') });
+    return;
+  }
+  if (!decoded || Buffer.isBuffer(decoded) || typeof decoded !== 'object') return;
+  metricsCount++;
+  const now = Date.now();
+  const samples = decoded.face?.landmarks;
+  const latest = Array.isArray(samples) ? samples[samples.length - 1] : null;
+  if (latest && latest.stable === true && latest.reset !== true) {
+    const ts = Number(latest.timestamp);
+    if (Number.isFinite(ts) && ts > lastLandmarkTimestamp) {
+      lastLandmarkTimestamp = ts;
+      lastValid = now;
+      headCount++;
+      if (mode === 'head') {
+        const direction = head.observe(latest, now);
+        if (direction) emit('gesture', { source: 'head', direction, label: 'Head ' + direction });
+      }
+      // Statistics only: do not transmit raw face landmarks.
+      if (headCount === 1 || headCount % 150 === 0) {
+        emit('signal', {
+          source: 'Presage SmartSpectra native',
+          validLandmarkSamples: headCount,
+          blinkStableSamples: blinkStableCount,
+          metricsPackets: metricsCount,
+        });
+      }
+    }
+  } else if (latest?.reset) {
+    head.reset();
+  }
+  processBlink(decoded.face?.blinking);
+}
+
+async function stop() {
+  if (closing) return;
+  closing = true;
+  active = false;
+  sdkRunning = false;
+  try {
+    if (sdk?.stopAsync) await sdk.stopAsync();
+    else if (sdk?.stop) await sdk.stop();
+  } catch (error) {
+    emit('warning', { message: 'Presage shutdown: ' + (error?.message ?? String(error)) });
+  } finally {
+    try { if (sdk?.destroy) await sdk.destroy(); }
+    catch (_) { /* Native SDK already stopped; do not retain it. */ }
+    sdk = null;
+    emit('stopped');
+    // Clean process exit releases native camera even after an SDK fault.
+    process.exit(0);
+  }
+}
+
+async function start(key, requestedMode) {
+  if (starting || active || closing) return;
+  if (typeof key !== 'string' || !key.trim()) {
+    emit('error', { code: 'missing-key', message: 'SmartSpectra API key required' });
+    return;
+  }
+  starting = true;
+  mode = requestedMode === 'eyes' ? 'eyes' : 'head';
+  try {
+    sdk = new SmartSpectraSDK({
+      apiKey: key.trim(),
+      requestedMetrics: [...faceMetrics],
+      enableAccumulatedOutput: false,
+      enableTelemetry: false,
+    });
+    sdk.on('processingStatus', status => {
+      if (closing) return;
+      sdkRunning = status === ProcessingStatus.kRunning;
+      if (status === ProcessingStatus.kRunning) {
+        active = true;
+        emit('state', { state: 'tracking', source: 'Presage SmartSpectra native' });
+      } else if (status === ProcessingStatus.kStarting) {
+        emit('state', { state: 'initializing' });
+      } else if (status === ProcessingStatus.kError) {
+        emit('state', { state: 'error' });
+      }
+    });
+    sdk.on('validationStatus', (code, _ts, hint) => {
+      if (closing) return;
+      if (code === ValidationCode.kOk) return;
+      if (code === ValidationCode.kNoFaceFound || code === ValidationCode.kMultipleFacesFound) head.reset();
+      emit('validation', {
+        code: Number(code), hint: typeof hint === 'string' ? hint.slice(0, 160) : '',
+      });
+    });
+    sdk.on('metrics', onMetrics);
+    sdk.on('error', (code, message, retryable) => {
+      emit('error', {
+        code: Number(code),
+        message: String(message ?? 'Presage processing stopped').slice(0, 200),
+        retryable: Boolean(retryable),
+      });
+      void stop();
+    });
+    if (SmartSpectraSDK.availableCameras().length < 1) {
+      throw new Error('No Windows camera detected by the native Presage SDK');
+    }
+    sdk.useCamera(CameraSelection.default);
+    await Promise.resolve(sdk.start());
+    // SDK 'processingStatus' kRunning is the source of tracking readiness.
+  } catch (error) {
+    emit('error', { code: 'start', message: String(error?.message ?? error).slice(0, 200) });
+    void stop();
+  } finally {
+    starting = false;
+  }
+}
+
+process.on('message', (message) => {
+  if (!message || typeof message !== 'object') return;
+  if (message.type === 'start') void start(message.key, message.mode);
+  else if (message.type === 'mode') {
+    mode = message.mode === 'eyes' ? 'eyes' : 'head';
+    head.reset();
+    blinkStartedAt = null;
+    lastBlinkDetected = false;
+    lastQuickBlinkAt = -Infinity;
+    emit('mode', { mode });
+  } else if (message.type === 'pause') {
+    paused = Boolean(message.paused);
+    head.reset();
+    blinkStartedAt = null;
+    lastBlinkDetected = false;
+  } else if (message.type === 'stop') void stop();
+});
+
+// If Electron closes unexpectedly, do not keep the camera running.
+process.on('disconnect', () => { void stop(); });
+process.on('uncaughtException', error => {
+  emit('error', { code: 'native-process', message: String(error?.message ?? error).slice(0, 200) });
+  void stop();
+});
