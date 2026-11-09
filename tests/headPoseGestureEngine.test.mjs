@@ -80,3 +80,23 @@ test('facial geometry rejects missing keypoints and implausibly small faces', ()
   assert.equal(readFacePose([]), null);
   assert.equal(readFacePose(face({ width: .02 })), null);
 });
+
+test('gentle side tilt is accepted without shifting the whole head on screen', () => {
+  const engine = new HeadPoseGestureEngine();
+  engine.observe(face(), 0);
+  engine.observe(face({ roll: .12 }), 150);
+  engine.observe(face({ roll: .12 }), 300);
+  assert.deepEqual(engine.observe(face({ roll: .12 }), 450),
+    { source: 'head', direction: 'right' });
+});
+
+test('remaining still for several minutes does not disconnect head gestures', () => {
+  const engine = new HeadPoseGestureEngine();
+  for (let time = 0; time < 5 * 60_000; time += 150) {
+    assert.equal(engine.observe(face(), time), null);
+  }
+  engine.observe(face({ turn: .12 }), 300_000);
+  const first = engine.observe(face({ turn: .12 }), 300_150);
+  const second = engine.observe(face({ turn: .12 }), 300_300);
+  assert.ok(first?.direction === 'right' || second?.direction === 'right');
+});
