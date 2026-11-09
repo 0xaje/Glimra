@@ -14,6 +14,8 @@ type NativeEvent = {
   validLandmarkSamples?: number;
   blinkStableSamples?: number;
   durationMs?: number;
+  tracked?: boolean;
+  reason?: string;
 };
 
 export interface PresageCallbacks {
@@ -27,6 +29,7 @@ export interface PresageCallbacks {
   onCalibrationSample: (durationMs: number) => void;
   onError: (code: number, message: string) => void;
   onSensorReady: () => void;
+  onSensorLost: (reason: string) => void;
 }
 
 /**
@@ -58,6 +61,14 @@ export class PresageNativeController {
     this.callbacks.onValidationChange(paused
       ? 'Presentation gestures paused'
       : 'Presage native camera active', !paused && this.stableSeen);
+  }
+
+  public async recenter(): Promise<boolean> {
+    if (!this.active || this.mode !== 'head') return false;
+    this.stableSeen = false;
+    this.callbacks.onSensorLost('Finding the presenter’s new resting position…');
+    this.callbacks.onValidationChange('Finding the presenter’s new resting position…', false);
+    return await window.glimraDesktop?.controlPresage('recenter', true) ?? false;
   }
 
   public setCalibrationMode(enabled: boolean): void {
@@ -127,7 +138,9 @@ export class PresageNativeController {
         }
         break;
       case 'signal':
-        if (typeof event.validLandmarkSamples === 'number' && event.validLandmarkSamples > 0) {
+        // Metric count is cumulative. It does NOT prove the latest frame is
+        // valid or that this presenter is still in camera view.
+        if (typeof event.validLandmarkSamples === 'number' && event.validLandmarkSamples > 0 && this.stableSeen) {
           this.stableSeen = true;
           this.callbacks.onSensorReady();
           this.callbacks.onValidationChange(
@@ -135,6 +148,22 @@ export class PresageNativeController {
             !this.paused,
           );
         }
+        break;
+      case 'face-status':
+        if (event.tracked === true) {
+          this.stableSeen = true;
+          this.callbacks.onSensorReady();
+          this.callbacks.onValidationChange('Presage facial landmarks ready', !this.paused);
+        } else {
+          this.stableSeen = false;
+          this.callbacks.onSensorLost(event.reason || 'Waiting for one face in camera view');
+          this.callbacks.onValidationChange(event.reason || 'Waiting for one face in camera view', false);
+        }
+        break;
+      case 'recentered':
+        this.stableSeen = false;
+        this.callbacks.onSensorLost('Finding the new resting position…');
+        this.callbacks.onValidationChange('Finding the new resting position…', false);
         break;
       case 'validation':
         if (event.code !== 0 && event.hint) {
@@ -162,6 +191,7 @@ export class PresageNativeController {
         if (typeof event.durationMs === 'number') this.callbacks.onCalibrationSample(event.durationMs);
         break;
       case 'error':
+        this.callbacks.onSensorLost('Presage capture stopped');
         this.active = false;
         this.stableSeen = false;
         this.callbacks.onStatusChange('error');
