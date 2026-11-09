@@ -28,7 +28,7 @@ Updated November 9, 2026. An unchecked item is **not verified**. Build success d
 
 - [x] Linux GitHub Actions compile, Hallmark lint and unit tests verified after Native Presage migration.
 - [x] Linux AppImage packaging has succeeded in CI; clean-machine startup not verified.
-- [ ] Windows CI produces and uploads unsigned NSIS installer successfully using `--publish never`.
+- [x] Windows CI produces and uploads an unsigned NSIS installer successfully using `--publish never` (GitHub Actions run 42669308754; clean-computer execution is a separate gate).
 - [ ] Windows installer installed on a clean Windows machine; native worker, DLL loads, consent dialog and PDF gestures pass. An unsigned installer may show Windows security warnings.
 - [ ] Determine whether code signing and an installer icon are worth adding. They improve trust but are not mandatory for this challenge.
 - [ ] Package version and README setup instructions match the actual release.
