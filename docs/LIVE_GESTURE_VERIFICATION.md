@@ -90,3 +90,33 @@ The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an IN
 
 A prior MediaPipe module Worker failed in Electron with `ModuleFactory not set`; it was removed. Head/Hands currently use the supported in-renderer MediaPipe path, loading only one model at a time. The native-only SmartSpectra test succeeded, but its Electron bridge still requires separate debugging for error 8.
 
+
+## November 9 afternoon: SmartSpectra error 8 during successful head presentation
+
+A real Windows 83-second screen recording showed successful head-driven PDF slide navigation and scrolling from the beginning of the demonstration, followed by `SmartSpectra error (8, retryable=true): SmartSpectra processing failed`. The same console showed **multiple validation code 11** warnings ("Use a camera mode that provides at least 25 frames per second") and **4.3 SmartSpectra metrics callbacks/sec** (not the same thing as captured camera FPS). SmartSpectra moved from `kRunning` to `kError`.
+
+The earlier **independent native SDK** run on the same Windows machine and webcam had `495` metrics callbacks, `508` valid validations, `0` low-FPS warnings, `0` errors. This is evidence of an **Electron integration / concurrent frame-processing problem**, not proof of faulty webcam hardware or Presage account credentials. It does not prove which part of the renderer pipeline is starving frames.
+
+There is a second lifecycle problem: Glimra previously handed the **original** browser MediaStreamTrack to `sdk.useMediaStream()` and called `sdk.stop()` after error 8. Although Presage documents host-owned streams as host-managed, this put the independently working gesture track in the SDK processing path and made stream shutdown behavior harder to isolate. The controller now creates `new MediaStream([track.clone()])` **only for SmartSpectra**. The original remains connected to MediaPipe. Shutdown releases the clone, not the original, unless the user explicitly disconnects the camera. This improves fault isolation but is not a verified fix for SDK error 8 or low FPS.
+
+The local gesture tracker now watches live `video.currentTime`; if video frames stop advancing for 3.5 seconds, it logs `[Glimra/Gestures] Camera frames stalled` with original track state, muted state, video readyState and video time. The HUD should no longer claim gesture readiness during a confirmed frame stall, and will restore readiness if frames resume. **Never assume MediaPipe models are processing new frames merely because their models initialized.**
+
+In the last video, the PDF counter reached the final page (`5 / 5`). Rightward gestures correctly cannot advance beyond the last page; likewise down gestures cannot scroll past the bottom. For a conclusive post-error gesture test, first move to page `2 / 5` manually and keep a scrollable page centered.
+
+### One hardware verification after the change
+
+```powershell
+git pull origin main
+npm run build
+npm test
+npm run dev
+```
+
+Use the existing comfortable Head control, with the camera enabled, and show a tall page with room to scroll in **both directions**. Test until a SmartSpectra error 8 occurs or at least 30 seconds pass. If SDK fails, inspect:
+
+- `[Glimra/Camera] after SDK-only shutdown`: the original track should remain live, but live status alone does not prove new video frames arrive.
+- `[Glimra/Gestures] Camera frames stalled` (if present): establishes frame delivery stopped.
+- `[Glimra/Gestures] Camera frames resumed` (if present): confirms later delivery recovered.
+- `[Glimra/SmartSpectra] validationStatus` code 11: means the native processing pipeline is seeing insufficient frame rate.
+
+Do **not** restart the native SDK automatically after every code 8; it can incur real credit charges and will not cure persistent sub-25-FPS frame delivery. The specific native error is `kProcessingFailed`, not the same as an authentication failure, credits exhaustion, or a fatal MediaPipe initialization error. If the clone isolates gestures but SDK still fails, next engineering work should compare a **no-MediaPipe Electron SDK-only capture** and Presage's official `electron-quickstart` to pinpoint renderer/IPC pressure.
