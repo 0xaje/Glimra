@@ -141,7 +141,7 @@ export function PresenterHUD({
       {/* Optional SmartSpectra eye mode only: hold and release blink. */}
       {showDetails && camera.status === 'tracking' && controlMode === 'eyes' && camera.faceDetected && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-          {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
+          {chargeRatio >= 1 ? 'Ready : open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
         </div>
       )}
       {/* Visual charge indicator for prolonged intentional blink dwell */}
