@@ -95,7 +95,7 @@ export class SmartSpectraController {
     this.gestureEngine.updateConfig(config);
   }
 
-  public async start(apiKey: string): Promise<void> {
+  public async start(apiKey: string, useSmartSpectra = true): Promise<void> {
     // Never report a successful start when the previous session is still
     // tearing down. Wait for native cleanup before constructing a new SDK.
     if (this.stopPromise) await this.stopPromise;
@@ -121,9 +121,56 @@ export class SmartSpectraController {
 
     try {
       this.callbacks.onStatusChange('initializing');
-      this.callbacks.onValidationChange('Starting SmartSpectra…', false);
+      this.callbacks.onValidationChange(useSmartSpectra ? 'Starting SmartSpectra…' : 'Starting local gesture camera…', false);
 
       this.gestureEngine.reset();
+
+      // Head and Hands are first-class offline controls. They MUST NOT
+      // start the SmartSpectra renderer frame pump. The native SDK succeeded
+      // on this hardware, but the concurrent renderer/IPC pipeline repeatedly
+      // reported insufficient FPS and kProcessingFailed. Only Eyes mode
+      // needs SmartSpectra's live blink measurements.
+      if (!useSmartSpectra) {
+        const cameraRequest = navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 },
+          },
+        });
+        this.cameraRequestPending = cameraRequest;
+        let localStream: MediaStream;
+        try {
+          localStream = await cameraRequest;
+        } finally {
+          if (this.cameraRequestPending === cameraRequest) this.cameraRequestPending = null;
+        }
+        if (generation !== this.sessionGeneration) {
+          localStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        const localTrack = localStream.getVideoTracks()[0];
+        if (!localTrack || localTrack.readyState !== 'live') {
+          localStream.getTracks().forEach(track => track.stop());
+          throw new Error('The camera could not provide a live video track.');
+        }
+        this.ownedCameraStream = localStream;
+        localTrack.addEventListener('ended', () => {
+          if (generation !== this.sessionGeneration) return;
+          console.error('[Glimra/Camera] Local gesture camera disconnected');
+          this.callbacks.onError(500, 'Camera disconnected. Check camera permissions.');
+          void this.stop(true);
+        }, { once: true });
+        this.callbacks.onStreamAvailable(localStream);
+        this.callbacks.onStatusChange('tracking');
+        this.callbacks.onValidationChange('Head and hand controls use local camera tracking. SmartSpectra is available in Eyes mode.', false);
+        const settings = localTrack.getSettings();
+        console.info('[Glimra/Camera] gesture-only capture, SmartSpectra intentionally disabled', {
+          width: settings.width, height: settings.height, negotiatedFps: settings.frameRate,
+        });
+        return;
+      }
 
       this.sdk = new SmartSpectraSDK({
         apiKey: apiKey.trim(),
@@ -413,7 +460,11 @@ export class SmartSpectraController {
       if (generation !== this.sessionGeneration) return;
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
       this.hasSdkError = true;
-      if (this.ownedCameraStream?.getVideoTracks().some(track => track.readyState === 'live')) {
+      if (!useSmartSpectra) {
+        this.callbacks.onStatusChange('error');
+        this.callbacks.onError(500, err?.message || 'Could not start local gesture camera');
+        await this.stop(true);
+      } else if (this.ownedCameraStream?.getVideoTracks().some(track => track.readyState === 'live')) {
         const message = err?.message || 'SmartSpectra failed to start';
         this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
         this.callbacks.onValidationChange('Head and hand controls remain available. SmartSpectra unavailable.', false);
