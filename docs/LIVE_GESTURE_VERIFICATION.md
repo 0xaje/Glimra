@@ -17,16 +17,23 @@ npm run dev
 
 **Important:** `package.json` now includes `@mediapipe/tasks-vision`, but the existing committed `package-lock.json` has not yet been regenerated. Run `npm install` (not `npm ci`) to update the lockfile, and commit the resulting lockfile after validating the installation.
 
-## Real hand-first presentation checks
+## Real comfortable head-first presentation checks
 
-1. Open a multi-page PDF, connect the camera with consent, and keep **Hands (default)** selected in Settings.
-2. Wait for `[Glimra/Gestures] Real hand tracking ready`. Show one open hand in view and swipe to your **right** to advance one slide. Return the hand to the center, swipe **left** to go back.
-3. On a **tall page** or a page enlarged using **Fit width** or Zoom in, swipe **down** to move down **inside that PDF page**, then swipe **up** to go back. The page number MUST stay unchanged.
-4. Verify scrolling without the camera first: Arrow Down/Up should scroll within the same PDF page. If there is no overflow, the whole page is already visible and no scroll is possible until zoomed.
-5. Choose **Head** in Settings. Moving your head left/right should change slides; nodding up/down should scroll within the current PDF page.
-6. Choose **Eyes** in Settings only if you want the original SmartSpectra long-blink/double-blink controls. Blink navigation must NOT trigger in Hands/Head modes; SmartSpectra still processes real live signal measurements.
-7. Pause for 5 minutes or longer. The camera should stay connected. Returning the hand to neutral must allow a new command. Disconnect explicitly to turn off the camera.
-8. Check SDK status separately; a real native-only SDK session succeeded on Windows, but Electron integration has previously emitted error 8.
+1. Pull `main`, run `npm run build` and `npm test`, open a PDF with at least three pages, and enable camera consent.
+2. **Head is the default** even after an earlier installation selected Hands. The new preference key allows a fresh default. Wait for `[Glimra/Gestures] Real head tracking ready`.
+3. Sit comfortably, even if you are not in the center of the camera frame. Glimra learns the first natural face pose as neutral. Gently look/tilt right then return to your relaxed pose. Confirm one next-slide action, not repeated triggers. Then gently move left for previous.
+4. On a **tall page** (or a page with Zoom in / Fit width), make a small nod down to scroll **only the current PDF page**; nod up to scroll back. The current slide number MUST remain unchanged.
+5. If no scrolling occurs, verify first that Arrow Down/Up actually scrolls the PDF. A PDF page fully visible in the viewport has nowhere to scroll until zoomed.
+6. Select **Hands** in Settings to use open-palm left/right swipes for slides, up/down for PDF-only scrolling. Hand mode is still optional; its sensitivity is separate from Head.
+7. Select **Eyes** only to use original SmartSpectra long-blink/double-blink navigation. Blink navigation is disabled in Head/Hands modes, but SmartSpectra continues processing genuine SDK metrics.
+8. Check no navigation during a brief face loss, blinking or while paused. No idle timeout should disconnect the camera. An SDK error must be recorded and not mistaken for a valid physiological signal.
+9. In the demo screen recording, `npm test` passed 22 tests and navigating PDF pages was visibly working; some Node module / PDF indexing **warnings** appeared, but these warnings alone are not proof of a camera failure.
+
+## Head movement mechanics
+
+The previous head tracker watched the nose move ~8.5% of the **whole camera frame**: too much movement if the user sits farther away.
+
+The current `HeadPoseGestureEngine` instead reads face landmarks for nose and both eye corners, estimating **turn**, **side tilt**, and **vertical nod relative to the face width**, and adapts to the user's initial pose. It applies filtering, two consecutive directional observations, a single command per turn, a 650ms cooldown, and neutral reset. It requires **no fixed position or physical calibration ritual**. It has unit tests for small movements, off-center starting posture, idle tracking and rejecting single-sample jitter. Real Windows testing is still essential to verify vertical direction, user comfort and false-positive behavior.
 
 ## Known limits
 
@@ -60,11 +67,11 @@ Interpretation:
 
 The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an INFO message from MediaPipe initialization, not evidence of SmartSpectra failure.
 
-## November 9 regression and hand-first correction
+## November 9 worker regression and recovery
 
 The user's video showed that moving MediaPipe inference into an Electron module Worker introduced **`ModuleFactory not set`**. This is a real failure: the local gesture tracker could not start, so no head/hand gesture worked. That worker implementation was removed, and the previously functional in-renderer MediaPipe route was restored.
 
-To reduce processing load without the broken worker, Glimra now loads **only one detector at a time**: Hands (default) or Head (optional), at about 5 landmark checks per second. Eyes is a separate opt-in SmartSpectra blink mode. SmartSpectra still receives genuine human data and remains subject to its live processing constraints.
+To reduce processing load without the broken worker, Glimra loads **only one detector at a time**: Head (default, approximately 7 frames/second) or Hands (optional, approximately 5 frames/second). Eyes is a separate opt-in SmartSpectra blink mode. SmartSpectra still receives genuine human data and remains subject to its live processing constraints.
 
 PDF scroll now targets the scrollable viewer inside the **current page only**, using a block overflow layout. Arrow Up/Down also send the same page scroll command as a gesture; use those keys to verify PDF scrolling independently before evaluating landmark accuracy.
 
