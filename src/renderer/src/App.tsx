@@ -9,12 +9,23 @@ import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
 import { audioFeedback } from './utils/audioChime';
 
-type GestureSensitivity = 'responsive' | 'standard' | 'deliberate';
-
-const SENSITIVITY_DWELL_MAP: Record<GestureSensitivity, number> = {
-  responsive: 320,
-  standard: 380,
-  deliberate: 460,
+type GestureSensitivity = 'quick' | 'balanced' | 'relaxed' | 'custom';
+type GestureTiming = { minIntentionalBlinkMs: number; maxIntentionalBlinkMs: number; refractoryCooldownMs: number };
+const GESTURE_PRESETS: Record<Exclude<GestureSensitivity, 'custom'>, GestureTiming> = {
+  quick: { minIntentionalBlinkMs: 400, maxIntentionalBlinkMs: 1200, refractoryCooldownMs: 900 },
+  balanced: { minIntentionalBlinkMs: 550, maxIntentionalBlinkMs: 1500, refractoryCooldownMs: 1200 },
+  relaxed: { minIntentionalBlinkMs: 750, maxIntentionalBlinkMs: 1900, refractoryCooldownMs: 1600 },
+};
+const readGesturePreference = (): { preset: GestureSensitivity; custom: GestureTiming } => {
+  const fallback = { preset: 'balanced' as GestureSensitivity, custom: { ...GESTURE_PRESETS.balanced } };
+  try {
+    const saved = JSON.parse(localStorage.getItem('glimra-gesture-timing') || 'null');
+    if (!saved || !['quick', 'balanced', 'relaxed', 'custom'].includes(saved.preset)) return fallback;
+    const min = Number(saved.custom?.minIntentionalBlinkMs);
+    const cooldown = Number(saved.custom?.refractoryCooldownMs);
+    if (!Number.isFinite(min) || !Number.isFinite(cooldown) || min < 300 || min > 1200 || cooldown < 600 || cooldown > 2500) return fallback;
+    return { preset: saved.preset, custom: { minIntentionalBlinkMs: min, maxIntentionalBlinkMs: min + 950, refractoryCooldownMs: cooldown } };
+  } catch { return fallback; }
 };
 
 export default function App() {
@@ -40,6 +51,7 @@ export default function App() {
 
   const [chargeRatio, setChargeRatio] = useState(0);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -51,11 +63,18 @@ export default function App() {
   const [seconds, setSeconds] = useState(0);
 
   const [apiKey, setApiKey] = useState('');
-  const [sensitivity, setSensitivity] = useState<GestureSensitivity>('standard');
+  const [gesturePreference, setGesturePreference] = useState(readGesturePreference);
+  const sensitivity = gesturePreference.preset;
+  const gestureTiming = sensitivity === 'custom' ? gesturePreference.custom : GESTURE_PRESETS[sensitivity];
   const [soundFeedbackEnabled, setSoundFeedbackEnabled] = useState(true);
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  const [calibrationSamples, setCalibrationSamples] = useState<number[]>([]);
+  const calibrationActiveRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<SmartSpectraController | null>(null);
+  // SDK listeners live for the window lifetime; delegate to the latest render.
+  const slideActionsRef = useRef<{ next: () => void; prev: () => void }>({ next: () => {}, prev: () => {} });
 
   useEffect(() => { try { localStorage.setItem('glimra-theme', theme); } catch { /* preference storage unavailable */ } }, [theme]);
   useEffect(() => {
@@ -69,13 +88,14 @@ export default function App() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (showPrivacyModal) setShowPrivacyModal(false);
+      else if (calibrationOpen) endCalibration();
       else if (showSettingsModal) setShowSettingsModal(false);
       else if (showGuideModal) setShowGuideModal(false);
       else if (showCameraSetup) setShowCameraSetup(false);
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [showPrivacyModal, showSettingsModal, showGuideModal, showCameraSetup]);
+  }, [showPrivacyModal, showSettingsModal, showGuideModal, showCameraSetup, calibrationOpen]);
 
   // Load API key from secure Electron storage on mount
   useEffect(() => {
@@ -89,8 +109,8 @@ export default function App() {
   // Initialize SmartSpectra controller once
   useEffect(() => {
     controllerRef.current = new SmartSpectraController({
-      onNextSlide: () => nextSlide(),
-      onPrevSlide: () => prevSlide(),
+      onNextSlide: () => slideActionsRef.current.next(),
+      onPrevSlide: () => slideActionsRef.current.prev(),
       onStreamAvailable: (stream) => setVideoStream(stream),
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
@@ -99,7 +119,17 @@ export default function App() {
         setCamera((prev) => ({ ...prev, lastGesture: feedback }));
       },
       onChargeProgress: (ratio) => setChargeRatio(ratio),
+      onCalibrationSample: (durationMs) => {
+        if (!calibrationActiveRef.current) return;
+        setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
+      },
       onError: (_code, message) => {
+        calibrationActiveRef.current = false;
+        setCalibrationOpen(false);
+        // A failed SDK session must not leave a stale live preview or
+        // appear active. Do not silently restart and spend more credits.
+        setVideoStream(null);
+        void window.glimraDesktop?.setCameraConsent(false);
         setCamera((prev) => ({
           ...prev,
           isActive: false,
@@ -111,7 +141,10 @@ export default function App() {
     });
 
     return () => {
-      controllerRef.current?.stop();
+      const controller = controllerRef.current;
+      controllerRef.current = null;
+      void controller?.stop();
+      void window.glimraDesktop?.setCameraConsent(false);
     };
   }, []);
 
@@ -165,6 +198,20 @@ export default function App() {
     });
   };
 
+  slideActionsRef.current.next = nextSlide;
+  slideActionsRef.current.prev = prevSlide;
+
+  // Gesture detectors dispatch this event after a verified vertical movement.
+  useEffect(() => {
+    const handleScrollGesture = (event: Event) => {
+      const direction = (event as CustomEvent<{ direction?: string }>).detail?.direction;
+      if (direction !== 'up' && direction !== 'down') return;
+      setScrollCommand(previous => ({ id: (previous?.id ?? 0) + 1, direction }));
+    };
+    window.addEventListener('glimra:scroll-gesture', handleScrollGesture);
+    return () => window.removeEventListener('glimra:scroll-gesture', handleScrollGesture);
+  }, []);
+
   const jumpToSlide = (slideNum: number) => {
     setIsBlackout(false);
     setPresentation((prev) => {
@@ -199,10 +246,45 @@ export default function App() {
     controllerRef.current.setPaused(willPause);
   };
 
+  useEffect(() => {
+    try { localStorage.setItem('glimra-gesture-timing', JSON.stringify(gesturePreference)); } catch { /* optional preference storage */ }
+    controllerRef.current?.updateGestureConfig(gestureTiming);
+  }, [gesturePreference]);
+
+  const endCalibration = () => {
+    calibrationActiveRef.current = false;
+    controllerRef.current?.setCalibrationMode(false);
+    setCalibrationOpen(false);
+  };
+  const beginCalibration = () => {
+    if (camera.status !== 'tracking' || !camera.faceDetected) return;
+    setCalibrationSamples([]);
+    calibrationActiveRef.current = true;
+    controllerRef.current?.setCalibrationMode(true);
+    setShowSettingsModal(false);
+    setCalibrationOpen(true);
+  };
+  const calibrationSuggestion = (() => {
+    if (calibrationSamples.length !== 5) return null;
+    const sorted = [...calibrationSamples].sort((a, b) => a - b);
+    const median = sorted[2];
+    const min = Math.max(300, Math.min(1200, Math.round(median * 0.75 / 50) * 50));
+    return { minIntentionalBlinkMs: min, maxIntentionalBlinkMs: min + 950, refractoryCooldownMs: 1200 };
+  })();
+  const applyCalibration = () => {
+    if (!calibrationSuggestion) return;
+    setGesturePreference({ preset: 'custom', custom: calibrationSuggestion });
+    endCalibration();
+  };
+
   const handleSensitivityChange = (newSens: GestureSensitivity) => {
-    setSensitivity(newSens);
-    controllerRef.current?.updateGestureConfig({
-      minIntentionalBlinkMs: SENSITIVITY_DWELL_MAP[newSens],
+    setGesturePreference(prev => ({ ...prev, preset: newSens }));
+  };
+  const handleCustomTimingChange = (key: 'minIntentionalBlinkMs' | 'refractoryCooldownMs', value: number) => {
+    setGesturePreference(prev => {
+      const custom = { ...prev.custom, [key]: value };
+      custom.maxIntentionalBlinkMs = custom.minIntentionalBlinkMs + 950;
+      return { preset: 'custom', custom };
     });
   };
 
@@ -277,6 +359,7 @@ export default function App() {
 
   const handleEnableCameraClick = async () => {
     if (camera.isActive) {
+      endCalibration();
       await window.glimraDesktop?.setCameraConsent(false);
       await controllerRef.current?.stop();
       setCamera({
@@ -374,7 +457,7 @@ export default function App() {
                 {loadError && <div className="studio-error" role="alert">{loadError}</div>}
               </div>
             ) : (
-              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout} embedded={!presentation.isFullscreen}/>
+              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} scrollCommand={scrollCommand} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout} embedded={!presentation.isFullscreen}/>
             )}
           </div>
           {!presentation.isFullscreen && <footer className="studio-footer">
@@ -402,7 +485,7 @@ export default function App() {
           <p className="panel-description" id="camera-setup-description">Connect your camera and choose how long to close your eyes to change slides.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Blink sensitivity</label><div className="sensitivity-options">{(['responsive','standard','deliberate'] as GestureSensitivity[]).map(option=><button key={option} className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{SENSITIVITY_DWELL_MAP[option]} ms</small></button>)}</div><p>Choose a slower setting if slides change too easily.</p></div>
+          <div className="panel-field"><label>Eye gesture timing</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
           <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
         </section>
@@ -598,8 +681,8 @@ export default function App() {
               <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                 Gesture dwell sensitivity
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {(['responsive', 'standard', 'deliberate'] as GestureSensitivity[]).map((level) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map((level) => (
                   <button
                     key={level}
                     type="button"
@@ -629,9 +712,28 @@ export default function App() {
                 ))}
               </div>
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                {sensitivity === 'responsive' && '320ms intentional dwell for rapid presenters.'}
-                {sensitivity === 'standard' && '380ms dwell balanced for natural speech pacing.'}
-                {sensitivity === 'deliberate' && '460ms dwell preventing accidental triggers.'}
+                Close your eyes for at least {(gestureTiming.minIntentionalBlinkMs / 1000).toFixed(2)} seconds, then open them before {(gestureTiming.maxIntentionalBlinkMs / 1000).toFixed(2)} seconds to move forward. Wait {(gestureTiming.refractoryCooldownMs / 1000).toFixed(2)} seconds between commands.
+              </p>
+              {sensitivity === 'custom' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ fontSize: '12px' }} htmlFor="blink-hold">Minimum eye hold: {(gestureTiming.minIntentionalBlinkMs / 1000).toFixed(2)}s</label>
+                  <input id="blink-hold" type="range" min="300" max="1200" step="50" value={gesturePreference.custom.minIntentionalBlinkMs} onChange={event => handleCustomTimingChange('minIntentionalBlinkMs', Number(event.target.value))}/>
+                  <label style={{ fontSize: '12px' }} htmlFor="blink-cooldown">Time between commands: {(gestureTiming.refractoryCooldownMs / 1000).toFixed(2)}s</label>
+                  <input id="blink-cooldown" type="range" min="600" max="2500" step="100" value={gesturePreference.custom.refractoryCooldownMs} onChange={event => handleCustomTimingChange('refractoryCooldownMs', Number(event.target.value))}/>
+                </div>
+              )}
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                A normal quick blink will not advance slides. Eye control uses a deliberate hold and release.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button type="button" disabled={camera.status !== 'tracking' || !camera.faceDetected} onClick={beginCalibration}
+                style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
+                Practice and find my eye timing
+              </button>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Start the camera first. Practice five comfortable eye holds. Slides will not move during practice.
               </p>
             </div>
 
@@ -694,6 +796,28 @@ export default function App() {
               >
                 Save settings
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {calibrationOpen && (
+        <div role="dialog" aria-modal="true" aria-labelledby="calibration-title"
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--color-bg-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', zIndex: 110 }}>
+          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-lg)', padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <h2 id="calibration-title" style={{ fontSize: '18px' }}>Practice eye control</h2>
+            <p>Look at the camera. Close your eyes comfortably, then open them. Repeat five times, with a short break between each try.</p>
+            <p style={{ fontWeight: 600 }}>{calibrationSamples.length} of 5 gestures detected</p>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{camera.validationMessage}</p>
+            {calibrationSamples.length > 0 && <p style={{ fontSize: '12px' }}>Detected holds: {calibrationSamples.map(ms => (ms / 1000).toFixed(2) + 's').join(', ')}</p>}
+            {calibrationSuggestion && (
+              <p>Suggested minimum hold: {(calibrationSuggestion.minIntentionalBlinkMs / 1000).toFixed(2)} seconds. You can adjust it later in Settings.</p>
+            )}
+            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Only valid, stable SmartSpectra readings count. Practice does not change slides or save video.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={endCalibration}>Cancel</button>
+              <button type="button" onClick={() => { setCalibrationSamples([]); controllerRef.current?.setCalibrationMode(true); }}>Try again</button>
+              {calibrationSuggestion && <button type="button" onClick={applyCalibration}>Use this timing</button>}
             </div>
           </div>
         </div>

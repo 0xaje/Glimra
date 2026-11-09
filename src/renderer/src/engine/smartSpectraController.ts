@@ -2,6 +2,7 @@ import {
   SmartSpectraSDK,
   faceMetrics,
   ValidationCode,
+  ProcessingStatus,
   ValidationCodeValue,
   SmartSpectraErrorCodeValue,
 } from '@smartspectra/node-sdk/renderer';
@@ -18,6 +19,7 @@ export interface SmartSpectraControllerCallbacks {
   onGestureDetected: (feedback: GestureFeedback) => void;
   onChargeProgress: (chargeRatio: number) => void;
   onError: (code: number, message: string) => void;
+  onCalibrationSample: (durationMs: number) => void;
 }
 
 export class SmartSpectraController {
@@ -25,19 +27,51 @@ export class SmartSpectraController {
   private gestureEngine: GestureEngine;
   private callbacks: SmartSpectraControllerCallbacks;
   private isRunning: boolean = false;
+  private stopPromise: Promise<void> | null = null;
+  // A stop must not destroy the SDK while its native start is still pending.
+  private sdkStartSettled: Promise<void> | null = null;
+  private hasSdkError = false;
+  private isPaused = false;
+  private isValidated = false;
+  private isSdkRunning = false;
+  private firstStreamReport = false;
+  private lastValidationWarningCode: number | null = null;
+  private lastValidationWarningAt = 0;
+  private lastValidationHint = '';
+  private sessionGeneration = 0;
+  private ownedCameraStream: MediaStream | null = null;
+  private starting = false;
+  private cameraRequestPending: Promise<MediaStream> | null = null;
+  private calibrating = false;
+  private calibrationBlinkStartUs: number | null = null;
+  private calibrationLastTimestampUs = 0;
+  private metricsWindowStartMs = 0;
+  private metricsCount = 0;
+  private lastMetricsAtMs = 0;
+  private lastChargeReportAtMs = 0;
+  private lastChargeRatio = 0;
+  private lastReportedValidation = '';
+  private lastReportedFaceTracked = false;
 
   constructor(callbacks: SmartSpectraControllerCallbacks) {
     this.callbacks = callbacks;
     this.gestureEngine = new GestureEngine();
   }
 
+  public setCalibrationMode(enabled: boolean): void {
+    this.calibrating = enabled;
+    this.calibrationBlinkStartUs = null;
+    this.calibrationLastTimestampUs = 0;
+    this.gestureEngine.reset();
+    this.callbacks.onChargeProgress(0);
+  }
+
   public setPaused(paused: boolean): void {
+    if (!this.sdk || this.hasSdkError || !this.isSdkRunning) return;
+    this.isPaused = paused;
     this.gestureEngine.setPaused(paused);
     this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
-    this.callbacks.onValidationChange(
-      paused ? 'Paused by presenter' : 'Tracking active',
-      !paused,
-    );
+    this.callbacks.onValidationChange(paused ? 'Paused by presenter' : 'Waiting for a valid face signal', !paused && this.isValidated);
   }
 
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
@@ -45,7 +79,27 @@ export class SmartSpectraController {
   }
 
   public async start(apiKey: string): Promise<void> {
-    if (this.isRunning) return;
+    // Never report a successful start when the previous session is still
+    // tearing down. Wait for native cleanup before constructing a new SDK.
+    if (this.stopPromise) await this.stopPromise;
+    if (this.isRunning || this.sdk || this.starting) return;
+    this.starting = true;
+    this.hasSdkError = false;
+    this.isPaused = false;
+    this.isValidated = false;
+    this.isSdkRunning = false;
+    this.firstStreamReport = false;
+    this.lastValidationWarningCode = null;
+    this.lastValidationWarningAt = 0;
+    this.lastValidationHint = '';
+    this.metricsWindowStartMs = 0;
+    this.metricsCount = 0;
+    this.lastMetricsAtMs = 0;
+    this.lastChargeReportAtMs = 0;
+    this.lastChargeRatio = 0;
+    this.lastReportedValidation = '';
+    this.lastReportedFaceTracked = false;
+    const generation = ++this.sessionGeneration;
 
     try {
       this.callbacks.onStatusChange('initializing');
@@ -59,13 +113,69 @@ export class SmartSpectraController {
         enableAccumulatedOutput: false,
       });
 
+      this.sdk.on('processingStatus', (status: number) => {
+        console.info('[Glimra/SmartSpectra] processingStatus', status, Object.entries(ProcessingStatus).find(([, value]) => value === status)?.[0] ?? 'unknown');
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
+        if (status === ProcessingStatus.kRunning) {
+          this.isSdkRunning = true;
+          this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
+        } else if (status === ProcessingStatus.kStarting) {
+          this.isSdkRunning = false;
+          this.callbacks.onStatusChange('initializing');
+        } else if (status === ProcessingStatus.kStopping || status === ProcessingStatus.kIdle || status === ProcessingStatus.kUninitialized) {
+          this.isSdkRunning = false;
+          this.isValidated = false;
+          this.gestureEngine.setFaceValidation(false);
+          this.callbacks.onValidationChange('Camera not tracking', false);
+          this.callbacks.onStatusChange('idle');
+        } else if (status === ProcessingStatus.kError) {
+          this.isSdkRunning = false;
+          this.isValidated = false;
+          this.gestureEngine.setFaceValidation(false);
+          this.callbacks.onStatusChange('error');
+        }
+      });
+
       this.sdk.on('streamAvailable', (stream: MediaStream) => {
+        if (generation !== this.sessionGeneration || this.hasSdkError) return;
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          const settings = track.getSettings();
+          console.info('[Glimra/Camera] negotiated settings', { width: settings.width, height: settings.height, frameRate: settings.frameRate, deviceIdPresent: !!settings.deviceId, readyState: track.readyState });
+          if (!this.firstStreamReport) {
+            this.firstStreamReport = true;
+            // Measure frames rendered by the preview separately from the
+            // requested/negotiated camera frameRate when available.
+            console.info('[Glimra/Camera] Note: negotiated frameRate is not a measured processing FPS');
+          }
+          track.addEventListener('ended', () => console.warn('[Glimra/Camera] video track ended'), { once: true });
+        } else {
+          console.warn('[Glimra/Camera] SDK stream has no video track');
+        }
         this.callbacks.onStreamAvailable(stream);
       });
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
+        if (code === ValidationCode.kOk) this.lastValidationHint = '';
+        else if (hint) this.lastValidationHint = hint;
+        // Do not retry automatically after SDK frame-rate validation failure.
+        if (code !== ValidationCode.kOk) {
+          const now = Date.now();
+          if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
+            console.warn('[Glimra/SmartSpectra] validationStatus', { code, hint, timestampUs: _ts });
+            this.lastValidationWarningCode = code;
+            this.lastValidationWarningAt = now;
+          }
+        } else {
+          this.lastValidationWarningCode = null;
+        }
+        // FPS and lighting warnings are not proof that the face disappeared.
+        // Only explicit face-loss validation should disarm a previously valid face.
         const isOk = code === ValidationCode.kOk;
-        this.gestureEngine.setFaceValidation(isOk);
+        if (isOk) this.isValidated = true;
+        else if (code === ValidationCode.kNoFaceFound || code === ValidationCode.kMultipleFacesFound) this.isValidated = false;
+        this.gestureEngine.setFaceValidation(this.isValidated);
 
         let statusText = 'Tracking active';
         if (code === ValidationCode.kNoFaceFound) {
@@ -80,11 +190,35 @@ export class SmartSpectraController {
           statusText = hint;
         }
 
-        this.callbacks.onValidationChange(statusText, isOk);
+        const faceTracked = this.isValidated && !this.isPaused && this.isSdkRunning;
+        // Do not trigger a React state update for every repeated SDK warning.
+        if (statusText !== this.lastReportedValidation || faceTracked !== this.lastReportedFaceTracked) {
+          this.lastReportedValidation = statusText;
+          this.lastReportedFaceTracked = faceTracked;
+          this.callbacks.onValidationChange(statusText, faceTracked);
+        }
       });
 
       this.sdk.on('metrics', (buf: Uint8Array, _timestampUs: number) => {
+        if (this.hasSdkError || generation !== this.sessionGeneration || !this.isSdkRunning) return;
         try {
+          // Diagnostic only: SDK metrics callbacks are NOT equivalent to camera FPS.
+          // A missing callback stream can nevertheless reveal a processing stall.
+          const nowMs = performance.now();
+          if (this.metricsWindowStartMs === 0) this.metricsWindowStartMs = nowMs;
+          this.metricsCount += 1;
+          this.lastMetricsAtMs = nowMs;
+          if (nowMs - this.metricsWindowStartMs >= 5000) {
+            const elapsedSeconds = (nowMs - this.metricsWindowStartMs) / 1000;
+            console.info('[Glimra/SmartSpectra] metrics delivery', {
+              callbacksPerSecond: Number((this.metricsCount / elapsedSeconds).toFixed(1)),
+              callbacks: this.metricsCount,
+              seconds: Number(elapsedSeconds.toFixed(1)),
+              note: 'SDK metrics callbacks, not measured camera FPS',
+            });
+            this.metricsWindowStartMs = nowMs;
+            this.metricsCount = 0;
+          }
           const decoded = decodeMetrics(buf);
           const blinkingSamples = decoded.face?.blinking;
 
@@ -94,10 +228,34 @@ export class SmartSpectraController {
               const stable = !!sample.stable;
               const tsUs = Number(sample.timestamp || 0);
 
+              if (this.calibrating) {
+                // Calibration observes real SmartSpectra blink samples but
+                // never executes slide commands. Unstable/lost tracking
+                // cancels an incomplete sample rather than fabricating it.
+                if (!this.isValidated || !stable || !Number.isFinite(tsUs) || tsUs <= this.calibrationLastTimestampUs) {
+                  this.calibrationBlinkStartUs = null;
+                  continue;
+                }
+                this.calibrationLastTimestampUs = tsUs;
+                if (detected && this.calibrationBlinkStartUs === null) this.calibrationBlinkStartUs = tsUs;
+                else if (!detected && this.calibrationBlinkStartUs !== null) {
+                  const durationMs = (tsUs - this.calibrationBlinkStartUs) / 1000;
+                  this.calibrationBlinkStartUs = null;
+                  if (durationMs >= 250 && durationMs <= 2500) this.callbacks.onCalibrationSample(Math.round(durationMs));
+                }
+                continue;
+              }
               const result = this.gestureEngine.processSample(detected, stable, tsUs);
 
               // Update visual charge feedback on HUD
-              this.callbacks.onChargeProgress(result.chargeRatio);
+              // Limit HUD React updates to 10Hz, preserving the final reset.
+              const chargeNow = performance.now();
+              if (result.chargeRatio === 0 && this.lastChargeRatio !== 0 ||
+                  chargeNow - this.lastChargeReportAtMs >= 100) {
+                this.lastChargeReportAtMs = chargeNow;
+                this.lastChargeRatio = result.chargeRatio;
+                this.callbacks.onChargeProgress(result.chargeRatio);
+              }
 
               if (result.command === 'next') {
                 if (result.feedback) this.callbacks.onGestureDetected(result.feedback);
@@ -113,38 +271,169 @@ export class SmartSpectraController {
         }
       });
 
-      this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, _retryable: boolean) => {
-        console.error(`[Glimra] SmartSpectra error (${code}): ${message}`);
+      this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, retryable: boolean) => {
+        if (this.hasSdkError || generation !== this.sessionGeneration) return;
+        this.hasSdkError = true;
+        console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`, {
+          millisecondsSinceLastMetrics: this.lastMetricsAtMs ? Math.round(performance.now() - this.lastMetricsAtMs) : null,
+          lastValidationHint: this.lastValidationHint,
+          cameraMode: '640x480',
+        });
+        this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
-        this.callbacks.onError(code, message);
+        const creditsExhausted = code === 4 && /credits? (have |has )?been exhausted|credits? exhausted/i.test(message);
+        const errorMessage = creditsExhausted
+          ? 'SmartSpectra measurement credits are exhausted. Camera control is unavailable until credits are restored.'
+          : this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message;
+        this.callbacks.onValidationChange(
+          creditsExhausted ? 'Measurement credits exhausted — reconnecting will not help' : 'Camera processing stopped — disconnect and reconnect to retry',
+          false,
+        );
+        this.callbacks.onChargeProgress(0);
+        this.callbacks.onError(code, errorMessage);
+        // Stop the frame pump after the SDK callback has returned.
+        // Do not destroy native resources synchronously inside the callback.
+        window.setTimeout(() => {
+          if (generation === this.sessionGeneration) void this.stop(true);
+        }, 0);
       });
 
-      await this.sdk.start();
-      this.isRunning = true;
-      this.callbacks.onStatusChange('tracking');
+      const sdk = this.sdk;
+      // Own capture explicitly rather than relying on SDK defaults.
+      // Use the lower-bandwidth mode from the first attempt. 720p adds
+      // processing pressure without improving the SDK's >=25 FPS requirement.
+      const cameraMode = { width: 640, height: 480, frameRate: 30 };
+      const cameraRequest = navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          width: { ideal: cameraMode.width },
+          height: { ideal: cameraMode.height },
+          frameRate: { ideal: cameraMode.frameRate, min: 25 },
+        },
+      });
+      this.cameraRequestPending = cameraRequest;
+      let stream: MediaStream;
+      try {
+        stream = await cameraRequest;
+      } finally {
+        if (this.cameraRequestPending === cameraRequest) this.cameraRequestPending = null;
+      }
+      if (this.sdk !== sdk || generation !== this.sessionGeneration) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      this.ownedCameraStream = stream;
+      const track = stream.getVideoTracks()[0];
+      if (!track || track.readyState !== 'live') {
+        throw new Error('Camera stopped before SmartSpectra could start.');
+      }
+      // Publish the actual captured stream immediately: some SDK failures
+      // occur before its later streamAvailable event is emitted.
+      this.callbacks.onStreamAvailable(stream);
+      track.addEventListener('ended', () => {
+        if (generation !== this.sessionGeneration || this.hasSdkError) return;
+        console.error('[Glimra/Camera] Camera track ended unexpectedly');
+        this.hasSdkError = true;
+        this.callbacks.onError(500, 'Camera disconnected or stopped. Check camera access before reconnecting.');
+        void this.stop(true);
+      }, { once: true });
+      const settings = stream.getVideoTracks()[0]?.getSettings();
+      console.info('[Glimra/Camera] explicit capture mode', {
+        requested: cameraMode,
+        actual: settings && { width: settings.width, height: settings.height, frameRate: settings.frameRate },
+        mode: 'low-bandwidth',
+      });
+      sdk.useMediaStream(stream);
+      const startOperation = sdk.start();
+      // A rejection must not prevent stop() from completing its cleanup.
+      const startSettled = startOperation.then(() => undefined, () => undefined);
+      this.sdkStartSettled = startSettled;
+      try {
+        await startOperation;
+      } finally {
+        if (this.sdkStartSettled === startSettled) this.sdkStartSettled = null;
+      }
+      if (this.sdk === sdk && !this.hasSdkError) {
+        this.isRunning = true;
+        // processingStatus is authoritative; start() resolving alone
+        // does not prove the native engine is processing frames.
+        if (!this.isSdkRunning) this.callbacks.onValidationChange('Waiting for SmartSpectra to start', false);
+      }
     } catch (err: any) {
+      // A user may have stopped the session while getUserMedia/start was
+      // pending. Do not turn that intentional cancellation into an error.
+      if (generation !== this.sessionGeneration) return;
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
+      this.hasSdkError = true;
       this.callbacks.onStatusChange('error');
       this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
-      await this.stop();
+      await this.stop(true);
+    } finally {
+      this.starting = false;
     }
   }
 
-  public async stop(): Promise<void> {
-    if (!this.sdk) return;
+  public async stop(preserveError = false): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    const sdk = this.sdk;
+    if (!sdk) return;
 
+    // Detach this instance first so another event cannot start a second teardown.
+    this.sdk = null;
+    ++this.sessionGeneration;
+    const ownedStream = this.ownedCameraStream;
+    this.ownedCameraStream = null;
+    const pendingStart = this.sdkStartSettled;
+    const pendingCameraRequest = this.cameraRequestPending;
+    this.isRunning = false;
+    this.calibrating = false;
+    this.calibrationBlinkStartUs = null;
+    this.isSdkRunning = false;
+    this.isValidated = false;
+    this.isPaused = false;
+    this.gestureEngine.reset();
+
+    const cleanup = async () => {
+      try {
+        // A permission prompt may still be open when the user disconnects.
+        // Wait for it to settle so the camera cannot be re-opened after stop.
+        if (pendingCameraRequest) {
+          try {
+            const lateStream = await pendingCameraRequest;
+            lateStream.getTracks().forEach(track => track.stop());
+          } catch {
+            // Permission denied/cancelled: no stream was acquired.
+          }
+        }
+        // Avoid racing native SDK initialization against SDK shutdown.
+        if (pendingStart) await pendingStart;
+        await sdk.stop();
+      } catch (err) {
+        console.warn('[Glimra] Error during SDK stop:', err);
+      } finally {
+        // Host-owned streams passed to useMediaStream are not released by
+        // SmartSpectra; stop our tracks after the SDK frame pump has stopped.
+        ownedStream?.getTracks().forEach(track => track.stop());
+        try {
+          // The renderer bridge documents destroy() as synchronous.
+          sdk.destroy();
+        } catch (err) {
+          console.warn('[Glimra] Error during SDK destroy:', err);
+        }
+        this.callbacks.onChargeProgress(0);
+        if (!preserveError) {
+          this.hasSdkError = false;
+          this.callbacks.onStatusChange('idle');
+          this.callbacks.onValidationChange('Camera idle', false);
+        }
+      }
+    };
+
+    this.stopPromise = cleanup();
     try {
-      this.gestureEngine.reset();
-      await this.sdk.stop();
-    } catch (err) {
-      console.warn('[Glimra] Error during SDK stop:', err);
+      await this.stopPromise;
     } finally {
-      this.sdk.destroy();
-      this.sdk = null;
-      this.isRunning = false;
-      this.callbacks.onStatusChange('idle');
-      this.callbacks.onValidationChange('Camera idle', false);
-      this.callbacks.onChargeProgress(0);
+      this.stopPromise = null;
     }
   }
 }

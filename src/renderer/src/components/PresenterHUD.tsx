@@ -18,10 +18,13 @@ export function PresenterHUD({
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && videoStream) {
-      videoRef.current.srcObject = videoStream;
-      videoRef.current.play().catch(() => {});
-    }
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = videoStream;
+    return () => {
+      // The SDK owns the tracks; the HUD only displays them.
+      video.srcObject = null;
+    };
   }, [videoStream, showPreview]);
 
   if (!camera.isActive) return null;
@@ -92,6 +95,7 @@ export function PresenterHUD({
         </div>
 
         <button
+          disabled={camera.status !== 'tracking' && camera.status !== 'paused'}
           onClick={onTogglePause}
           style={{
             padding: '2px 8px',
@@ -112,6 +116,12 @@ export function PresenterHUD({
         {camera.validationMessage}
       </div>
 
+      {/* Eye hold progress reaches ready at 100%; release completes the command. */}
+      {camera.status === 'tracking' && camera.faceDetected && (
+        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+          {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
+        </div>
+      )}
       {/* Visual charge indicator for prolonged intentional blink dwell */}
       {chargeRatio > 0 && (
         <div
@@ -179,6 +189,7 @@ export function PresenterHUD({
             <video
               ref={videoRef}
               muted
+              autoPlay
               playsInline
               poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
               style={{

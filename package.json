@@ -48,6 +48,7 @@
       "dist/**",
       "dist-electron/**",
       "node_modules/@smartspectra/node-sdk/**",
+      "!node_modules/@smartspectra/node-sdk-*/**",
       "!node_modules/@smartspectra/node-sdk/scripts/**",
       "!node_modules/@smartspectra/node-sdk/test/**",
       "!node_modules/@smartspectra/node-sdk/samples/**"
