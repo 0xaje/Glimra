@@ -395,15 +395,15 @@ export class SmartSpectraController {
 
     const cleanup = async () => {
       try {
-        // A permission prompt may still be open when the user disconnects.
-        // Wait for it to settle so the camera cannot be re-opened after stop.
+        // Never block disconnect on an unanswered browser camera permission
+        // prompt. If permission is granted after disconnect, release the
+        // late stream immediately; the generation check in start() also
+        // prevents it from being attached to the SDK.
         if (pendingCameraRequest) {
-          try {
-            const lateStream = await pendingCameraRequest;
-            lateStream.getTracks().forEach(track => track.stop());
-          } catch {
-            // Permission denied/cancelled: no stream was acquired.
-          }
+          void pendingCameraRequest.then(
+            lateStream => lateStream.getTracks().forEach(track => track.stop()),
+            () => undefined,
+          );
         }
         // Avoid racing native SDK initialization against SDK shutdown.
         if (pendingStart) await pendingStart;
