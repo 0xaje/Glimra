@@ -1,100 +1,46 @@
-# Glimra Release & Deployment Verification
+# Glimra — release and submission checklist
 
-This document guides the testing, security audit, and packaging process for Glimra.
+Updated November 9, 2026. An unchecked item is **not verified**. Build success does not substitute for a real-camera demonstration.
 
----
+## Working app and SDK
 
-## 1. Security & Credential Safeguards
+- [x] React/Electron PDF open, slide navigation, PDF-only vertical scroll, zoom, fullscreen and keyboard fallback are implemented.
+- [x] All automatic head commands originate from real native SmartSpectra facial landmarks. MediaPipe has been removed.
+- [x] Consent is required before native camera startup; raw frames and facial coordinates do not enter React IPC.
+- [x] Native SDK independently delivered 487 metrics packets / 416 stable face samples / 566 valid checks on the presenter's Windows webcam with no SDK errors.
+- [x] Presenter reports working native Presage head navigation, with remaining comfort improvements needed.
+- [ ] Full 5-minute live desktop run with no frozen gesture flow, false repeated page changes, or camera leaks after stop/reconnect.
+- [ ] Second-presenter handoff test confirms re-centering works without reconnecting or accidental slide changes.
+- [ ] Eyes mode demonstrates actual SmartSpectra blink detection. Previous independent diagnostic observed 0 blink starts; never claim this feature is verified until it works.
+- [ ] Prove the visible demo's slides change **because of real native Presage signals**, not keyboard shortcuts or unit-test fixtures.
 
-- [x] Zero hardcoded API keys or developer credentials in client source code.
-- [x] `.env` is strictly gitignored (`.env.example` provided with placeholder).
-- [x] Presage API keys are supplied by the end user via the Settings modal and persisted in local client storage.
-- [x] No cloud video streaming: all camera frames remain in local device memory.
-- [x] Camera hardware releases immediately when stopped or paused.
+## Security and privacy
 
----
+- [x] No plaintext API key storage fallback. Secure OS keychain required to persist secrets.
+- [x] Camera consent gate and sender-scoped Presage start/control IPC.
+- [x] SDK telemetry disabled via `enableTelemetry: false`.
+- [x] Privacy notice clarifies that Pause only disables gesture commands; Disconnect or Exit stops capture.
+- [ ] Review `sandbox: false` on Electron BrowserWindow; enable sandbox only after a real Windows compatibility check.
+- [ ] Verify no secrets, biometric arrays or camera frames leak in logs, submitted videos, CI artifacts or screenshot descriptions.
+- [ ] Check npm dependency vulnerabilities and verify lockfile reproducibility with `npm ci`.
 
-## 2. Hallmark Design System Compliance
+## Build/release
 
-Every frontend component in Glimra is audited with the mechanical Hallmark linter:
+- [x] Linux GitHub Actions compile, Hallmark lint and unit tests verified after Native Presage migration.
+- [x] Linux AppImage packaging has succeeded in CI; clean-machine startup not verified.
+- [ ] Windows CI produces and uploads unsigned NSIS installer successfully using `--publish never`.
+- [ ] Windows installer installed on a clean Windows machine; native worker, DLL loads, consent dialog and PDF gestures pass. An unsigned installer may show Windows security warnings.
+- [ ] Determine whether code signing and an installer icon are worth adding. They improve trust but are not mandatory for this challenge.
+- [ ] Package version and README setup instructions match the actual release.
 
-```bash
-node .agents/skills/hallmark/scripts/sloplint.mjs \
-  src/renderer/src/styles/globals.css \
-  src/renderer/src/App.tsx \
-  src/renderer/src/components/SlideViewer.tsx \
-  src/renderer/src/components/PresenterHUD.tsx
-```
+## Challenge submission
 
-**Verification Result:**
-`sloplint: clean. 0 FAIL, 0 REFLEX, 0 WARN across 4 file(s).`
+- [x] Project created during November 4–22 contest window (public repository created Nov 6, first commit Nov 7).
+- [x] Real Presage SDK is integral to Head control (rather than optional background telemetry).
+- [ ] Confirm individual eligibility and employer-policy compatibility; public repository timing alone does not prove all conditions.
+- [ ] Record a clear 60–90s live real-camera demo with SDK signal evidence, small natural head turns, PDF changes, a nod scroll and camera disconnect.
+- [ ] Include public repository, correct setup directions, limitations, privacy and telemetry disclosure.
+- [ ] Publish one English DEV post using the official submission template and `#presagechallenge` before Nov 22, 2026, 11:59 PM PST.
+- [ ] Enter Best Overall and Best Thoughtful Real-World Use; choose Most Creative only if the final presentation demonstrably supports that story.
 
-### Hallmark Design Floor Verification Checklist:
-- [x] All colors, typography, and spacing routed through `:root` CSS variables.
-- [x] Zero machine-tell gradients (no purple-to-blue gradients).
-- [x] Zero cards inside cards or fake activity tickers.
-- [x] Strict `:focus-visible` outline rings on all interactive elements.
-- [x] `overflow-x: clip` enforced on `html` and `body`.
-- [x] True typography hierarchy and full `@media (prefers-reduced-motion: reduce)` compliance.
-
----
-
-## 3. Automated Test Verification
-
-All 16 automated test cases across foundation, gesture engine, and presentation engine pass with zero failures:
-
-```bash
-$ npm test
-✔ Glimra Foundation — Core Documentation Suite (3.26ms)
-✔ Glimra Foundation — Security Audit (No Committed Credentials) (0.93ms)
-✔ Glimra Foundation — SmartSpectra SDK Native Export Surface (75.31ms)
-✔ Glimra Foundation — Build Artifacts Generated (0.38ms)
-✔ M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored (1.43ms)
-✔ M3 Gesture Engine: Unstable Biometric Samples Are Discarded (0.27ms)
-✔ M3 Gesture Engine: Non-monotonic & Stalled Timestamps Handled Safely (0.28ms)
-✔ M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide (0.56ms)
-✔ M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances (0.31ms)
-✔ M3 Gesture Engine: Verified Double Blink Triggers Previous Slide (0.39ms)
-✔ M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations (0.20ms)
-✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.51ms)
-✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.52ms)
-✔ M2 Presentation Engine: Real PDF Document Import & Page Count (86.69ms)
-✔ M2 Presentation Engine: Slide Navigation State Machine (0.46ms)
-✔ M2 Presentation Engine: Corrupted Buffer Error Handling (2.17ms)
-ℹ tests 16, suites 0, pass 16, fail 0
-```
-
----
-
-## 4. Production Build & Packaging Instructions
-
-### Development & Live Run
-```bash
-npm install
-npm run dev
-```
-
-### Production Bundling
-```bash
-npm run build
-```
-Generates:
-- `dist/index.html` — Optimized renderer entry.
-- `dist/assets/pdf.worker.min-*.mjs` — PDF.js background worker.
-- `dist/assets/index-*.js` — Minified React application bundle.
-- `dist-electron/main.js` — Main Electron process bundle.
-- `dist-electron/preload.js` — Preload bridge bundle.
-
-### Packaging Executables (Linux, Windows, macOS)
-```bash
-# Package for Linux (AppImage)
-npm run dist:linux
-
-# Package for Windows (NSIS Installer)
-npm run dist:win
-
-# Package for macOS (DMG)
-npm run dist:mac
-```
-
-*Note on Network Throttling in WSL2:* Packaging for target platforms via `electron-builder` requires fetching the prebuilt Electron binary archive (~100MB) from GitHub releases. In environments with heavily throttled GitHub asset connections, set `ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"` to accelerate download speeds.
+Current detailed findings: [CODEBASE_AUDIT_REPORT.md](CODEBASE_AUDIT_REPORT.md). Authoritative submission rules: https://dev.to/challenges/presage-2026-11-04/ and https://dev.to/page/official-hackathon-rules.
