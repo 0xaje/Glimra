@@ -49,7 +49,8 @@ export class DirectionalGestureEngine {
       if (nowMs - track.lastSeenAt > 450) this.tracks[source] = makeTrack();
       return null;
     }
-    if (track.last && nowMs - track.lastSeenAt > 450) this.tracks[source] = makeTrack();
+    // A long period without movement is normal during a presentation.
+    // Keep the neutral origin until tracking is actually lost.
     const current = this.tracks[source];
     current.lastSeenAt = nowMs;
     current.last = point;
