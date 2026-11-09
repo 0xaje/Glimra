@@ -4,7 +4,6 @@ import type { GestureControlMode } from '../engine/presageNativeController';
 
 interface PresenterHUDProps {
   camera: CameraState;
-  chargeRatio: number;
   onTogglePause: () => void;
   controlMode: GestureControlMode;
   trackingReady: boolean;
@@ -12,7 +11,6 @@ interface PresenterHUDProps {
 
 export function PresenterHUD({
   camera,
-  chargeRatio,
   onTogglePause,
   controlMode,
   trackingReady,
@@ -138,34 +136,9 @@ export function PresenterHUD({
         </div>
       )}
 
-      {/* Optional SmartSpectra eye mode only: hold and release blink. */}
-      {showDetails && camera.status === 'tracking' && controlMode === 'eyes' && camera.faceDetected && (
+      {showDetails && camera.status === 'tracking' && controlMode === 'eyes' && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-          {chargeRatio >= 1 ? 'Ready : open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
-        </div>
-      )}
-      {/* Visual charge indicator for prolonged intentional blink dwell */}
-      {showDetails && controlMode === 'eyes' && chargeRatio > 0 && (
-        <div
-          role="progressbar"
-          aria-valuenow={Math.round(chargeRatio * 100)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          style={{
-            width: '100%',
-            height: '3px',
-            backgroundColor: 'var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              width: `${Math.round(chargeRatio * 100)}%`,
-              height: '100%',
-              backgroundColor: 'var(--color-accent)',
-            }}
-          />
+          Eyes mode uses live Presage blink detection. Normal short blinks are ignored.
         </div>
       )}
 
