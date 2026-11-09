@@ -49,6 +49,8 @@ export function LiveGestureTracker({
     let hand: HandLandmarker | null = null;
     let lastInferenceAt = -Infinity;
     let lastVideoTime = -1;
+    let lastFrameAdvanceAt = performance.now();
+    let cameraStalled = false;
     const gestures = new DirectionalGestureEngine();
 
     const run = async () => {
@@ -97,13 +99,35 @@ export function LiveGestureTracker({
             return;
           }
           gestures.setPaused(false);
-          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
-          // Subtle head movements need more frequent samples, without
-          // running heavy model inference on every camera frame.
+          // A live MediaStreamTrack can still stop delivering frames after
+          // another consumer's SDK errors. Detect it; a model being loaded
+          // does NOT mean the camera is still actively delivering images.
+          const hasFrame = video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0;
+          const frameAdvanced = hasFrame && video.currentTime !== lastVideoTime;
+          if (frameAdvanced) {
+            lastVideoTime = video.currentTime;
+            lastFrameAdvanceAt = now;
+            if (cameraStalled) {
+              cameraStalled = false;
+              gestures.reset();
+              console.info('[Glimra/Gestures] Camera frames resumed');
+              readyRef.current?.(mode);
+            }
+          } else if (now - lastFrameAdvanceAt > 3500 && !cameraStalled) {
+            cameraStalled = true;
+            const track = stream.getVideoTracks()[0];
+            console.warn('[Glimra/Gestures] Camera frames stalled', {
+              trackState: track?.readyState, muted: track?.muted,
+              videoReadyState: video.readyState, videoPaused: video.paused,
+              videoTime: video.currentTime,
+            });
+            errorRef.current?.('Camera feed stalled. Head/hand tracking is waiting for live camera frames.');
+          }
+          if (!frameAdvanced || !enabledRef.current) return;
+          // Keep the already successful natural gesture sensitivity unchanged.
           const interval = mode === 'head' ? 155 : 190;
-          if (now - lastInferenceAt < interval || video.currentTime === lastVideoTime) return;
+          if (now - lastInferenceAt < interval) return;
           lastInferenceAt = now;
-          lastVideoTime = video.currentTime;
 
           try {
             if (mode === 'hand') {
