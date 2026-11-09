@@ -60,8 +60,11 @@ export class DirectionalGestureEngine {
     }
     const dx = point.x - current.origin.x;
     const dy = point.y - current.origin.y;
-    const threshold = source === 'head' ? 0.085 : 0.16;
-    const neutral = source === 'head' ? 0.035 : 0.065;
+    // Vertical nods are smaller than side-to-side head movements.
+    // Hand swipes have a broader range but still need a deliberate move.
+    const horizontalThreshold = source === 'head' ? 0.085 : 0.12;
+    const verticalThreshold = source === 'head' ? 0.045 : 0.12;
+    const neutral = source === 'head' ? 0.035 : 0.055;
     if (!current.armed) {
       if (Math.hypot(dx, dy) <= neutral) {
         if (current.neutralSince === null) current.neutralSince = nowMs;
@@ -78,7 +81,8 @@ export class DirectionalGestureEngine {
     // Axis dominance suppresses ambiguous diagonal movements.
     const horizontal = Math.abs(dx) > Math.abs(dy) * 1.35;
     const vertical = Math.abs(dy) > Math.abs(dx) * 1.35;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold || (!horizontal && !vertical)) return null;
+    if ((!horizontal || Math.abs(dx) < horizontalThreshold) &&
+        (!vertical || Math.abs(dy) < verticalThreshold)) return null;
     if (nowMs - this.lastCommandAt < 550) return null;
     current.armed = false;
     current.neutralSince = null;
