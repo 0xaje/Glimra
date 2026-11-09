@@ -199,6 +199,14 @@ ipcMain.handle('glimra:presage-control', (event, command: string, value: unknown
   } else if (command === 'calibration') {
     if (typeof value !== 'boolean') return false;
     presageChild.send({ type: 'calibration', enabled: value });
+  } else if (command === 'timing') {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as { minIntentionalBlinkMs?: number; maxIntentionalBlinkMs?: number; refractoryCooldownMs?: number };
+    const min = Number(v.minIntentionalBlinkMs);
+    const max = Number(v.maxIntentionalBlinkMs);
+    const cooldown = Number(v.refractoryCooldownMs);
+    if (![min, max, cooldown].every(Number.isFinite) || min < 300 || min > 1200 || max < min + 100 || max > 2500 || cooldown < 500 || cooldown > 3000) return false;
+    presageChild.send({ type: 'timing', min, max, cooldown });
   } else return false;
   return true;
 });
