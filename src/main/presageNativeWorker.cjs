@@ -22,6 +22,8 @@ let starting = false;
 let closing = false;
 let mode = 'head';
 let paused = false;
+let calibrating = false;
+let blinkTiming = { min: 400, max: 1800, cooldown: 800 };
 let sdkRunning = false;
 let lastValid = 0;
 let lastLandmarkTimestamp = 0;
@@ -59,14 +61,18 @@ function processBlink(samples) {
       const heldMs = (ts - blinkStartedAt) / 1000;
       blinkStartedAt = null;
       const now = Date.now();
+      if (calibrating) {
+        if (heldMs >= 250 && heldMs <= 2500) emit('calibration', { durationMs: Math.round(heldMs) });
+        continue;
+      }
       // Explicit long intentional blink advances, normal quick blinks do not.
-      if (heldMs >= 400 && heldMs <= 1800 && now - lastCommandAt >= 800) {
+      if (heldMs >= blinkTiming.min && heldMs <= blinkTiming.max && now - lastCommandAt >= blinkTiming.cooldown) {
         lastCommandAt = now;
         emit('gesture', { direction: 'right', source: 'blink', label: 'Long blink' });
         lastQuickBlinkAt = -Infinity;
       } else if (heldMs >= 70 && heldMs < 350) {
         // Two distinct short blinks within 650ms = previous slide.
-        if (now - lastQuickBlinkAt >= 130 && now - lastQuickBlinkAt <= 650 && now - lastCommandAt >= 800) {
+        if (now - lastQuickBlinkAt >= 130 && now - lastQuickBlinkAt <= 650 && now - lastCommandAt >= blinkTiming.cooldown) {
           lastCommandAt = now;
           emit('gesture', { direction: 'left', source: 'blink', label: 'Double blink' });
           lastQuickBlinkAt = -Infinity;
@@ -204,6 +210,19 @@ process.on('message', (message) => {
     lastBlinkDetected = false;
     lastQuickBlinkAt = -Infinity;
     emit('mode', { mode });
+  } else if (message.type === 'timing') {
+    const min = Number(message.min), max = Number(message.max), cooldown = Number(message.cooldown);
+    if (Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(cooldown) &&
+        min >= 300 && min <= 1200 && max >= min + 100 && max <= 2500 &&
+        cooldown >= 500 && cooldown <= 3000) {
+      blinkTiming = { min, max, cooldown };
+      blinkStartedAt = null;
+      lastBlinkDetected = false;
+    }
+  } else if (message.type === 'calibration') {
+    calibrating = message.enabled === true;
+    blinkStartedAt = null;
+    lastBlinkDetected = false;
   } else if (message.type === 'pause') {
     paused = Boolean(message.paused);
     head.reset();
