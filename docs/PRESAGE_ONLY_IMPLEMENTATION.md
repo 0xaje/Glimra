@@ -29,11 +29,13 @@ Sources:
 - https://presagetech.com/docs/smartspectra-sdk/data-types
 - https://presagetech.com/docs/smartspectra-sdk/model-cards-and-limitations
 
-## Why the current product must change
+## What has been verified and changed (November 9, 2026)
 
-The current default Head/Hands flow opens `getUserMedia()` in the renderer and gets commands from `@mediapipe/tasks-vision`. SmartSpectra is started only in the optional Eyes mode. This is a valid general-purpose desktop experience, but **the default head navigation is NOT powered by Presage** and must not be submitted as such.
+The independent *real native Presage SDK* test on the presenter's Windows webcam returned **487 decoded packets, 416 stable 478-point facial-landmark samples, 566 valid quality checks, no low-frame-rate warnings, no processing errors**, and genuine face movement (0.539 horizontal / 0.266 vertical face widths). It reported **0 detected blink starts**; Eyes is not yet proven.
 
-The Electron renderer-based SmartSpectra path repeatedly received low-FPS code 11 and processing error 8. Yet **the same computer's native Node SmartSpectra camera path was successful**: 495 metrics callbacks, 508 valid SDK checks, no low-FPS warnings, no SDK errors. This suggests testing the native camera path first, not adding more concurrent frame processors.
+The old renderer camera capture / MediaPipe head and hand tracker has now been **removed from the active code and package dependencies**. A dedicated native Node child process uses the official `@smartspectra/node-sdk` and `useCamera(CameraSelection.default)` instead. Only SDK-derived head direction, blink commands and status travel to React via bounded Electron IPC. The PDF viewer and keyboard navigation are unchanged.
+
+**Important:** The SDK's native standalone success does not prove the new Electron-child integration works on Windows. Real Windows run and packaging verification remain necessary. The previously observed Electron renderer low-FPS error 11 / processing error 8 is avoided architecturally by no longer using the browser frame transfer route.
 
 ## Target architecture (Presage-only sensing)
 
@@ -54,25 +56,27 @@ Camera (with explicit user permission)
 
 Use the **native camera capture path**, which worked in the user's independent Windows test, rather than the frame-hungry renderer `MediaStreamTrackProcessor` + `OffscreenCanvas` + IPC pixel pump. The official docs support `@smartspectra/node-sdk` with `useCamera(CameraSelection.default)` in Node/Electron and explicitly note extra renderer-to-main frame-transfer latency.
 
-**Important:** Running the native SDK inside Electron's main process is not identical to standalone Node, so still test it on Windows before calling it a fix. Prefer a dedicated supervised native Node child process if the Electron main process cannot reliably handle long capture, while still using the official SDK end-to-end. Do not open an additional webcam capture/MediaPipe loop to feed head gestures.
+**Important:** Glimra now uses a dedicated native Node child process, not Electron's renderer or main-thread frame pump. This is implemented but still requires Windows hardware verification. Do not run another browser camera/MediaPipe loop to power gestures.
 
-## Safe delivery order
+## Delivery verification
 
-- [x] Independently verify real native SDK processing on the user's hardware (previously successful).
-- [x] Add `scripts/check-presage-live-facial-signals.cjs` to verify real `face.landmarks[].value`, stability, blinks, and comfortable movement ranges without MediaPipe. **Script added; real output still pending.**
-- [ ] Verify that script on the user's Windows webcam. Confirm genuine decoded landmark points and timing; do not assume SDK's point order equals MediaPipe's.
-- [ ] Implement a native-SDK-only capture service and small secure IPC bridge. Never log the API key, full face coordinates or raw frames. Stop/restart safely.
-- [ ] Feed actual Presage landmark packets into a simple, tested head-motion interpreter. Maintain PDF-only up/down scrolling, single-trigger/re-arm, and gentle threshold behavior.
-- [ ] Drive blink commands only from actual SDK blink samples; keep SmartSpectra always active in the automatic-gesture mode.
-- [ ] Remove `@mediapipe/tasks-vision` and all `LiveGestureTracker` runtime imports; remove or clearly disable unsupported hand-tracking claims.
-- [ ] Verify `npm run build` and `npm test` on Windows; run 5+ minutes of real slides and scrolling on live camera without restarting. Record SDK metrics/validation, actual actions and any errors.
-- [ ] Make demo show **one actual SDK packet -> recognized signal -> immediate PDF interaction**. Add a short user-facing diagnostic showing the SDK signal source, without raw physiological data.
-- [ ] Update README, Guide, privacy disclosure and challenge submission to make only truthful verified statements.
+- [x] Prove genuine SmartSpectra native capture on the same Windows webcam; no dependency on MediaPipe.
+- [x] Verify 478-point facial landmark payload, stable flags and real head movement ranges: **416 stable samples**, **0 SDK errors**.
+- [x] Implement native SDK capture in `src/main/presageNativeWorker.cjs` and mathematical head interpreter in `src/main/presageHeadMotion.cjs`.
+- [x] Bridge **only** derived command/status/count events through permission-gated Electron IPC; never send video or raw coordinates.
+- [x] Render PDF page navigation and scroll exclusively from SDK-derived commands; retain keyboard fallback.
+- [x] Remove old MediaPipe runtime code, dependency, and unsupported hand mode.
+- [x] Implement Eyes control from genuine SDK blinking samples (actual real-world blinking response remains unverified).
+- [x] Update README, Guide and consent disclosure for native camera capture and Presage.
+- [ ] Confirm latest GitHub CI build and unit tests both pass; verify Windows installer contains worker source.
+- [ ] Test a 5+ minute **Windows in-app native-SDK session**. Prove gentle head left/right and up/down commands, rearming, disconnect/stop, and no low-FPS/error 8 regression.
+- [ ] Test actual SDK blink detection separately; prior 20-second diagnostic observed **0 blink starts**. Do not assert working Eyes until real blinks are observed.
+- [ ] Record a truthful demo showing Presage metric source, real head movement, and immediate PDF effect. Never label mathematical unit-test data or keyboard control as SDK measurements.
 
 ## Pass/fail acceptance
 
-**PASS:** Presage is running; real face landmarks are received; a gentle head turn changes exactly one slide, an up/down nod scrolls only the current PDF page, a real blink controls an optional action, and no alternate sensing library is involved.
+**PASS for Presage-driven head navigation:** native SmartSpectra is running with real stable face landmarks; gentle turns change exactly one slide; up/down nods scroll only the current PDF page; no alternate sensing library drives automatic actions. **Eyes is an optional additional feature and must be verified separately before showing it in the demo.**
 
 **FAIL:** Slides move while Presage SDK is disabled/unavailable, the only meaningful gestures are MediaPipe-driven, or the demo merely shows an API key while another detector drives the actions.
 
-**Do not describe current Glimra as Presage-only or fully challenge-compliant until the above integration and real hardware tests are completed.**
+**The code is now Presage-only for automatic gesture sensing. Do not describe the full desktop product as hardware-verified or ready to submit until the new Windows integration test and CI checks have passed.**
