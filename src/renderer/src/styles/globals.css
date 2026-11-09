@@ -164,9 +164,6 @@ button:active:not(:disabled){filter:brightness(.94)}
 .panel-field label{font-weight:600;font-size:13px}
 .panel-field p{color:var(--color-text-secondary);font-size:13px;margin:0;line-height:1.55}
 
-.camera-preview{height:190px;background:var(--color-bg-base);border:1px solid var(--color-border-subtle);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);color:var(--color-text-muted);font-size:12px;text-align:center;padding:var(--space-4);overflow:hidden;position:relative}
-.camera-preview-video{width:100%;height:100%;object-fit:contain;transform:scaleX(-1);background:var(--color-bg-base)}
-
 .sensitivity-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}
 .sensitivity-options button{border:1px solid var(--color-border-subtle);border-radius:8px;background:transparent;padding:var(--space-3) var(--space-1);font-size:12px;min-height:65px;transition:background-color .15s,border-color .15s}
 .sensitivity-options button:hover{background:var(--color-bg-elevated)}
