@@ -44,6 +44,9 @@ export class SmartSpectraController {
   private lastValidationHint = '';
   private sessionGeneration = 0;
   private ownedCameraStream: MediaStream | null = null;
+  // Separate browser track for the SDK, so SDK stop/destroy cannot directly
+  // end the original track that feeds MediaPipe head/hand navigation.
+  private sdkInputStream: MediaStream | null = null;
   private starting = false;
   private cameraRequestPending: Promise<MediaStream> | null = null;
   private calibrating = false;
@@ -375,7 +378,12 @@ export class SmartSpectraController {
         actual: settings && { width: settings.width, height: settings.height, frameRate: settings.frameRate },
         mode: 'low-bandwidth',
       });
-      sdk.useMediaStream(stream);
+      // Give SmartSpectra its own clone, NOT the presenter-controlled track.
+      // If the SDK's renderer frame pump fails, its stop/destroy lifecycle
+      // must not own the MediaStreamTrack used by the gesture detector.
+      const sdkInput = new MediaStream([track.clone()]);
+      this.sdkInputStream = sdkInput;
+      sdk.useMediaStream(sdkInput);
       const startOperation = sdk.start();
       // A rejection must not prevent stop() from completing its cleanup.
       const startSettled = startOperation.then(() => undefined, () => undefined);
@@ -426,6 +434,8 @@ export class SmartSpectraController {
     this.isSdkRunning = false;
     this.isValidated = false;
     const pendingStart = this.sdkStartSettled;
+    const sdkInputStream = this.sdkInputStream;
+    this.sdkInputStream = null;
     const cleanup = (async () => {
       try {
         if (pendingStart) await pendingStart;
@@ -433,8 +443,17 @@ export class SmartSpectraController {
       } catch (error) {
         console.warn('[Glimra/SmartSpectra] SDK-only shutdown warning:', error);
       } finally {
+        // Releasing SDK's cloned track must not release the original track.
+        sdkInputStream?.getTracks().forEach(track => track.stop());
         try { sdk.destroy(); }
         catch (error) { console.warn('[Glimra/SmartSpectra] SDK destroy warning:', error); }
+        const original = this.ownedCameraStream?.getVideoTracks()[0];
+        console.info('[Glimra/Camera] after SDK-only shutdown', {
+          originalReadyState: original?.readyState,
+          originalMuted: original?.muted,
+          originalEnabled: original?.enabled,
+          sdkTrackReleased: sdkInputStream?.getVideoTracks()[0]?.readyState,
+        });
       }
     })();
     this.sdkShutdownPromise = cleanup;
@@ -454,6 +473,8 @@ export class SmartSpectraController {
     ++this.sessionGeneration;
     const ownedStream = this.ownedCameraStream;
     this.ownedCameraStream = null;
+    const sdkInputStream = this.sdkInputStream;
+    this.sdkInputStream = null;
     const pendingStart = this.sdkStartSettled;
     const pendingSdkShutdown = this.sdkShutdownPromise;
     const pendingCameraRequest = this.cameraRequestPending;
@@ -484,8 +505,9 @@ export class SmartSpectraController {
       } catch (err) {
         console.warn('[Glimra] Error during SDK stop:', err);
       } finally {
-        // Host-owned streams passed to useMediaStream are not released by
-        // SmartSpectra; stop our tracks after the SDK frame pump has stopped.
+        // Release the SDK clone first; only explicit Disconnect stops the
+        // original camera tracks used by local head/hand tracking.
+        sdkInputStream?.getTracks().forEach(track => track.stop());
         ownedStream?.getTracks().forEach(track => track.stop());
         try {
           // The renderer bridge documents destroy() as synchronous.
