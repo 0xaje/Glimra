@@ -80,7 +80,10 @@ export class SmartSpectraController {
     this.gestureEngine.setPaused(paused);
     this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
     this.callbacks.onValidationChange(
-      paused ? 'Paused by presenter' : this.hasSdkError ? 'Head and hand controls ready — SmartSpectra signal unavailable' : 'Waiting for a valid face signal',
+      paused ? 'Paused by presenter'
+        : this.hasSdkError ? 'SmartSpectra unavailable; local camera still connected'
+        : this.sdk ? 'Waiting for a valid SmartSpectra face signal'
+        : 'Local head/hand tracking active (SmartSpectra is off in this mode)',
       !paused && this.isValidated,
     );
   }
