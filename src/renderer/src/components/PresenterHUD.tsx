@@ -1,11 +1,10 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CameraState } from '../types';
-import type { GestureControlMode } from './LiveGestureTracker';
+import type { GestureControlMode } from '../engine/presageNativeController';
 
 interface PresenterHUDProps {
   camera: CameraState;
   chargeRatio: number;
-  videoStream: MediaStream | null;
   onTogglePause: () => void;
   controlMode: GestureControlMode;
   trackingReady: boolean;
@@ -14,13 +13,10 @@ interface PresenterHUDProps {
 export function PresenterHUD({
   camera,
   chargeRatio,
-  videoStream,
   onTogglePause,
   controlMode,
   trackingReady,
 }: PresenterHUDProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [, refreshGestureFeedback] = useState(0);
 
@@ -31,15 +27,6 @@ export function PresenterHUD({
     return () => window.clearTimeout(id);
   }, [camera.lastGesture]);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.srcObject = videoStream;
-    return () => {
-      // The SDK owns the tracks; the HUD only displays them.
-      video.srcObject = null;
-    };
-  }, [videoStream, showPreview]);
 
   if (!camera.isActive) return null;
 
@@ -102,7 +89,7 @@ export function PresenterHUD({
           </span>
           <span style={{ fontSize: '13px', fontWeight: 500 }}>
             {camera.status === 'tracking'
-              ? (controlMode === 'eyes' ? 'Eye control' : trackingReady ? (controlMode === 'hand' ? 'Hands ready' : 'Head ready') : 'Starting gestures…')
+              ? (controlMode === 'eyes' ? 'Eye control' : trackingReady ? 'Presage head ready' : 'Starting gestures…')
               : camera.status === 'paused'
               ? 'Paused'
               : camera.status === 'initializing'
@@ -113,7 +100,7 @@ export function PresenterHUD({
 
         <button
           type="button"
-          onClick={() => { setShowDetails(value => !value); setShowPreview(false); }}
+          onClick={() => { setShowDetails(value => !value); }}
           aria-expanded={showDetails}
           style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--color-text-secondary)' }}
         >{showDetails ? 'Less' : 'Details'}</button>
@@ -145,9 +132,9 @@ export function PresenterHUD({
         </div>
       ) : null}
 
-      {showDetails && camera.status === 'tracking' && controlMode !== 'eyes' && trackingReady && (
+      {showDetails && camera.status === 'tracking' && controlMode === 'head' && trackingReady && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-          {controlMode === 'hand' ? 'Open hand: left/right = slides, up/down = scroll' : 'Small head moves: left/right = slides, up/down = scroll'}
+          Gentle Presage head gestures: left/right = slides, up/down = scroll
         </div>
       )}
 
@@ -195,48 +182,12 @@ export function PresenterHUD({
         </div>
       )}
 
-      {/* Align Camera Toggle & Mini Video Preview */}
-      {showDetails && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
-        <button
-          onClick={() => setShowPreview((prev) => !prev)}
-          style={{
-            fontSize: '11px',
-            color: 'var(--color-text-muted)',
-            textAlign: 'left',
-            padding: 0,
-          }}
-        >
-          {showPreview ? 'Hide camera alignment' : 'Show camera alignment'}
-        </button>
-
-        {showPreview && videoStream && (
-          <div
-            style={{
-              width: '100%',
-              height: '110px',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-              backgroundColor: 'var(--color-bg-base)',
-              border: '1px solid var(--color-border-subtle)',
-              position: 'relative',
-            }}
-          >
-            <video
-              ref={videoRef}
-              muted
-              autoPlay
-              playsInline
-              poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                transform: 'scaleX(-1)', // Mirror view for natural presenter alignment
-              }}
-            />
-          </div>
-        )}
-      </div>}
+      {showDetails && (
+        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+          Source: Presage SmartSpectra native camera (real SDK data).
+          Camera frames and face coordinates are not sent to this screen.
+        </div>
+      )}
     </aside>
   );
 }
