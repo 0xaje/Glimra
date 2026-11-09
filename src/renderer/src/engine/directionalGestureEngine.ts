@@ -7,7 +7,7 @@
 export type Direction = 'left' | 'right' | 'up' | 'down';
 export type GestureSource = 'head' | 'hand';
 export type MotionCommand = { source: GestureSource; direction: Direction };
-export type TrackedPoint = { x: number; y: number; confidence: number };
+export type TrackedPoint = { x: number; y: number; confidence: number; faceWidth?: number };
 
 type TrackState = {
   origin: TrackedPoint | null;
@@ -62,9 +62,22 @@ export class DirectionalGestureEngine {
     const dy = point.y - current.origin.y;
     // Vertical nods are smaller than side-to-side head movements.
     // Hand swipes have a broader range but still need a deliberate move.
-    const horizontalThreshold = source === 'head' ? 0.085 : 0.12;
-    const verticalThreshold = source === 'head' ? 0.045 : 0.12;
-    const neutral = source === 'head' ? 0.035 : 0.055;
+    // The original position tracker worked on the user's camera but had
+    // fixed thresholds that made distant presenters move too far.
+    // Adjust only HEAD thresholds based on real eye-to-eye image width.
+    // Tests and callers without faceWidth retain the original values.
+    const size = source === 'head' && Number.isFinite(point.faceWidth) && (point.faceWidth ?? 0) >= 0.05
+      ? point.faceWidth!
+      : null;
+    const horizontalThreshold = source === 'head'
+      ? (size === null ? 0.085 : Math.max(0.028, Math.min(0.07, size * 0.19)))
+      : 0.12;
+    const verticalThreshold = source === 'head'
+      ? (size === null ? 0.045 : Math.max(0.022, Math.min(0.055, size * 0.155)))
+      : 0.12;
+    const neutral = source === 'head'
+      ? (size === null ? 0.035 : Math.max(0.012, Math.min(0.03, size * 0.09)))
+      : 0.055;
     if (!current.armed) {
       if (Math.hypot(dx, dy) <= neutral) {
         if (current.neutralSince === null) current.neutralSince = nowMs;
@@ -79,8 +92,9 @@ export class DirectionalGestureEngine {
       return null;
     }
     // Axis dominance suppresses ambiguous diagonal movements.
-    const horizontal = Math.abs(dx) > Math.abs(dy) * 1.35;
-    const vertical = Math.abs(dy) > Math.abs(dx) * 1.35;
+    const axisRatio = source === 'head' ? 1.18 : 1.35;
+    const horizontal = Math.abs(dx) > Math.abs(dy) * axisRatio;
+    const vertical = Math.abs(dy) > Math.abs(dx) * axisRatio;
     if ((!horizontal || Math.abs(dx) < horizontalThreshold) &&
         (!vertical || Math.abs(dy) < verticalThreshold)) return null;
     if (nowMs - this.lastCommandAt < 550) return null;
