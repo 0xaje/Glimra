@@ -1,3 +1,9 @@
+# Historical SDK verification notice
+
+**Current status:** Glimra now uses the native Presage Node child process and facial landmarks for head presentation. The independent real SDK session produced 487 metrics packets, 416 stable facial-landmark samples, 566 valid readings and 0 SDK errors on November 9, 2026. Old renderer/MediaPipe instructions below are retained only as history. Current verification and remaining gates are in [the release checklist](RELEASE_CHECKLIST.md) and [audit](CODEBASE_AUDIT_REPORT.md).
+
+---
+
 # SmartSpectra SDK Verification & Empirical Feasibility Report
 
 ## 1. Native Environment & Binary Execution
