@@ -58,14 +58,14 @@ export function PresenterHUD({
         flexDirection: 'column',
         gap: '8px',
         zIndex: 50,
-        width: showDetails ? '300px' : '260px',
+        width: showDetails ? '310px' : '275px',
         maxWidth: 'calc(100% - 32px)',
         boxSizing: 'border-box',
         overflowWrap: 'anywhere',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '5px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
@@ -102,7 +102,7 @@ export function PresenterHUD({
           </span>
           <span style={{ fontSize: '13px', fontWeight: 500 }}>
             {camera.status === 'tracking'
-              ? (controlMode === 'eyes' ? 'Eye control' : trackingReady ? (controlMode === 'hand' ? 'Hand control ready' : 'Head control ready') : 'Starting gestures…')
+              ? (controlMode === 'eyes' ? 'Eye control' : trackingReady ? (controlMode === 'hand' ? 'Hands ready' : 'Head ready') : 'Starting gestures…')
               : camera.status === 'paused'
               ? 'Paused'
               : camera.status === 'initializing'
