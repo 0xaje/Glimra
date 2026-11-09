@@ -15,7 +15,7 @@ export function readFacePose(points: readonly FacePoint[]): FacePose | null {
   const nose = points[1];
   const eyeA = points[33];
   const eyeB = points[263];
-  if (![nose, eyeA, eyeB].every(finite)) return null;
+  if (!finite(nose) || !finite(eyeA) || !finite(eyeB)) return null;
 
   // Sort by image x, avoiding assumptions about flipped camera previews.
   const left = eyeA.x < eyeB.x ? eyeA : eyeB;
