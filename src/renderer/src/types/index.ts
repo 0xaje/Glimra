@@ -6,7 +6,7 @@ export interface PresentationState {
   isFullscreen: boolean;
 }
 
-export type GestureType = 'none' | 'prolonged-blink' | 'double-blink' | 'hand-swipe' | 'head-motion';
+export type GestureType = 'prolonged-blink' | 'double-blink' | 'head-motion';
 
 export interface GestureFeedback {
   type: GestureType;
