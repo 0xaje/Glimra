@@ -122,6 +122,7 @@ export default function App() {
       onPrevSlide: () => slideActionsRef.current.prev(),
       onScroll: (direction) => window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction } })),
       onSensorReady: () => { setGestureTrackingReady(true); setGestureTrackingError(null); },
+      onSensorLost: () => { setGestureTrackingReady(false); },
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
         setCamera((prev) => ({ ...prev, validationMessage, faceDetected })),
@@ -497,7 +498,7 @@ export default function App() {
             <div className="footer-group footer-center">
               <button className={`camera-status ${camera.status==='tracking'&&camera.faceDetected?'tracking':''}`} onClick={() => setShowCameraSetup(true)}>
                 {camera.isActive && camera.status==='tracking'?<Camera size={16}/>:<CameraOff size={16}/>}
-                <span>{camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':camera.isActive && camera.status==='tracking' ? (gestureMode==='eyes' ? (camera.faceDetected ? 'Eye control ready' : 'Waiting for eye signal') : gestureTrackingReady ? 'Hands-free ready' : 'Starting head/hand tracking…') : 'Hands-free off'}</span>
+                <span>{camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':camera.isActive && camera.status==='tracking' ? (gestureTrackingReady ? (gestureMode==='eyes' ? 'Presage eyes ready' : 'Presage head ready') : 'Looking for one face…') : 'Hands-free off'}</span>
               </button>
             </div>
             <div className="footer-group">
@@ -513,6 +514,13 @@ export default function App() {
           <p className="panel-description" id="camera-setup-description">Move your head gently to control the PDF. Left or right changes slides; up or down scrolls the current page. No need to face the camera perfectly.</p>
           <div className="panel-field"><p>Native Presage camera runs in a separate process. Camera frames stay in the SDK; Glimra receives verified gesture commands and signal status, not a video preview.</p></div>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
+          {camera.isActive && gestureMode === 'head' && (
+            <button type="button" className="text-button"
+              onClick={() => { void controllerRef.current?.recenter(); }}>
+              Recenter for a new presenter
+            </button>
+          )}
+          <p className="panel-description">Glimra learns a new person's natural position when the previous face leaves the camera. If tracking feels stuck, use Recenter once. Only one face should be in view.</p>
           <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => changeGestureMode(option)}>{option === 'head' ? 'Head (default)' : 'Eyes'}</button>)}</div><p>Both controls use live Presage SmartSpectra signals. Head uses 478-point facial landmarks; Eyes uses blink detection. A Presage API key is required.</p></div>
           {gestureMode === 'eyes' && (
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
@@ -572,14 +580,14 @@ export default function App() {
 
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
               Glimra lets you present a PDF without touching your computer.
-              <strong> Gentle head movements are the default.</strong> Both Head and Eyes use genuine live Presage SmartSpectra signals, not MediaPipe.
+              <strong> Gentle head movements are the default.</strong> Both Head and Eyes use genuine live Presage SmartSpectra signals. A new presenter should step into view alone; Glimra will adjust to their resting position.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Head : default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  SmartSpectra’s real facial landmarks power head control. Make a small comfortable turn left or right to change slides, or nod up or down to scroll inside the current page. Return to your relaxed pose between moves.
+                  SmartSpectra’s real facial landmarks power head control. Make a gentle turn left or right to change slides, or nod up or down to scroll. You can change presenters: let the previous face leave the camera, then the next person steps into view. The camera setup also has Recenter if needed.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
