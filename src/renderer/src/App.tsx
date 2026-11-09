@@ -705,7 +705,7 @@ export default function App() {
                 }}
               />
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                Encrypted via OS safeStorage. Never sent to third parties or logged.
+                Stored using OS safeStorage. The SmartSpectra SDK uses this key for Presage access; Glimra does not log it.
               </p>
             </div>
 
@@ -902,8 +902,8 @@ export default function App() {
               Camera access & privacy
             </h2>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              Glimra uses your camera exclusively to detect intentional eye gestures (prolonged
-              blinks) to control slide transitions.
+              Glimra uses your camera for hand swipes by default. You can choose head movements
+              or optional SmartSpectra eye control in Settings.
             </p>
             <ul
               style={{
@@ -915,9 +915,9 @@ export default function App() {
                 gap: '8px',
               }}
             >
-              <li>Video frames are processed in local device memory and are never saved to disk.</li>
-              <li>No video or audio is streamed to external cloud servers.</li>
-              <li>The camera turns off immediately when you pause, disable, or exit.</li>
+              <li>Glimra processes camera frames on your device and does not save them to disk.</li>
+              <li>SmartSpectra uses genuine live signals and may send SDK telemetry according to Presage settings and policies.</li>
+              <li>Pausing stops gesture commands; disconnecting or exiting turns off the camera.</li>
               <li>Physical keyboard shortcuts always remain functional.</li>
             </ul>
 
