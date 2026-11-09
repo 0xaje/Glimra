@@ -92,3 +92,29 @@ test('no head navigation is triggered by tiny landmark jitter', () => {
     assert.equal(engine.observe('head', head(.5 + (time % 300 ? .006 : -.006), .5), time), null);
   }
 });
+
+test('head can rearm after a relaxed return without matching the exact old pixel position', () => {
+  const engine = new DirectionalGestureEngine();
+  const head = x => ({ x, y: .5, confidence: 1, faceWidth: .12 });
+  engine.observe('head', head(.5), 0);
+  assert.deepEqual(engine.observe('head', head(.536), 200),
+    { source: 'head', direction: 'right' });
+  assert.equal(engine.observe('head', head(.536), 800), null, 'holding a turn cannot repeat');
+  // Return naturally to .52, close to center but not the exact .50 baseline.
+  // Old engine stayed permanently disarmed here (its radius was only .012).
+  assert.equal(engine.observe('head', head(.520), 1000), null);
+  assert.equal(engine.observe('head', head(.520), 1250), null);
+  assert.deepEqual(engine.observe('head', head(.553), 1550),
+    { source: 'head', direction: 'right' });
+});
+
+test('head does not rearm or repeat when the presenter keeps holding a turn', () => {
+  const engine = new DirectionalGestureEngine();
+  const head = x => ({ x, y: .5, confidence: 1, faceWidth: .12 });
+  engine.observe('head', head(.5), 0);
+  assert.deepEqual(engine.observe('head', head(.54), 200),
+    { source: 'head', direction: 'right' });
+  for (let now = 400; now <= 5000; now += 200) {
+    assert.equal(engine.observe('head', head(.54), now), null);
+  }
+});
