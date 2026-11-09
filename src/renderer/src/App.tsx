@@ -7,6 +7,8 @@ import { SlideThumbnail } from './components/SlideThumbnail';
 import { CameraPreview } from './components/CameraPreview';
 import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
+import { LiveGestureTracker } from './components/LiveGestureTracker';
+import type { MotionCommand } from './engine/directionalGestureEngine';
 import { audioFeedback } from './utils/audioChime';
 
 type GestureSensitivity = 'quick' | 'balanced' | 'relaxed' | 'custom';
@@ -445,6 +447,17 @@ export default function App() {
         <section className="studio-center">
           {!presentation.isFullscreen && presentation.isLoaded && !showSlides && <button className="restore-rail" onClick={() => setShowSlides(true)}><PanelLeftOpen size={16}/> Show slides</button>}
           <div className={`studio-stage ${presentation.isLoaded?'has-presentation':''}`}>
+            <LiveGestureTracker
+              stream={videoStream}
+              enabled={camera.isActive && camera.status !== 'paused' && camera.status !== 'error'}
+              onCommand={(command: MotionCommand) => {
+                if (!presentation.isLoaded) return;
+                if (command.direction === 'right') slideActionsRef.current.next();
+                else if (command.direction === 'left') slideActionsRef.current.prev();
+                else window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction: command.direction } }));
+              }}
+              onTrackingError={(message) => console.error('[Glimra/Gestures]', message)}
+            />
             <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause}/>
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
