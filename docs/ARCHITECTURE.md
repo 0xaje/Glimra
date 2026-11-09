@@ -1,102 +1,49 @@
-# ARCHITECTURE.md — Glimra System Architecture
+# Glimra architecture — current implementation
 
-## 1. System Overview
+Updated November 9, 2026. This file describes **the active code**. Earlier browser-frame/MediaPipe experiments have been retired.
 
-Glimra is a hands-free desktop presentation tool built with Electron, React, TypeScript, and Vite, leveraging the Presage SmartSpectra SDK for contact-free optical physiological and facial detection.
+## One real sensing pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             Glimra Desktop App                              │
-├──────────────────────────────────────┬──────────────────────────────────────┤
-│           Renderer Process           │             Main Process             │
-│  (React UI + PDF Presentation View)  │         (Electron Host / FFI)        │
-├──────────────────────────────────────┼──────────────────────────────────────┤
-│                                      │                                      │
-│  ┌──────────────────────────────┐    │    ┌────────────────────────────┐    │
-│  │   Presentation Engine (PDF)  │    │    │   Electron BrowserWindow   │    │
-│  │   - pdfjs-dist renderer      │    │    │   - Window management      │    │
-│  │   - Fullscreen controller    │    │    │   - Origin permission gate │    │
-│  │   - Keyboard fallback        │    │    │   - safeStorage encryption │    │
-│  └──────────────┬───────────────┘    │    └─────────────┬──────────────┘    │
-│                 │                    │                  │                   │
-│  ┌──────────────▼──────────────┐     │                  │                   │
-│  │    Gesture Interpreter      │     │                  │                   │
-│  │    - Dwell / Blink filter   │     │                  │                   │
-│  │    - Stability gating       │     │                  │                   │
-│  │    - Timestamp validation   │     │                  │                   │
-│  │    - Refractory cooldown    │     │                  │                   │
-│  │    - Safelight HUD feedback │     │                  │                   │
-│  └──────────────▲──────────────┘     │                  │                   │
-│                 │                    │                  │                   │
-│  ┌──────────────┴──────────────┐     │    ┌─────────────▼──────────────┐    │
-│  │  SmartSpectra Renderer SDK  │◄────┼───►│  SmartSpectra Main Bridge  │    │
-│  │  - getUserMedia() capture   │ IPC │    │  - bindSmartSpectraIpc()   │    │
-│  │  - decodeMetrics() (Proto)  │     │    │  - koffi native runtime    │    │
-│  └─────────────────────────────┘     │    │  - libsmartspectra_capi    │    │
-│                                      │    └─────────────┬──────────────┘    │
-│                                      │                  │                   │
-└──────────────────────────────────────┴──────────────────┼───────────────────┘
-                                                          │ HTTPS / WSS
-                                            ┌─────────────▼──────────────┐
-                                            │ Presage Physiology Backend │
-                                            │ (Auth & Metric Processing) │
-                                            └────────────────────────────┘
+```text
+Webcam, with explicit user consent
+  -> @smartspectra/node-sdk native camera (Node child process)
+     -> faceMetrics, stable Presage facial landmarks / blinking
+     -> presageHeadMotion.cjs (centroid motion, cooldown, neutral rearming)
+     -> presageNativeWorker.cjs (SDK state, quality, real gesture decisions)
+     -> Electron IPC (derived direction, event type, aggregate counts only)
+     -> PresageNativeController (renderer)
+     -> React PDF presenter
+        left / right -> previous / next PDF slide
+        up / down    -> scroll inside current PDF page
+
+Independent keyboard / mouse fallback -> PDF presentation controls
 ```
 
----
+The runtime intentionally does **not** use MediaPipe, browser camera frames, or another gesture library. The visible PDF, page counter and controls are rendered with React and `pdfjs-dist`. The SmartSpectra requested face bundle is imported from the official SDK.
 
-## 2. Process Separation & Security Architecture
+## Active files
 
-### Context Isolation & Sandbox Boundary
-- **`contextIsolation: true` (Strictly Enforced):** The renderer execution context is strictly segregated from the preload script. The renderer has zero access to Electron internals, Node.js global objects, or prototype modifications.
-- **`nodeIntegration: false` (Strictly Enforced):** Renderer JavaScript cannot call `require()`, access `process`, or interact with filesystem APIs.
-- **`sandbox: false` Rationale & Mitigations:**
-  - *Why `sandbox: false` is used:* The official `@smartspectra/node-sdk/preload` bridge requires access to preload-level MessageChannel native transfer and diagnostic environment variables (`process.env.SMARTSPECTRA_DIAGNOSTICS`).
-  - *Defense-in-depth mitigations:*
-    1. Capabilities exposed to the renderer via `contextBridge.exposeInMainWorld('glimraDesktop')` are strictly typed, bounded, and validate input parameters before passing to IPC.
-    2. Camera hardware access (`setPermissionRequestHandler`) strictly verifies that the requesting webContents origin matches trusted local origins (`file://`, `http://localhost:5173`) and denies any untrusted or remote web origin.
-    3. Camera hardware access requires **explicit presenter consent**; requests are rejected by the main process until the presenter clicks "Enable camera control".
+- `src/main/main.ts`: Electron window, explicit consent gate, native worker lifecycle, permission-bound IPC, OS keychain access and fullscreen controls.
+- `src/main/presageNativeWorker.cjs`: official SDK, `useCamera(CameraSelection.default)`, real `face.landmarks` and `face.blinking` packets, SDK state, gesture events and reacquisition.
+- `src/main/presageHeadMotion.cjs`: small head-motion interpretation. Only sees real SDK coordinates in production. Mathematical unit tests are not application demo signals.
+- `src/preload/preload.ts`: restricted `glimraDesktop` API; it does not expose raw frames, native SDK objects, or full landmark sets.
+- `src/renderer/src/engine/presageNativeController.ts`: validates native event types and dispatches verified movement to the viewer.
+- `src/renderer/src/App.tsx`: frontend presentation workflow, camera consent, user controls, Settings and Guide.
+- `src/renderer/src/components/{SlideViewer,SlideThumbnail,PresenterHUD}.tsx`: PDF rendering and presentation UI.
+- `src/renderer/src/engine/pdfEngine.ts`: PDF.js worker, page rendering and lazy thumbnails.
 
-### Credential Safeguards
-- **Zero Hardcoded Secrets:** The repository and distributed packages contain zero developer API keys or embedded credentials.
-- **OS-Level SafeStorage:** User-provided Presage API keys are saved exclusively via Electron's `safeStorage` API (using Windows DPAPI, macOS Keychain, or Linux libsecret/KWallet).
-- **No LocalStorage Persistence:** Sensitive tokens are never stored in browser `localStorage`, preventing exposure to XSS or third-party web script inspection.
-- **No Credential Logging:** API keys are never output to stdout/stderr, diagnostic files, or crash dumps.
+## Security and privacy boundaries
 
----
+The native SDK owns the camera in a child process, not in the renderer. Every start/control IPC call requires explicit consent and a matching main window sender. Stop/disconnect/close terminates capture. Face coordinates and raw frames stay in the native process. The UI receives aggregate counts, quality state and derived gestures only.
 
-## 3. Gesture Interpretation Pipeline
+API keys are entered by the presenter and saved using encrypted Electron `safeStorage` only when supported by the operating system; the app refuses plaintext fallback. The key is passed to the native child through private IPC, not a process argument, and must never appear in source, video, logs or screenshots.
 
-### Physiological Problem Definition
-Human involuntary (spontaneous) blinks last 100ms–250ms at a frequency of 12–20 blinks per minute. Feeding raw blink events directly to slide navigation would cause uncontrollable slide skipping.
+The SDK is constructed with `enableTelemetry: false`. SDK authentication, metering and any other vendor network behavior should be described according to Presage's current policy; do not claim that no network activity occurs.
 
-### Deterministic Multi-Stage Filter (`src/renderer/src/engine/gestureEngine.ts`)
+**Open hardening items:** the Electron BrowserWindow currently uses `sandbox: false` from an earlier renderer SDK design, so it should be reviewed and tested on Windows before enabling the sandbox. Packaging on a clean Windows computer needs a native-run smoke test; a successful CI installer build alone is not evidence that its webcam, native DLLs and child process all function.
 
-1. **Timestamp Monotonicity & Stall Protection:**
-   - Drops duplicate or non-monotonic timestamps (`deltaUs <= 0`).
-   - If timestamp gaps exceed 2 seconds (e.g., video stutter or thread freeze), transient dwell states are reset immediately to prevent artificial long-duration blinks.
-2. **Stability Gating:**
-   - Evaluates `stable: boolean` from SmartSpectra's `IDetectionStatus`.
-   - Samples marked `stable === false` (e.g. during sudden head turns, lighting flicker, or motion blur) are discarded immediately and cannot charge or commit gesture triggers.
-3. **Intentional Dwell Gating:**
-   - A single blink must be sustained between **350ms and 850ms** to register as an intentional slide advance command (`next`).
-   - Closures lasting < 250ms are identified as spontaneous involuntary blinks and discarded.
-   - Closures lasting > 850ms (resting eyes, reading physical notes) are discarded without triggering slide navigation.
-4. **Verified Double-Blink Sequence:**
-   - Double-blink for slide rewinding (`prev`) requires two deliberate rapid voluntary closures:
-     - Each sub-blink must be between **100ms and 280ms**.
-     - Inter-blink interval must be between **80ms and 450ms**.
-     - If either blink exceeds 280ms or the interval falls outside the window, the double-blink candidate is cleared.
-5. **Post-Trigger Refractory Cooldown:**
-   - Enforces a mandatory **1200ms refractory lockout period** after every executed command, preventing inadvertent double-advancing.
-6. **Lost Tracking & Presenter Pause Immediate Disarm:**
-   - When face tracking is lost (`kNoFaceFound`, `kFaceNotCentered`) or the presenter toggles pause (`Space` or `P`), all active dwell timers and double-blink states are reset to 0 immediately.
+## Current quality gates
 
----
+The repository CI runs TypeScript/Vite build, Hallmark design lint, and Node unit tests, followed by Linux and Windows installer packaging. CI cannot execute a physical camera acceptance test. Windows in-app camera reliability, multi-presenter handoff, long continuous sessions, and optional real blink control must be verified separately.
 
-## 4. Presentation Viewer Architecture
-
-- Built on Mozilla's `pdfjs-dist` (v4+ ES modules).
-- Presentation pages are rendered onto an HTML5 `<canvas>` with device pixel ratio scaling (retina display support).
-- Centered letterbox layout preserves 16:9 and 4:3 slide geometry without distortion.
-- Operates 100% offline with zero cloud dependencies for document viewing.
+The original Presage-only migration plan and the current audit are in `PRESAGE_ONLY_IMPLEMENTATION.md` and `CODEBASE_AUDIT_REPORT.md`. Historical plans and build logs may refer to discontinued architecture; do not reuse those as a description of the active application.
