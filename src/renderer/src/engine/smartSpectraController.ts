@@ -19,6 +19,8 @@ export interface SmartSpectraControllerCallbacks {
   onGestureDetected: (feedback: GestureFeedback) => void;
   onChargeProgress: (chargeRatio: number) => void;
   onError: (code: number, message: string) => void;
+  /** SmartSpectra may fail without disabling the local head/hand camera. */
+  onSdkUnavailable?: (code: number, message: string) => void;
   onCalibrationSample: (durationMs: number) => void;
 }
 
@@ -28,6 +30,7 @@ export class SmartSpectraController {
   private callbacks: SmartSpectraControllerCallbacks;
   private isRunning: boolean = false;
   private stopPromise: Promise<void> | null = null;
+  private sdkShutdownPromise: Promise<void> | null = null;
   // A stop must not destroy the SDK while its native start is still pending.
   private sdkStartSettled: Promise<void> | null = null;
   private hasSdkError = false;
@@ -67,11 +70,15 @@ export class SmartSpectraController {
   }
 
   public setPaused(paused: boolean): void {
-    if (!this.sdk || this.hasSdkError || !this.isSdkRunning) return;
+    // Pausing the presentation must work even if SmartSpectra has stopped.
+    if (!this.ownedCameraStream?.getVideoTracks().some(track => track.readyState === 'live')) return;
     this.isPaused = paused;
     this.gestureEngine.setPaused(paused);
     this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
-    this.callbacks.onValidationChange(paused ? 'Paused by presenter' : 'Waiting for a valid face signal', !paused && this.isValidated);
+    this.callbacks.onValidationChange(
+      paused ? 'Paused by presenter' : this.hasSdkError ? 'Head and hand controls ready — SmartSpectra signal unavailable' : 'Waiting for a valid face signal',
+      !paused && this.isValidated,
+    );
   }
 
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
@@ -82,7 +89,8 @@ export class SmartSpectraController {
     // Never report a successful start when the previous session is still
     // tearing down. Wait for native cleanup before constructing a new SDK.
     if (this.stopPromise) await this.stopPromise;
-    if (this.isRunning || this.sdk || this.starting) return;
+    if (this.sdkShutdownPromise) await this.sdkShutdownPromise;
+    if (this.ownedCameraStream || this.isRunning || this.sdk || this.starting) return;
     this.starting = true;
     this.hasSdkError = false;
     this.isPaused = false;
@@ -132,7 +140,9 @@ export class SmartSpectraController {
           this.isSdkRunning = false;
           this.isValidated = false;
           this.gestureEngine.setFaceValidation(false);
-          this.callbacks.onStatusChange('error');
+          // Local head/hand tracking continues when only SDK processing fails.
+          if (this.ownedCameraStream) this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
+          else this.callbacks.onStatusChange('initializing');
         }
       });
 
@@ -274,28 +284,36 @@ export class SmartSpectraController {
       this.sdk.on('error', (code: SmartSpectraErrorCodeValue, message: string, retryable: boolean) => {
         if (this.hasSdkError || generation !== this.sessionGeneration) return;
         this.hasSdkError = true;
+        this.isSdkRunning = false;
+        this.isValidated = false;
         console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`, {
           millisecondsSinceLastMetrics: this.lastMetricsAtMs ? Math.round(performance.now() - this.lastMetricsAtMs) : null,
           lastValidationHint: this.lastValidationHint,
           cameraMode: '640x480',
         });
         this.gestureEngine.reset();
-        this.callbacks.onStatusChange('error');
-        const creditsExhausted = code === 4 && /credits? (have |has )?been exhausted|credits? exhausted/i.test(message);
-        const errorMessage = creditsExhausted
-          ? 'SmartSpectra measurement credits are exhausted. Camera control is unavailable until credits are restored.'
-          : this.lastValidationHint ? `${message} ${this.lastValidationHint}` : message;
-        this.callbacks.onValidationChange(
-          creditsExhausted ? 'Measurement credits exhausted — reconnecting will not help' : 'Camera processing stopped — disconnect and reconnect to retry',
-          false,
-        );
         this.callbacks.onChargeProgress(0);
-        this.callbacks.onError(code, errorMessage);
-        // Stop the frame pump after the SDK callback has returned.
-        // Do not destroy native resources synchronously inside the callback.
-        window.setTimeout(() => {
-          if (generation === this.sessionGeneration) void this.stop(true);
-        }, 0);
+        const creditFailure = code === 4;
+        const sdkMessage = creditFailure
+          ? 'SmartSpectra credits unavailable; blink control is off'
+          : `SmartSpectra unavailable: ${message}`;
+        if (this.ownedCameraStream?.getVideoTracks().some(track => track.readyState === 'live')) {
+          // SDK error 8 must not stop the owned MediaStream or the independent
+          // MediaPipe gesture tracker. Do not silently retry and spend credits.
+          this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
+          this.callbacks.onValidationChange('Head and hand controls remain available. ' + sdkMessage, false);
+          this.callbacks.onSdkUnavailable?.(code, sdkMessage);
+          window.setTimeout(() => {
+            if (generation === this.sessionGeneration) void this.disableSdkWithoutStoppingCamera();
+          }, 0);
+        } else {
+          // Camera capture itself failed; local gesture control cannot work.
+          this.callbacks.onStatusChange('error');
+          this.callbacks.onError(code, sdkMessage);
+          window.setTimeout(() => {
+            if (generation === this.sessionGeneration) void this.stop(true);
+          }, 0);
+        }
       });
 
       const sdk = this.sdk;
@@ -331,7 +349,7 @@ export class SmartSpectraController {
       // occur before its later streamAvailable event is emitted.
       this.callbacks.onStreamAvailable(stream);
       track.addEventListener('ended', () => {
-        if (generation !== this.sessionGeneration || this.hasSdkError) return;
+        if (generation !== this.sessionGeneration) return;
         console.error('[Glimra/Camera] Camera track ended unexpectedly');
         this.hasSdkError = true;
         this.callbacks.onError(500, 'Camera disconnected or stopped. Check camera access before reconnecting.');
@@ -365,18 +383,57 @@ export class SmartSpectraController {
       if (generation !== this.sessionGeneration) return;
       console.error('[Glimra] Failed to start SmartSpectra controller:', err);
       this.hasSdkError = true;
-      this.callbacks.onStatusChange('error');
-      this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
-      await this.stop(true);
+      if (this.ownedCameraStream?.getVideoTracks().some(track => track.readyState === 'live')) {
+        const message = err?.message || 'SmartSpectra failed to start';
+        this.callbacks.onStatusChange(this.isPaused ? 'paused' : 'tracking');
+        this.callbacks.onValidationChange('Head and hand controls remain available. SmartSpectra unavailable.', false);
+        this.callbacks.onSdkUnavailable?.(500, message);
+        void this.disableSdkWithoutStoppingCamera();
+      } else {
+        this.callbacks.onStatusChange('error');
+        this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
+        await this.stop(true);
+      }
     } finally {
       this.starting = false;
     }
   }
 
+  /**
+   * Stop only SmartSpectra's native processing/renderer frame pump.
+   * The host-owned MediaStream stays live for head and hand navigation.
+   */
+  private disableSdkWithoutStoppingCamera(): Promise<void> {
+    if (this.sdkShutdownPromise) return this.sdkShutdownPromise;
+    const sdk = this.sdk;
+    if (!sdk) return Promise.resolve();
+    this.sdk = null;
+    this.isRunning = false;
+    this.isSdkRunning = false;
+    this.isValidated = false;
+    const pendingStart = this.sdkStartSettled;
+    const cleanup = (async () => {
+      try {
+        if (pendingStart) await pendingStart;
+        await sdk.stop();
+      } catch (error) {
+        console.warn('[Glimra/SmartSpectra] SDK-only shutdown warning:', error);
+      } finally {
+        try { sdk.destroy(); }
+        catch (error) { console.warn('[Glimra/SmartSpectra] SDK destroy warning:', error); }
+      }
+    })();
+    this.sdkShutdownPromise = cleanup;
+    void cleanup.finally(() => {
+      if (this.sdkShutdownPromise === cleanup) this.sdkShutdownPromise = null;
+    });
+    return cleanup;
+  }
+
   public async stop(preserveError = false): Promise<void> {
     if (this.stopPromise) return this.stopPromise;
     const sdk = this.sdk;
-    if (!sdk) return;
+    if (!sdk && !this.ownedCameraStream && !this.cameraRequestPending) return;
 
     // Detach this instance first so another event cannot start a second teardown.
     this.sdk = null;
@@ -384,6 +441,7 @@ export class SmartSpectraController {
     const ownedStream = this.ownedCameraStream;
     this.ownedCameraStream = null;
     const pendingStart = this.sdkStartSettled;
+    const pendingSdkShutdown = this.sdkShutdownPromise;
     const pendingCameraRequest = this.cameraRequestPending;
     this.isRunning = false;
     this.calibrating = false;
@@ -406,8 +464,9 @@ export class SmartSpectraController {
           );
         }
         // Avoid racing native SDK initialization against SDK shutdown.
+        if (pendingSdkShutdown) await pendingSdkShutdown;
         if (pendingStart) await pendingStart;
-        await sdk.stop();
+        if (sdk) await sdk.stop();
       } catch (err) {
         console.warn('[Glimra] Error during SDK stop:', err);
       } finally {
@@ -416,7 +475,7 @@ export class SmartSpectraController {
         ownedStream?.getTracks().forEach(track => track.stop());
         try {
           // The renderer bridge documents destroy() as synchronous.
-          sdk.destroy();
+          sdk?.destroy();
         } catch (err) {
           console.warn('[Glimra] Error during SDK destroy:', err);
         }
