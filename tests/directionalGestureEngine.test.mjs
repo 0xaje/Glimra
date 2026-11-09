@@ -65,3 +65,30 @@ test('head nod up/down produces vertical commands without slide navigation', () 
   engine.observe('head', point(.5, .5), 1450);
   assert.deepEqual(engine.observe('head', point(.5, .57), 2000), { source: 'head', direction: 'down' });
 });
+
+test('farther faces require only small natural head displacement', () => {
+  const engine = new DirectionalGestureEngine();
+  const head = (x, y) => ({ x, y, confidence: 1, faceWidth: .12 });
+  assert.equal(engine.observe('head', head(.5, .5), 0), null);
+  assert.deepEqual(engine.observe('head', head(.532, .5), 200), { source: 'head', direction: 'right' });
+  assert.equal(engine.observe('head', head(.58, .5), 600), null, 'holding a pose must not repeat the command');
+  engine.observe('head', head(.5, .5), 850);
+  engine.observe('head', head(.5, .5), 1100);
+  assert.deepEqual(engine.observe('head', head(.46, .5), 1400), { source: 'head', direction: 'left' });
+});
+
+test('natural small head nod scrolls the PDF and does not create a slide command', () => {
+  const engine = new DirectionalGestureEngine();
+  const head = (x, y) => ({ x, y, confidence: 1, faceWidth: .16 });
+  assert.equal(engine.observe('head', head(.5, .5), 0), null);
+  assert.deepEqual(engine.observe('head', head(.5, .53), 180), { source: 'head', direction: 'down' });
+});
+
+test('no head navigation is triggered by tiny landmark jitter', () => {
+  const engine = new DirectionalGestureEngine();
+  const head = (x, y) => ({ x, y, confidence: 1, faceWidth: .18 });
+  assert.equal(engine.observe('head', head(.5, .5), 0), null);
+  for (let time = 150; time <= 3000; time += 150) {
+    assert.equal(engine.observe('head', head(.5 + (time % 300 ? .006 : -.006), .5), time), null);
+  }
+});
