@@ -27,7 +27,7 @@ This established that Presage can supply the signals required for Glimra's head 
 - Gesture commands and quality status passed to the renderer via a restricted Electron IPC bridge. No raw camera images or face coordinates are sent.
 - MediaPipe and old browser camera gesture processing removed. User permission and API key are required for native capture. Keyboard navigation remains available without the camera.
 
-**Not yet proven:** `npm run build`, `npm test`, and the next full Windows in-app camera run on the final commit. CI runs on every push and is being checked. We will not claim the challenge demonstration succeeds until real Presage head gestures work in the packaged app.
+**Current status:** Linux build, design audit, unit tests and unsigned Windows installer packaging run in GitHub Actions. The presenter reports that actual native Presage head movements control the PDF and have improved substantially. Still **not verified**: a five-minute stability test, clean Windows installer camera operation, second-presenter handover under varied lighting, and real Eyes-mode blink control. Do not claim those milestones passed.
 
 Read the [strict Presage-first implementation plan](docs/PRESAGE_ONLY_IMPLEMENTATION.md).
 
@@ -83,7 +83,7 @@ npm run dist:mac
 ```
 
 ### Entering your API Key
-Both Head and Eyes use the real native Presage SDK. Enter your SmartSpectra API key in **Settings**. No automatic gesture control is offered when Presage is unavailable. The key is encrypted locally using Electron's `safeStorage` and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
+Both Head and Eyes use the real native Presage SDK. Enter your SmartSpectra API key in **Settings**. No automatic gesture control is offered when Presage is unavailable. The key is encrypted locally using Electron's OS-backed `safeStorage` when available; key persistence is refused otherwise and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
 
 ---
 
