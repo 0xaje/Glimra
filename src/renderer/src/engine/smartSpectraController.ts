@@ -162,7 +162,9 @@ export class SmartSpectraController {
         } else {
           console.warn('[Glimra/Camera] SDK stream has no video track');
         }
-        this.callbacks.onStreamAvailable(stream);
+        // Always give the local tracker our original host-owned stream.
+        // The SDK may report a different MediaStream wrapper or clone.
+        this.callbacks.onStreamAvailable(this.ownedCameraStream ?? stream);
       });
 
       this.sdk.on('validationStatus', (code: ValidationCodeValue, _ts: number, hint: string) => {
