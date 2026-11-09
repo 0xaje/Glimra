@@ -41,6 +41,7 @@ export class SmartSpectraController {
   private sessionGeneration = 0;
   private ownedCameraStream: MediaStream | null = null;
   private preferLowBandwidthMode = false;
+  private starting = false;
   private calibrating = false;
   private calibrationBlinkStartUs: number | null = null;
   private calibrationLastTimestampUs = 0;
@@ -81,7 +82,8 @@ export class SmartSpectraController {
     // Never report a successful start when the previous session is still
     // tearing down. Wait for native cleanup before constructing a new SDK.
     if (this.stopPromise) await this.stopPromise;
-    if (this.isRunning || this.sdk) return;
+    if (this.isRunning || this.sdk || this.starting) return;
+    this.starting = true;
     this.hasSdkError = false;
     this.isPaused = false;
     this.isValidated = false;
@@ -277,7 +279,7 @@ export class SmartSpectraController {
         console.error(`[Glimra] SmartSpectra error (${code}, retryable=${retryable}): ${message}`, {
           millisecondsSinceLastMetrics: this.lastMetricsAtMs ? Math.round(performance.now() - this.lastMetricsAtMs) : null,
           lastValidationHint: this.lastValidationHint,
-          cameraMode: this.preferLowBandwidthMode ? '640x480' : '1280x720',
+          cameraMode: '640x480',
         });
         this.gestureEngine.reset();
         this.callbacks.onStatusChange('error');
@@ -302,9 +304,9 @@ export class SmartSpectraController {
       // Own capture explicitly so camera FPS and dimensions are not left to
       // the SDK's default getUserMedia request. A lower-bandwidth mode is
       // selected only on a subsequent user-initiated attempt after code 11.
-      const cameraMode = this.preferLowBandwidthMode
-        ? { width: 640, height: 480, frameRate: 30 }
-        : { width: 1280, height: 720, frameRate: 30 };
+      // Use the lower-bandwidth mode from the first attempt. 720p adds
+      // processing pressure without improving the SDK's >=25 FPS requirement.
+      const cameraMode = { width: 640, height: 480, frameRate: 30 };
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -318,6 +320,20 @@ export class SmartSpectraController {
         return;
       }
       this.ownedCameraStream = stream;
+      const track = stream.getVideoTracks()[0];
+      if (!track || track.readyState !== 'live') {
+        throw new Error('Camera stopped before SmartSpectra could start.');
+      }
+      // Publish the actual captured stream immediately: some SDK failures
+      // occur before its later streamAvailable event is emitted.
+      this.callbacks.onStreamAvailable(stream);
+      track.addEventListener('ended', () => {
+        if (generation !== this.sessionGeneration || this.hasSdkError) return;
+        console.error('[Glimra/Camera] Camera track ended unexpectedly');
+        this.hasSdkError = true;
+        this.callbacks.onError(500, 'Camera disconnected or stopped. Check camera access before reconnecting.');
+        void this.stop(true);
+      }, { once: true });
       const settings = stream.getVideoTracks()[0]?.getSettings();
       console.info('[Glimra/Camera] explicit capture mode', {
         requested: cameraMode,
@@ -349,6 +365,8 @@ export class SmartSpectraController {
       this.callbacks.onStatusChange('error');
       this.callbacks.onError(500, err?.message || 'Failed to start camera controller');
       await this.stop(true);
+    } finally {
+      this.starting = false;
     }
   }
 
