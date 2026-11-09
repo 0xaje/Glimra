@@ -45,11 +45,17 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   // Scroll only the current PDF page; never advance slides on a vertical gesture.
   useEffect(() => {
     if (!scrollCommand || !slideScrollRef.current) return;
-    slideScrollRef.current.scrollBy({ top: scrollCommand.direction === 'down' ? 240 : -240, behavior: 'smooth' });
+    const scroller = slideScrollRef.current;
+    // Only scroll inside this PDF page. The thumbnail rail, app shell and
+    // neighboring PDF pages must never move from a vertical gesture.
+    const delta = Math.max(210, Math.round(scroller.clientHeight * 0.55));
+    const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const target = Math.min(maxScroll, Math.max(0, scroller.scrollTop + (scrollCommand.direction === 'down' ? delta : -delta)));
+    scroller.scrollTo({ top: target, behavior: 'smooth' });
   }, [scrollCommand]);
 
   useEffect(() => {
-    slideScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    slideScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [currentSlide]);
 
   // Presenter Elapsed Timer
@@ -151,14 +157,14 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
       <div
         ref={slideScrollRef}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
+          display: 'block',
           flex: 1,
           width: '100%',
           position: 'relative',
           minHeight: 0,
-          overflow: 'auto',
+          overflowY: 'auto',
+          overflowX: 'auto',
+          overscrollBehavior: 'contain',
         }}
       >
         <canvas
@@ -169,8 +175,8 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
             borderRadius: 'var(--radius-sm)',
             maxWidth: zoom === 1 && !fitWidth ? '100%' : 'none',
             maxHeight: zoom === 1 && !fitWidth ? '100%' : 'none',
-            flexShrink: 0,
-            margin: 'auto',
+            display: 'block',
+            margin: '12px auto 20px',
             objectFit: 'contain',
             backgroundColor: 'var(--color-canvas-bg)',
             opacity: isBlackout ? 0 : 1,
