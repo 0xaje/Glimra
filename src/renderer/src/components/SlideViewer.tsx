@@ -14,6 +14,7 @@ interface SlideViewerProps {
   isBlackout?: boolean;
   onToggleBlackout?: () => void;
   embedded?: boolean;
+  scrollCommand?: { id: number; direction: 'up' | 'down' } | null;
 }
 
 export const SlideViewer: React.FC<SlideViewerProps> = ({
@@ -29,15 +30,27 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
   isBlackout = false,
   onToggleBlackout,
   embedded = false,
+  scrollCommand = null,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const slideScrollRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [fitWidth, setFitWidth] = useState(true);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+
+  // Scroll only the current PDF page; never advance slides on a vertical gesture.
+  useEffect(() => {
+    if (!scrollCommand || !slideScrollRef.current) return;
+    slideScrollRef.current.scrollBy({ top: scrollCommand.direction === 'down' ? 240 : -240, behavior: 'smooth' });
+  }, [scrollCommand]);
+
+  useEffect(() => {
+    slideScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [currentSlide]);
 
   // Presenter Elapsed Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -136,6 +149,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
     >
       {/* Slide Rendering Stage */}
       <div
+        ref={slideScrollRef}
         style={{
           display: 'flex',
           alignItems: 'center',
