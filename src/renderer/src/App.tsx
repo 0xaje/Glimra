@@ -51,6 +51,7 @@ export default function App() {
 
   const [chargeRatio, setChargeRatio] = useState(0);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -199,6 +200,10 @@ export default function App() {
 
   slideActionsRef.current.next = nextSlide;
   slideActionsRef.current.prev = prevSlide;
+
+  const scrollCurrentSlide = (direction: 'up' | 'down') => {
+    setScrollCommand(previous => ({ id: (previous?.id ?? 0) + 1, direction }));
+  };
 
   const jumpToSlide = (slideNum: number) => {
     setIsBlackout(false);
@@ -445,7 +450,7 @@ export default function App() {
                 {loadError && <div className="studio-error" role="alert">{loadError}</div>}
               </div>
             ) : (
-              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout} embedded={!presentation.isFullscreen}/>
+              <SlideViewer document={pdfDoc} currentSlide={presentation.currentSlide} totalSlides={presentation.totalSlides} fileName={presentation.fileName} onNext={nextSlide} onPrev={prevSlide} onJumpToSlide={jumpToSlide} scrollCommand={scrollCommand} onToggleFullscreen={toggleFullscreen} isFullscreen={presentation.isFullscreen} isBlackout={isBlackout} onToggleBlackout={toggleBlackout} embedded={!presentation.isFullscreen}/>
             )}
           </div>
           {!presentation.isFullscreen && <footer className="studio-footer">
