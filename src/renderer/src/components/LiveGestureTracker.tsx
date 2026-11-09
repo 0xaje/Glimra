@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { FaceLandmarker, HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import type { MotionCommand } from '../engine/directionalGestureEngine';
 import { DirectionalGestureEngine } from '../engine/directionalGestureEngine';
+import { HeadPoseGestureEngine } from '../engine/headPoseGestureEngine';
 
 export type GestureControlMode = 'hand' | 'head' | 'eyes';
 
@@ -12,10 +13,9 @@ const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmar
 /**
  * Real camera landmark detector.
  *
- * The first attempt at moving MediaPipe into a module Worker failed in
- * Electron ("ModuleFactory not set"), leaving ALL gesture controls broken.
- * Use the previously working renderer route instead. Load only the one
- * detector selected by the presenter (hands by default), and limit its
+ * The experimental MediaPipe module Worker failed inside Electron.
+ * Keep the verified renderer route and load only one face or hand detector
+ * selected by the presenter (head is the default), and limit its
  * frame rate to reduce SmartSpectra contention.
  *
  * Camera ownership remains in SmartSpectraController. This component
@@ -51,6 +51,7 @@ export function LiveGestureTracker({
     let lastInferenceAt = -Infinity;
     let lastVideoTime = -1;
     const gestures = new DirectionalGestureEngine();
+    const headGestures = new HeadPoseGestureEngine();
 
     const run = async () => {
       try {
@@ -61,7 +62,7 @@ export function LiveGestureTracker({
         const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
         if (disposed) return;
 
-        // Load ONE detector, not both. Default hand mode does no face inference.
+        // Load ONE detector, not both; Head is the default.
         if (mode === 'hand') {
           hand = await HandLandmarker.createFromOptions(vision, {
             baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'CPU' },
@@ -90,12 +91,16 @@ export function LiveGestureTracker({
           frameId = requestAnimationFrame(frame);
           if (!enabledRef.current) {
             gestures.setPaused(true);
+            headGestures.setPaused(true);
             return;
           }
           gestures.setPaused(false);
+          headGestures.setPaused(false);
           if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
-          // ~5 checks/sec, no sample queues and NO inactivity expiry.
-          if (now - lastInferenceAt < 190 || video.currentTime === lastVideoTime) return;
+          // Subtle head movements need more frequent samples, without
+          // running heavy model inference on every camera frame.
+          const interval = mode === 'head' ? 145 : 190;
+          if (now - lastInferenceAt < interval || video.currentTime === lastVideoTime) return;
           lastInferenceAt = now;
           lastVideoTime = video.currentTime;
 
@@ -126,12 +131,7 @@ export function LiveGestureTracker({
               if (command) commandRef.current(command);
             } else {
               const landmarks = face!.detectForVideo(video, now).faceLandmarks[0];
-              if (!landmarks) {
-                gestures.observe('head', null, now);
-                return;
-              }
-              const nose = landmarks[1];
-              const command = gestures.observe('head', { x: 1 - nose.x, y: nose.y, confidence: 1 }, now);
+              const command = headGestures.observe(landmarks ?? null, now);
               if (command) commandRef.current(command);
             }
           } catch (error) {
