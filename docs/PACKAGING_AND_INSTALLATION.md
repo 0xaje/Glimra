@@ -1,3 +1,9 @@
+# Historical Linux packaging notes
+
+**Current status:** Linux and unsigned Windows installer builds are now checked in GitHub Actions. A successful package does NOT prove clean-machine startup or native webcam operation. The current SDK requires Linux glibc 2.35+ (e.g. Ubuntu 22.04+); any older OS advice below is superseded. See [the release checklist](RELEASE_CHECKLIST.md) for current Windows/Presage gates.
+
+---
+
 # Glimra Linux Packaging & Desktop Installation Guide
 
 **Target Release:** Glimra 1.0.0
