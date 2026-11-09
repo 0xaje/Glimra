@@ -4,7 +4,7 @@ interface Window {
   glimraDesktop?: {
     startPresage: (key: string, mode: 'head' | 'eyes') => Promise<boolean>;
     stopPresage: () => Promise<boolean>;
-    controlPresage: (command: 'mode' | 'pause' | 'calibration' | 'timing', value: string | boolean | Record<string, number | undefined>) => Promise<boolean>;
+    controlPresage: (command: 'mode' | 'pause' | 'calibration' | 'timing' | 'recenter', value: string | boolean | Record<string, number | undefined>) => Promise<boolean>;
     onPresageEvent: (listener: (event: unknown) => void) => () => void;
     toggleFullscreen: () => Promise<boolean>;
     isFullscreen: () => Promise<boolean>;
