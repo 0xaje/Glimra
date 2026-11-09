@@ -593,62 +593,42 @@ export default function App() {
             </div>
 
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              Glimra recognizes intentional eye gestures to give you confident, touch-free control
-              while addressing an audience. Natural involuntary blinks are filtered out.
+              Glimra lets you present a PDF without touching your computer.
+              <strong> Open-hand swipes are the default.</strong> Choose Head or Eyes in Settings if you prefer.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>
-                  Next slide: intentional dwell blink
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                  Close eyes deliberately for approximately 380 milliseconds. The HUD charge bar indicates
-                  the dwell progress before advancing the slide.
-                </div>
+              <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>Hands — default</div>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
+                  Show one open hand to the camera. Swipe right: next slide. Swipe left: previous slide.
+                  Swipe up: scroll up inside the current PDF page. Swipe down: scroll down inside that same page.
+                  Bring your hand back to the middle before repeating.
+                </p>
               </div>
-
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-signal-warning)' }}>
-                  Previous slide: quick double-blink
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                  Perform two crisp consecutive blinks within half a second to step backwards.
-                </div>
+              <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — optional</div>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
+                  Choose Head in Settings. Move your head right or left to change slides.
+                  Move it up or down to scroll within the current PDF page.
+                  Return to the middle between movements.
+                </p>
               </div>
-
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-                  Presenter shortcuts & fallbacks
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.6 }}>
-                  Right Arrow / Page Down: Next slide<br />
-                  Left Arrow / Page Up: Previous slide<br />
-                  Space or P: Pause / Resume eye gesture detection<br />
-                  B or period: Blackout / blank screen<br />
-                  F: Toggle fullscreen presentation
-                </div>
+              <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Eyes — optional SmartSpectra control</div>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
+                  Choose Eyes in Settings. A deliberate long blink goes forward; a quick double-blink goes back.
+                  Eye control needs valid live SmartSpectra readings. Eye movements do not scroll pages.
+                </p>
+              </div>
+              <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>PDF scrolling and keyboard backup</div>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
+                  Up and down only move the content of the current page, not the slide number.
+                  Use Fit width or Zoom in when a page is too small to scroll. If a whole page already fits on screen, it has no extra content to scroll.
+                  Arrow Up/Down scroll; Arrow Left/Right or Page Up/Down change slides.
+                  Space or P pauses gestures. F toggles fullscreen. B blanks the screen.
+                </p>
               </div>
             </div>
 
@@ -789,7 +769,7 @@ export default function App() {
                 </div>
               )}
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                A normal quick blink will not advance slides. Eye control uses a deliberate hold and release.
+                Eye timing only affects Eyes mode. Hands are the default and do not require blink timing.
               </p>
             </div>
 
