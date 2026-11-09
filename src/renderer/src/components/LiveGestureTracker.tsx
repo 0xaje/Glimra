@@ -87,7 +87,9 @@ export function LiveGestureTracker({
                 engine.observe('head', null, now);
               }
             }
-            if (now - lastHandInferenceAt < 240) return;
+            // Stagger hand inference away from the face pass to avoid a
+            // single long synchronous main-thread block that starves SDK frames.
+            if (now - lastHandInferenceAt < 240 || now - lastFaceInferenceAt < 100) return;
             lastHandInferenceAt = now;
             const handResult = hand!.detectForVideo(video, now);
             const palm = handResult.landmarks[0];
