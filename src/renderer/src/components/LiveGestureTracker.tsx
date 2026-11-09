@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { FaceLandmarker, HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import type { MotionCommand } from '../engine/directionalGestureEngine';
 import { DirectionalGestureEngine } from '../engine/directionalGestureEngine';
-import { HeadPoseGestureEngine } from '../engine/headPoseGestureEngine';
 
 export type GestureControlMode = 'hand' | 'head' | 'eyes';
 
@@ -51,7 +50,6 @@ export function LiveGestureTracker({
     let lastInferenceAt = -Infinity;
     let lastVideoTime = -1;
     const gestures = new DirectionalGestureEngine();
-    const headGestures = new HeadPoseGestureEngine();
 
     const run = async () => {
       try {
@@ -96,15 +94,13 @@ export function LiveGestureTracker({
           frameId = requestAnimationFrame(frame);
           if (!enabledRef.current) {
             gestures.setPaused(true);
-            headGestures.setPaused(true);
             return;
           }
           gestures.setPaused(false);
-          headGestures.setPaused(false);
-          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
+            if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
           // Subtle head movements need more frequent samples, without
           // running heavy model inference on every camera frame.
-          const interval = mode === 'head' ? 145 : 190;
+          const interval = mode === 'head' ? 155 : 190;
           if (now - lastInferenceAt < interval || video.currentTime === lastVideoTime) return;
           lastInferenceAt = now;
           lastVideoTime = video.currentTime;
@@ -136,7 +132,28 @@ export function LiveGestureTracker({
               if (command) commandRef.current(command);
             } else {
               const landmarks = face!.detectForVideo(video, now).faceLandmarks[0];
-              const command = headGestures.observe(landmarks ?? null, now);
+              if (!landmarks) {
+                gestures.observe('head', null, now);
+                return;
+              }
+              // Restore the original working head-position control. Adapt
+              // movement to the measured size of the real face, so people
+              // farther from the camera need not make exaggerated turns.
+              const nose = landmarks[1];
+              const eyeA = landmarks[33];
+              const eyeB = landmarks[263];
+              const faceWidth = Math.hypot(eyeB.x - eyeA.x, eyeB.y - eyeA.y);
+              // Nodding/tilting is an option; gently incorporate the eye-line
+              // rotation into the original nose-X displacement.
+              const tiltX = faceWidth > 0.035
+                ? (eyeA.x < eyeB.x ? eyeA.y - eyeB.y : eyeB.y - eyeA.y) * 0.45
+                : 0;
+              const command = gestures.observe('head', {
+                x: 1 - nose.x + tiltX,
+                y: nose.y,
+                confidence: 1,
+                faceWidth,
+              }, now);
               if (command) commandRef.current(command);
             }
           } catch (error) {
