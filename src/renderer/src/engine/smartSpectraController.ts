@@ -82,6 +82,12 @@ export class SmartSpectraController {
     );
   }
 
+  public setBlinkNavigationEnabled(enabled: boolean): void {
+    this.blinkNavigationEnabled = enabled;
+    this.gestureEngine.reset();
+    this.callbacks.onChargeProgress(0);
+  }
+
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
     this.gestureEngine.updateConfig(config);
   }
@@ -258,6 +264,9 @@ export class SmartSpectraController {
                 }
                 continue;
               }
+              // SmartSpectra still observes genuine live data in all modes.
+              // Blink slide commands only run when the user selects Eyes.
+              if (!this.blinkNavigationEnabled) continue;
               const result = this.gestureEngine.processSample(detected, stable, tsUs);
 
               // Update visual charge feedback on HUD
