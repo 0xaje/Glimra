@@ -40,7 +40,6 @@ export class SmartSpectraController {
   private lastValidationHint = '';
   private sessionGeneration = 0;
   private ownedCameraStream: MediaStream | null = null;
-  private preferLowBandwidthMode = false;
   private starting = false;
   private calibrating = false;
   private calibrationBlinkStartUs: number | null = null;
@@ -159,9 +158,7 @@ export class SmartSpectraController {
         if (this.hasSdkError || generation !== this.sessionGeneration) return;
         if (code === ValidationCode.kOk) this.lastValidationHint = '';
         else if (hint) this.lastValidationHint = hint;
-        // Do not retry automatically: a manual restart may select a lower
-        // bandwidth camera mode after a sustained FPS validation failure.
-        if (code === ValidationCode.kFrameRateTooLow) this.preferLowBandwidthMode = true;
+        // Do not retry automatically after SDK frame-rate validation failure.
         if (code !== ValidationCode.kOk) {
           const now = Date.now();
           if (code !== this.lastValidationWarningCode || now - this.lastValidationWarningAt >= 2000) {
@@ -301,9 +298,7 @@ export class SmartSpectraController {
       });
 
       const sdk = this.sdk;
-      // Own capture explicitly so camera FPS and dimensions are not left to
-      // the SDK's default getUserMedia request. A lower-bandwidth mode is
-      // selected only on a subsequent user-initiated attempt after code 11.
+      // Own capture explicitly rather than relying on SDK defaults.
       // Use the lower-bandwidth mode from the first attempt. 720p adds
       // processing pressure without improving the SDK's >=25 FPS requirement.
       const cameraMode = { width: 640, height: 480, frameRate: 30 };
@@ -338,7 +333,7 @@ export class SmartSpectraController {
       console.info('[Glimra/Camera] explicit capture mode', {
         requested: cameraMode,
         actual: settings && { width: settings.width, height: settings.height, frameRate: settings.frameRate },
-        fallbackAfterPreviousFpsFailure: this.preferLowBandwidthMode,
+        mode: 'low-bandwidth',
       });
       sdk.useMediaStream(stream);
       const startOperation = sdk.start();
