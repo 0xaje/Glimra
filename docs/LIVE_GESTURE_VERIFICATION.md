@@ -36,3 +36,26 @@ npm run dev
 - SmartSpectra failure no longer intentionally releases the host-owned camera stream. When SDK processing fails (including code 8 or depleted credits), local head/hand gestures should stay on while SmartSpectra blink processing stops. This fallback is not proof of successful SmartSpectra measurement. Verify with a real Windows camera.
 - The SmartSpectra vendor still requires sustained ~25 FPS (ideally 30) for measurements. If its warning persists, test with strong front lighting, close competing camera applications, and use a webcam that genuinely delivers 30 FPS. VideoFrame disposal warnings may originate inside the vendor renderer frame pump and cannot be safely fixed from Glimra's MediaPipe component.
 - Hand detection currently estimates an open palm from extended finger landmarks; it needs real-user verification across different lighting and camera angles.
+
+## SmartSpectra error 8: one definitive isolation check
+
+If Electron keeps reporting `SmartSpectra error (8): processing failed`, **stop Glimra completely** and close Zoom, Teams, Camera, OBS and any other program that might own the webcam. This diagnostic uses the real Presage SDK on the same Windows machine, but excludes Electron's renderer and MediaPipe.
+
+In PowerShell:
+
+```powershell
+git pull origin main
+$env:PRESAGE_API_KEY = Read-Host 'Enter your SmartSpectra API key'
+node .\scripts\check-smartspectra-native.cjs
+$env:PRESAGE_API_KEY = $null
+```
+
+The test attempts one live 20-second session, with no retries, and may consume actual SmartSpectra credits. No camera frames or biometric values are saved. Share **only the JSON summary following [SDK-only] RESULT**; do not send your API key.
+
+Interpretation:
+
+- **Native test reaches Running, emits metrics and kOk validation:** The camera and SDK can function together outside Electron. Investigate renderer frame processing/IPC/main-thread contention, including MediaPipe's synchronous inference. Do not blame the hardware automatically.
+- **Native test also shows error code 8 or low-FPS validation (11):** The problem reproduces without Glimra or MediaPipe. Verify that the Windows camera delivers at least 25 real FPS in good front light and no other camera app is running; compare with Presage's official quickstart. Escalate to support@presagetech.com with SDK version, Windows/webcam model, and the **redacted** result if still failing.
+- **No camera discovered:** Check Windows privacy permissions or device drivers. This is not a MediaPipe model-loading error.
+
+The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an INFO message from MediaPipe initialization, not evidence of SmartSpectra failure.
