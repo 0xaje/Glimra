@@ -95,7 +95,7 @@ export class HeadPoseGestureEngine {
     };
     this.filtered = next;
 
-    const dx = next.turn - this.neutral.turn + 0.55 * (next.tilt - this.neutral.tilt);
+    const dx = next.turn - this.neutral.turn + 0.85 * (next.tilt - this.neutral.tilt);
     const dy = next.nod - this.neutral.nod;
     const x = Math.abs(dx);
     const y = Math.abs(dy);
