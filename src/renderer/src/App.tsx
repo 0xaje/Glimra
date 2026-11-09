@@ -201,9 +201,16 @@ export default function App() {
   slideActionsRef.current.next = nextSlide;
   slideActionsRef.current.prev = prevSlide;
 
-  const scrollCurrentSlide = (direction: 'up' | 'down') => {
-    setScrollCommand(previous => ({ id: (previous?.id ?? 0) + 1, direction }));
-  };
+  // Gesture detectors dispatch this event after a verified vertical movement.
+  useEffect(() => {
+    const handleScrollGesture = (event: Event) => {
+      const direction = (event as CustomEvent<{ direction?: string }>).detail?.direction;
+      if (direction !== 'up' && direction !== 'down') return;
+      setScrollCommand(previous => ({ id: (previous?.id ?? 0) + 1, direction }));
+    };
+    window.addEventListener('glimra:scroll-gesture', handleScrollGesture);
+    return () => window.removeEventListener('glimra:scroll-gesture', handleScrollGesture);
+  }, []);
 
   const jumpToSlide = (slideNum: number) => {
     setIsBlackout(false);
