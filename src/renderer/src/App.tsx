@@ -57,9 +57,11 @@ export default function App() {
   const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
   const [gestureMode, setGestureMode] = useState<GestureControlMode>(() => {
     try {
-      const saved = localStorage.getItem('glimra-control-mode');
-      return saved === 'head' || saved === 'eyes' ? saved : 'hand';
-    } catch { return 'hand'; }
+      // New default after real camera testing: head movements need less effort.
+      // New preference key upgrades earlier hand-first installs once.
+      const saved = localStorage.getItem('glimra-control-mode-v2');
+      return saved === 'hand' || saved === 'eyes' ? saved : 'head';
+    } catch { return 'head'; }
   });
   const [gestureTrackingReady, setGestureTrackingReady] = useState(false);
   const [gestureTrackingError, setGestureTrackingError] = useState<string | null>(null);
@@ -167,9 +169,9 @@ export default function App() {
     };
   }, []);
 
-  // Hand swipes are the default. Blink navigation is opt-in only.
+  // Gentle head movement is the default. Blink navigation is opt-in only.
   useEffect(() => {
-    try { localStorage.setItem('glimra-control-mode', gestureMode); } catch { /* optional */ }
+    try { localStorage.setItem('glimra-control-mode-v2', gestureMode); } catch { /* optional */ }
     controllerRef.current?.setBlinkNavigationEnabled(gestureMode === 'eyes');
     setGestureTrackingReady(false);
     setGestureTrackingError(null);
@@ -534,10 +536,10 @@ export default function App() {
       {showCameraSetup && <div className="studio-scrim" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget)setShowCameraSetup(false)}}>
         <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title" aria-describedby="camera-setup-description">
           <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
-          <p className="panel-description" id="camera-setup-description">Use your open hand to control your PDF. Swipe left or right for slides; up or down to scroll a page.</p>
+          <p className="panel-description" id="camera-setup-description">Move your head gently to control the PDF. Left or right changes slides; up or down scrolls the current page. No need to face the camera perfectly.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['hand', 'head', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => setGestureMode(option)}>{option === 'hand' ? 'Hands (default)' : option === 'head' ? 'Head' : 'Eyes'}</button>)}</div><p>Hands: swipe. Head: move left, right, up or down. Eyes: SmartSpectra blink control.</p></div>
+          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => setGestureMode(option)}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head: small, natural movements. Hands: open-hand swipes. Eyes: optional SmartSpectra blink control.</p></div>
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
           <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
@@ -594,14 +596,14 @@ export default function App() {
 
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
               Glimra lets you present a PDF without touching your computer.
-              <strong> Open-hand swipes are the default.</strong> Choose Head or Eyes in Settings if you prefer.
+              <strong> Gentle head movements are the default.</strong> You can choose Hands or Eyes in Settings.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>Hands — default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  Show one open hand to the camera. Swipe right: next slide. Swipe left: previous slide.
+                  Choose Hands in Settings. Show one open hand. Swipe right: next slide. Swipe left: previous slide.
                   Swipe up: scroll up inside the current PDF page. Swipe down: scroll down inside that same page.
                   Bring your hand back to the middle before repeating.
                 </p>
@@ -609,9 +611,9 @@ export default function App() {
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — optional</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  Choose Head in Settings. Move your head right or left to change slides.
-                  Move it up or down to scroll within the current PDF page.
-                  Return to the middle between movements.
+                  Head is selected by default. Make a small comfortable turn to the right or left to change slides.
+                  Nod gently up or down to scroll the current PDF page. Glimra learns your natural starting pose;
+                  you do not need to sit in a fixed spot. Return to your relaxed pose between moves.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
@@ -716,11 +718,11 @@ export default function App() {
                   <button type="button" key={option} aria-pressed={gestureMode===option}
                     onClick={() => setGestureMode(option)}
                     style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid', borderColor: gestureMode===option ? 'var(--color-accent)' : 'var(--color-border-subtle)', color: gestureMode===option ? 'var(--color-accent)' : 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-elevated)' }}>
-                    {option === 'hand' ? 'Hands (default)' : option === 'head' ? 'Head' : 'Eyes'}
+                    {option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}
                   </button>
                 ))}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Hands: swipe to turn pages or scroll. Head: move in the direction you want. Eyes: optional SmartSpectra blink controls.</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Head is the default: small turns and nods move slides or scroll. Hands: open-hand swipes. Eyes: optional SmartSpectra blink controls.</p>
             </div>
             {/* Gesture Sensitivity */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -769,7 +771,7 @@ export default function App() {
                 </div>
               )}
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                Eye timing only affects Eyes mode. Hands are the default and do not require blink timing.
+                Eye timing only affects Eyes mode. Head and Hands modes do not require blink timing.
               </p>
             </div>
 
@@ -902,7 +904,7 @@ export default function App() {
               Camera access & privacy
             </h2>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              Glimra uses your camera for hand swipes by default. You can choose head movements
+              Glimra uses your camera for small head movements by default. You can choose open-hand swipes
               or optional SmartSpectra eye control in Settings.
             </p>
             <ul
