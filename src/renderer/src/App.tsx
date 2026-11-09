@@ -583,7 +583,7 @@ export default function App() {
           <p className="panel-description" id="camera-setup-description">Move your head gently to control the PDF. Left or right changes slides; up or down scrolls the current page. No need to face the camera perfectly.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => { void changeGestureMode(option); }}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head: small, natural movements. Hands: open-hand swipes. Eyes: optional SmartSpectra blink control.</p></div>
+          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => { void changeGestureMode(option); }}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head and Hands work locally, with no Presage key needed. Eyes uses live SmartSpectra blink signals and reconnects the camera.</p></div>
           {gestureMode === 'eyes' && (
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           )}
@@ -642,7 +642,8 @@ export default function App() {
 
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
               Glimra lets you present a PDF without touching your computer.
-              <strong> Gentle head movements are the default.</strong> You can choose Hands or Eyes in Settings.
+              <strong> Gentle head movements are the default.</strong> Head and Hands run locally without SmartSpectra.
+              Choose Eyes for the real SmartSpectra blink experience.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -666,7 +667,8 @@ export default function App() {
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Eyes — optional SmartSpectra control</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   Choose Eyes in Settings. A deliberate long blink goes forward; a quick double-blink goes back.
-                  Eye control needs valid live SmartSpectra readings. Eye movements do not scroll pages.
+                  Eye control needs a Presage API key and valid live SmartSpectra readings. Changing to Eyes
+                  reconnects the camera. Eye movements do not scroll pages.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
@@ -736,7 +738,7 @@ export default function App() {
             {/* API Key */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Presage SmartSpectra API key
+                Presage SmartSpectra API key (Eyes mode)
               </label>
               <input
                 id="api-key-input"
