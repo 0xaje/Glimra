@@ -114,7 +114,7 @@ export default function App() {
     controllerRef.current = new SmartSpectraController({
       onNextSlide: () => slideActionsRef.current.next(),
       onPrevSlide: () => slideActionsRef.current.prev(),
-      onStreamAvailable: (stream) => { setVideoStream(stream); setGestureTrackingError(null); },
+      onStreamAvailable: (stream) => { setVideoStream(prev => prev?.getVideoTracks()[0]?.id === stream.getVideoTracks()[0]?.id ? prev : stream); setGestureTrackingError(null); },
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
         setCamera((prev) => ({ ...prev, validationMessage, faceDetected })),
@@ -125,6 +125,14 @@ export default function App() {
       onCalibrationSample: (durationMs) => {
         if (!calibrationActiveRef.current) return;
         setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
+      },
+      onSdkUnavailable: (_code, message) => {
+        calibrationActiveRef.current = false;
+        setCalibrationOpen(false);
+        // SmartSpectra is optional to head/hand navigation once the camera
+        // is open. Do not revoke consent or clear the camera stream here.
+        setCamera(prev => ({ ...prev, isActive: true, status: 'tracking', faceDetected: false,
+          validationMessage: `${message}. Head and hand control stays on.` }));
       },
       onError: (_code, message) => {
         calibrationActiveRef.current = false;
@@ -483,8 +491,8 @@ export default function App() {
             </div>
             <div className="footer-group footer-center">
               <button className={`camera-status ${camera.status==='tracking'&&camera.faceDetected?'tracking':''}`} onClick={() => setShowCameraSetup(true)}>
-                {camera.status==='tracking'&&camera.faceDetected?<Camera size={16}/>:<CameraOff size={16}/>}
-                <span>{camera.status==='tracking'&&camera.faceDetected?'Hands-free active':camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':'Hands-free off'}</span>
+                {camera.isActive && camera.status==='tracking'?<Camera size={16}/>:<CameraOff size={16}/>}
+                <span>{camera.isActive && camera.status==='tracking'?'Hands-free ready':camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':'Hands-free off'}</span>
               </button>
             </div>
             <div className="footer-group">
