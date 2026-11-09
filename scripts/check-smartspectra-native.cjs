@@ -21,12 +21,12 @@ if (!key) {
 
 async function main(apiKey) {
   let sdk;
-  let successes = 0;
   let totalMetrics = 0;
   let fpsWarnings = 0;
   let validationOk = 0;
   let failure = null;
   let runningObserved = false;
+  let stopObservation = null;
 
   try {
     console.log('[SDK-only] Checking real Windows webcam. Glimra and MediaPipe are NOT running here.');
@@ -55,6 +55,7 @@ async function main(apiKey) {
     sdk.on('error', (code, message, retryable) => {
       if (!failure) failure = { code, message, retryable };
       console.error('[SDK-only] SDK error', code, message, '(retryable:', retryable, ')');
+      stopObservation?.();
     });
 
     const cameras = SmartSpectraSDK.availableCameras();
@@ -64,8 +65,11 @@ async function main(apiKey) {
     await sdk.start();
 
     // Measure for 20 seconds, but never auto-retry or consume a second session.
-    await new Promise(resolve => setTimeout(resolve, 20_000));
-    successes++;
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, 20_000);
+      stopObservation = () => { clearTimeout(timeout); resolve(); };
+      if (failure) stopObservation();
+    });
   } catch (err) {
     failure ??= { code: err?.code ?? 'start', message: err?.message ?? String(err), retryable: err?.retryable ?? false };
     console.error('[SDK-only] Test failed:', failure.message);
@@ -87,11 +91,11 @@ async function main(apiKey) {
       frameRateTooLowWarnings: fpsWarnings,
       error: failure,
     }, null, 2));
-    if (failure || !runningObserved || totalMetrics === 0) {
-      console.log('[SDK-only] No confirmed successful metrics. This test has NO MediaPipe or Electron renderer load.');
+    if (failure || !runningObserved || totalMetrics === 0 || validationOk === 0) {
+      console.log('[SDK-only] No valid SmartSpectra measurement confirmed in the native-only test. This test has NO MediaPipe or Electron renderer load.');
       process.exitCode = 1;
     } else {
-      console.log('[SDK-only] Real SDK metrics were delivered without MediaPipe; investigate Electron renderer capture contention.');
+      console.log('[SDK-only] Real SDK metrics and at least one valid reading were observed without MediaPipe; investigate Electron renderer capture contention.');
     }
   }
 }
