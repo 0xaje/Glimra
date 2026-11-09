@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('glimraDesktop', {
     ipcRenderer.invoke('glimra:presage-start', key, mode),
   stopPresage: async (): Promise<boolean> =>
     ipcRenderer.invoke('glimra:presage-stop'),
-  controlPresage: async (command: 'mode' | 'pause' | 'calibration', value: string | boolean): Promise<boolean> =>
+  controlPresage: async (command: 'mode' | 'pause' | 'calibration' | 'timing', value: string | boolean | Record<string, number | undefined>): Promise<boolean> =>
     ipcRenderer.invoke('glimra:presage-control', command, value),
   onPresageEvent: (listener: (event: unknown) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, event: unknown) => listener(event);
