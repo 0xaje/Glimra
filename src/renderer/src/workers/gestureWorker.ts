@@ -26,7 +26,6 @@ let hand: HandLandmarker | null = null;
 let ready = false;
 let loading = false;
 let useHandNext = false;
-let lastFaceAt = -Infinity;
 let lastHandAt = -Infinity;
 let lastTimestamp = -Infinity;
 const gestures = new DirectionalGestureEngine();
@@ -72,7 +71,6 @@ function processFrame(bitmap: ImageBitmap, timestampMs: number): void {
     // Alternate face and hand models to avoid consecutive CPU bursts.
     // This worker processes only one transferred frame at a time.
     if (!useHandNext || timestamp - lastHandAt < 220) {
-      lastFaceAt = timestamp;
       const landmarks = face.detectForVideo(bitmap, timestamp).faceLandmarks[0];
       if (!landmarks) {
         gestures.observe('head', null, timestamp);
