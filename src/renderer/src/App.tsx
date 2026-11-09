@@ -40,6 +40,7 @@ export default function App() {
   const [pdfDoc, setPdfDoc] = useState<PresentationDocument | null>(null);
   const [isLoadingDeck, setIsLoadingDeck] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [keyStorageError, setKeyStorageError] = useState<string | null>(null);
 
   const [camera, setCamera] = useState<CameraState>({
     isActive: false,
@@ -401,7 +402,12 @@ export default function App() {
       return;
     }
 
-    await window.glimraDesktop?.setCameraConsent(true);
+    const consentAccepted = await window.glimraDesktop?.setCameraConsent(true);
+    if (!consentAccepted) {
+      setCamera(prev => ({ ...prev, status: 'error', isActive: false,
+        validationMessage: 'Could not enable the camera. Check app permissions.' }));
+      return;
+    }
 
     setCamera((prev) => ({
       ...prev,
@@ -421,10 +427,15 @@ export default function App() {
 
   const saveApiKey = async (key: string) => {
     const trimmed = key.trim();
-    setApiKey(trimmed);
     if (window.glimraDesktop?.storeApiKey) {
-      await window.glimraDesktop.storeApiKey(trimmed);
+      const saved = await window.glimraDesktop.storeApiKey(trimmed);
+      if (!saved) {
+        setKeyStorageError('Could not save the API key securely. Check your system keychain or OS encryption settings.');
+        return;
+      }
     }
+    setKeyStorageError(null);
+    setApiKey(trimmed);
     setShowSettingsModal(false);
 
     // All automatic gestures use the native SDK, so key changes restart
@@ -679,9 +690,10 @@ export default function App() {
                 }}
               />
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                Stored using OS safeStorage. The SmartSpectra SDK uses this key for Presage access; Glimra does not log it.
+                Stored encrypted using your operating system keychain. No plaintext fallback is used.
               </p>
-            </div>
+ 
+              {keyStorageError && <p role="alert" style={{ fontSize: '12px', color: 'var(--color-signal-danger)' }}>{keyStorageError}</p>}           </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Control method</label>
