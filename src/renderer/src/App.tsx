@@ -577,33 +577,21 @@ export default function App() {
 
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
               Glimra lets you present a PDF without touching your computer.
-              <strong> Gentle head movements are the default.</strong> Head and Hands run locally without SmartSpectra.
-              Choose Eyes for the real SmartSpectra blink experience.
+              <strong> Gentle head movements are the default.</strong> Both Head and Eyes use genuine live Presage SmartSpectra signals, not MediaPipe.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>Hands — optional</div>
-                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  Choose Hands in Settings. Show one open hand. Swipe right: next slide. Swipe left: previous slide.
-                  Swipe up: scroll up inside the current PDF page. Swipe down: scroll down inside that same page.
-                  Bring your hand back to the middle before repeating.
-                </p>
-              </div>
-              <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
-                  Head is selected by default. Make a small comfortable turn to the right or left to change slides.
-                  Nod gently up or down to scroll the current PDF page. Glimra learns your natural starting pose;
-                  you do not need to sit in a fixed spot. Return to your relaxed pose between moves.
+                  SmartSpectra's real facial landmarks power head control. Make a small comfortable turn left or right to change slides, or nod up or down to scroll inside the current page. Return to your relaxed pose between moves.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Eyes — optional SmartSpectra control</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   Choose Eyes in Settings. A deliberate long blink goes forward; a quick double-blink goes back.
-                  Eye control needs a Presage API key and valid live SmartSpectra readings. Changing to Eyes
-                  reconnects the camera. Eye movements do not scroll pages.
+                  Eyes uses SmartSpectra's live blink detections from the same native camera session. It requires a valid signal and does not scroll pages. Eye blinking still needs real hardware verification.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
@@ -697,7 +685,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Control method</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                {(['hand', 'head', 'eyes'] as GestureControlMode[]).map(option => (
+                {(['head', 'eyes'] as GestureControlMode[]).map(option => (
                   <button type="button" key={option} aria-pressed={gestureMode===option}
                     onClick={() => { void changeGestureMode(option); }}
                     style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid', borderColor: gestureMode===option ? 'var(--color-accent)' : 'var(--color-border-subtle)', color: gestureMode===option ? 'var(--color-accent)' : 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-elevated)' }}>
@@ -705,7 +693,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Head is the default: small turns and nods move slides or scroll. Hands: open-hand swipes. Eyes: optional SmartSpectra blink controls.</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Both modes are powered by Presage. Head: gentle turns and nods. Eyes: intentional blinks (still needs hardware verification).</p>
             </div>
             {/* Gesture Sensitivity */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -754,7 +742,7 @@ export default function App() {
                 </div>
               )}
               <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                Eye timing only affects Eyes mode. Head and Hands modes do not require blink timing.
+                Eye timing only affects the Presage Eyes mode. Head movements use real Presage facial landmarks.
               </p>
             </div>
 
@@ -844,7 +832,7 @@ export default function App() {
             {calibrationSuggestion && (
               <p>Suggested minimum hold: {(calibrationSuggestion.minIntentionalBlinkMs / 1000).toFixed(2)} seconds. You can adjust it later in Settings.</p>
             )}
-            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Only valid, stable SmartSpectra readings count. Practice does not change slides or save video.</p>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Only valid, stable SmartSpectra blinking readings count. Practice does not change slides or save video.</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button type="button" onClick={endCalibration}>Cancel</button>
               <button type="button" onClick={() => { setCalibrationSamples([]); controllerRef.current?.setCalibrationMode(true); }}>Try again</button>
@@ -900,7 +888,7 @@ export default function App() {
               }}
             >
               <li>Glimra processes camera frames on your device and does not save them to disk.</li>
-              <li>SmartSpectra uses genuine live signals and may send SDK telemetry according to Presage settings and policies.</li>
+              <li>Glimra uses the native Presage SDK for facial landmarks and blinking. SDK telemetry is disabled in this build. Presage may require network access for authentication or entitlements.</li>
               <li>Pausing stops gesture commands; disconnecting or exiting turns off the camera.</li>
               <li>Physical keyboard shortcuts always remain functional.</li>
             </ul>
