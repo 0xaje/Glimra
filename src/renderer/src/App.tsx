@@ -49,7 +49,6 @@ export default function App() {
     lastGesture: null,
   });
 
-  const [chargeRatio, setChargeRatio] = useState(0);
   const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
   const [gestureMode, setGestureMode] = useState<GestureControlMode>(() => {
     try {
@@ -129,7 +128,6 @@ export default function App() {
       onGestureDetected: (feedback: GestureFeedback) => {
         setCamera((prev) => ({ ...prev, lastGesture: feedback }));
       },
-      onChargeProgress: (ratio) => setChargeRatio(ratio),
       onCalibrationSample: (durationMs) => {
         if (!calibrationActiveRef.current) return;
         setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
@@ -473,7 +471,7 @@ export default function App() {
         <section className="studio-center">
           {!presentation.isFullscreen && presentation.isLoaded && !showSlides && <button className="restore-rail" onClick={() => setShowSlides(true)}><PanelLeftOpen size={16}/> Show slides</button>}
           <div className={`studio-stage ${presentation.isLoaded?'has-presentation':''}`}>
-            <PresenterHUD camera={camera} chargeRatio={chargeRatio} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
+            <PresenterHUD camera={camera} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
             {camera.isActive && gestureTrackingError && <div role="alert" className="studio-error">{gestureTrackingError}</div>}
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
