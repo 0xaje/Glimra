@@ -143,13 +143,10 @@ export function LiveGestureTracker({
               const eyeA = landmarks[33];
               const eyeB = landmarks[263];
               const faceWidth = Math.hypot(eyeB.x - eyeA.x, eyeB.y - eyeA.y);
-              // Nodding/tilting is an option; gently incorporate the eye-line
-              // rotation into the original nose-X displacement.
-              const tiltX = faceWidth > 0.035
-                ? (eyeA.x < eyeB.x ? eyeA.y - eyeB.y : eyeB.y - eyeA.y) * 0.45
-                : 0;
+              // Keep the sign and direction of the previously working
+              // head control exactly unchanged; only scale its threshold.
               const command = gestures.observe('head', {
-                x: 1 - nose.x + tiltX,
+                x: 1 - nose.x,
                 y: nose.y,
                 confidence: 1,
                 faceWidth,
