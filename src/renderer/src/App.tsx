@@ -526,10 +526,10 @@ export default function App() {
           {camera.isActive && gestureMode === 'head' && (
             <button type="button" className="text-button"
               onClick={() => { void controllerRef.current?.recenter(); }}>
-              Recenter for a new presenter
+              Recenter
             </button>
           )}
-          <p className="panel-description">Glimra learns a new person's natural position when the previous face leaves the camera. If tracking feels stuck, use Recenter once. Only one face should be in view.</p>
+          <p className="panel-description">Glimra learns a new person’s natural position when the previous face leaves the camera. If tracking feels stuck, use Recenter once. Only one face should be in view.</p>
           <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => changeGestureMode(option)}>{option === 'head' ? 'Head (default)' : 'Eyes'}</button>)}</div><p>Both controls use live Presage SmartSpectra signals. Head uses 478-point facial landmarks; Eyes uses blink detection. A Presage API key is required.</p></div>
           {gestureMode === 'eyes' && (
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
