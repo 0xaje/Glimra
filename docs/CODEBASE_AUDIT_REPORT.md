@@ -1,203 +1,130 @@
-# Glimra — Comprehensive Codebase Audit, Cleanup & Maintenance Report
+# Glimra — full repository audit and independent judging report
 
-**Date:** November 7, 2026  
-**Repository:** `https://github.com/0xaje/Glimra`  
-**Application ID:** `com.glimra.presentation`  
-**Branch:** `design/glimra-studio-dark-light`  
-**Auditor:** Senior Software Engineer & Application Architect  
+**Audit date:** November 9, 2026  
+**Repository:** https://github.com/0xaje/Glimra  
+**Branch:** `main`  
+**Architecture:** Windows/Electron + React/TypeScript + PDF.js + native official Presage SmartSpectra Node SDK  
+**Type:** Source-level, dependency, frontend, backend, release, privacy and challenge-rule audit, with public GitHub CI evidence and presenter-provided real hardware reports. This is **not** a penetration test or a certified independent in-person user study.
 
----
+## Executive decision
 
-## Executive Summary & Audit Metrics
+**Worth submitting after finishing the required acceptance work: YES. Ready to submit today: NO.**
 
-A rigorous two-pass audit was conducted across the entire repository to uncover and eliminate genuinely unused code, obsolete frontend implementations, orphaned assets, dead exports/methods, duplicate styles, and unnecessary dependencies.
+**Provisional, non-organizer judging estimate: 76 / 100.** The judges publish criteria but do not prescribe our weights. This review applies 40 points to underlying technology, 35 to usability, and 25 to originality, assuming the required demo/post are eventually supplied.
 
-| Category | Inspected Count | Confirmed Unused Removed | Retained & Active Count | Uncertain Items |
-| :--- | :---: | :---: | :---: | :---: |
-| **React Components & Layouts** | 5 | 0 | 5 | 0 |
-| **Static Assets (Images / PDFs / Audio / Fonts)** | 2 | 0 | 2 | 0 |
-| **Direct Runtime Dependencies** | 5 | 0 | 5 | 0 |
-| **Development Dependencies** | 10 | 0 | 10 | 0 |
-| **CSS Class Selectors** | 58 | 2 | 56 | 0 |
-| **Dead Functions / Class Methods** | 1 | 1 | 0 | 0 |
-| **Temporary / Bloat Working Tree Files** | 10 | 10 | 0 | 0 |
+| Criterion | Score | Assessment |
+| --- | ---: | --- |
+| Use of underlying technology | **34 / 40** | The real native Presage SDK is foundational, not decorative. Verified 478-point face landmarks and actual head-driven PDF interaction. Eyes mode remains unverified; clean installer and long-session proof incomplete. |
+| Usability and experience | **24 / 35** | Clear touch-free real-world need, PDF navigation and in-page scroll, presenter handoff/recenter and accessible keyboard fallback. Remaining real-world reliability, lack of camera preview, status confidence, and long-session test cost points. |
+| Originality and creativity | **18 / 25** | Facial head-motion PDF presentation with real Presage integration is a coherent idea, but hands-free slide control exists elsewhere; originality relies on refined in-PDF scrolling, low-effort control and thoughtful consent. |
+| **Total** | **76 / 100** | Solid entry potential, not a guaranteed winner. A polished demo and strong reliability evidence could plausibly raise this to the mid/high 80s. |
 
----
+**Submission eligibility vs. readiness:** Glimra public GitHub repository was created November 6, 2026, with first visible commit November 7, inside the November 4–22 entry window. The official rules require **actual development** to start during the contest, not simply a new repository. Nigeria is not named among the general contest's excluded jurisdictions, but individual export-control, age, DEV membership and employer-policy conditions must still be checked personally. Only a complete submission can enter judging.
 
-## 1. Component & Frontend Architecture Audit
+## 1. Audit method and scope
 
-### Inventory & Usage Tracing
-Every frontend component and module in `src/renderer/src/` was inventoried and traced through the dependency graph:
+Inspected the current tracked GitHub tree (source, scripts, tests, docs, assets, configuration, dependencies and CI), the native Presage controller and worker, React UI/PDF pipeline, credential storage, and the official DEV/Presage rules. CI validates compile, design lint and Node tests on Linux, with unsigned Windows NSIS and Linux packaging. The presenter independently tested the real Presage Windows camera and reports that head-controlled presentation now works with substantial improvements.
 
-| Component / File | Exported Symbol(s) | Imported By | Render / Runtime Status | Retained Reason |
-| :--- | :--- | :--- | :--- | :--- |
-| `src/renderer/src/main.tsx` | Entry file | `index.html` | Mounted into `#root` via `createRoot` | Core application entry point. |
-| `src/renderer/src/App.tsx` | `default function App` | `src/renderer/src/main.tsx` | Primary layout & state coordinator | Manages presentation state, modals, theme, and controllers. |
-| `src/renderer/src/components/PresenterHUD.tsx` | `export function PresenterHUD` | `src/renderer/src/App.tsx` | Rendered on stage during active presentation mode | Real-time heads-up display showing tracking status, intentional dwell charge progress, and pause toggle. |
-| `src/renderer/src/components/SlideViewer.tsx` | `export const SlideViewer` | `src/renderer/src/App.tsx` | Rendered on stage when PDF is loaded | Main presentation canvas, viewport dimension calculator, PDF page renderer, jump-to-slide, and blackout overlay. |
-| `src/renderer/src/components/SlideThumbnail.tsx` | `export function SlideThumbnail` | `src/renderer/src/App.tsx` | Rendered in slide rail for each page | Thumbnail rendering with `IntersectionObserver` viewport virtualization. |
-| `src/renderer/src/components/CameraPreview.tsx` | `export function CameraPreview` | `src/renderer/src/App.tsx` | Rendered inside camera setup drawer | Live camera feed and poster placeholder preview. |
-| `src/renderer/src/engine/pdfEngine.ts` | `loadPresentationFromBuffer`, `PresentationDocument` | `src/renderer/src/App.tsx`, `SlideViewer.tsx`, `SlideThumbnail.tsx`, `tests/presentation.test.mjs` | Core PDF processing engine | Handles PDF parsing, page rendering, canvas scaling, and queue serialization. |
-| `src/renderer/src/engine/gestureEngine.ts` | `GestureEngine`, `DEFAULT_GESTURE_CONFIG`, types | `src/renderer/src/engine/smartSpectraController.ts`, `tests/gestureEngine.test.mjs` | Intentional eye gesture detector | Implements dwell advance ($\ge 350\text{ ms}$), refractory cooldown (1.2s), double-blink rewind, and noise rejection. |
-| `src/renderer/src/engine/smartSpectraController.ts` | `SmartSpectraController` | `src/renderer/src/App.tsx` | Native SDK & telemetry manager | Connects `@smartspectra/node-sdk` metrics to the gesture engine and feeds status to UI. |
-| `src/renderer/src/utils/audioChime.ts` | `audioFeedback` | `src/renderer/src/App.tsx` | Web Audio feedback synthesizer | Plays non-blocking procedural sine chimes for slide navigation without audio files. |
-| `src/renderer/src/types/index.ts` | TypeScript types/interfaces | `App.tsx`, `PresenterHUD.tsx`, `smartSpectraController.ts` | Shared type declarations | Strict contracts for camera, gesture, and presentation state. |
-| `src/renderer/src/styles/globals.css` | CSS tokens & styles | `src/renderer/src/main.tsx` | Global stylesheet | Hallmark-compliant design tokens, dark/light studio themes, and layout rules. |
-| `src/renderer/src/vite-env.d.ts` | Ambient declarations | Vite / TypeScript | TypeScript environment bindings | Types for Vite client and `__smartspectraBridge`. |
+**Limits:** This audit cannot personally run the webcam, inspect unpublished Windows system logs, verify app startup on a clean second PC, inspect Presage's internal source, or verify the user's work/employment eligibility. No vendor SDK performance guarantee or win probability can be deduced from unit tests.
 
-### Finding
-- **Zero old or orphaned components exist.** There are no obsolete pages, unused router configurations, or deprecated layouts.
-- **Strict TypeScript Compliance:** With `"noUnusedLocals": true` and `"noUnusedParameters": true` enforced in `tsconfig.json`, any unreferenced component, variable, or parameter in `src/` causes an immediate compilation failure. `tsc --noEmit` exits with `0`.
+## 2. Dead-code removal actually applied to main
 
----
+| Removal / correction | Reason |
+| --- | --- |
+| `src/renderer/src/engine/gestureEngine.ts` | Former browser-renderer blink engine is no longer used by the native SDK worker. Its type contract moved into the active native controller. |
+| `tests/gestureEngine.test.mjs` | Tested the obsolete engine, NOT real Eyes-mode processing. Keeping these passing tests would falsely inflate native test confidence. |
+| `tests/sdk-diagnostic.mjs` | Unused by the `*.test.mjs` test runner; relied on dummy-key/synthetic SDK inputs. Real native SDK diagnostics are retained in `scripts/`. |
+| `public/camera-preview-poster.svg` | No browser camera preview exists in native-only capture. |
+| CSS `.camera-preview` and `.camera-preview-video` | Unused after removal of the old camera-preview component; compared CSS selectors to active JSX. |
+| Legacy `hand-swipe` / `none` event type members | Not emitted by the live Presage-only native pipeline. |
+| Blink HUD `chargeRatio`, progress bar and callback | No real native charging progress was emitted; the display suggested nonexistent processing feedback. Eyes guidance now avoids fake progress. |
+| `docs/LIVE_GESTURE_VERIFICATION.md` | Obsolete experiments and patch history referencing the removed renderer/MediaPipe worker. Replaced by a current live camera acceptance procedure. |
+| Old audit report and outdated build/privacy/architecture statements | Replaced or marked as historical to keep the public repository honest. |
+| Windows CI auto-publish behavior | Not a dead runtime feature, but an unnecessary release action that caused installer CI failure. Windows packaging now sets `--publish never`. |
 
-## 2. Static Asset Audit
+**Not removed because they are legitimately used:** `@smartspectra/node-sdk`, React, Electron, PDF.js, Lucide, PDF.js worker, audio chimes, `public/glimra-sample-deck.pdf` (PDF test asset), native standalone diagnostics and the Hallmark design kit (used by CI lint). The `.agents/skills/hallmark/` reference library is development tooling, not part of the app runtime; do not delete it while depending on `lint:hallmark`.
 
-| Asset Path | Format / Size | Referenced Locations | Purpose & Justification |
-| :--- | :--- | :--- | :--- |
-| `public/camera-preview-poster.svg` | SVG (329 B) | `src/renderer/src/components/CameraPreview.tsx` (`poster="/camera-preview-poster.svg"`) | Displayed as poster frame in video preview before stream is attached. |
-| `public/glimra-sample-deck.pdf` | PDF (6.6 kB) | `tests/presentation.test.mjs`, bundled desktop client | Automated integration test fixture verifying PDF import, page counting, and canvas rasterization; bundled as a default sample deck for presenters. |
+**Candidate for later dependency reduction:** `vite-plugin-electron-renderer` is still configured as development tooling but looks unnecessary after renderer-only SDK imports were removed. Removing it and pruning `package-lock.json` should only be done with a fresh reproducible `npm ci`/build/package run. Not deleted in this audit because the current Windows installer is finally building.
 
-### Font & Audio Asset Verification
-- **Fonts:** Glimra employs zero custom font downloads (`.woff2`, `.ttf`). All typography uses declared system font stacks (`--font-sans` and `--font-mono`) in `globals.css` to ensure instant zero-latency loading.
-- **Audio Files:** Zero static sound files (`.mp3`, `.wav`) are stored in the repository. Presenter audio feedback is synthesized directly via the Web Audio API (`OscillatorNode` / `GainNode`).
-- **Orphaned Screenshots Cleaned:** 10 temporary review screenshots (`.hallmark/shots/*.png`) were removed from the working tree and permanently excluded in `.gitignore`.
+## 3. Frontend and PDF audit
 
----
+**Confirmed strengths**
 
-## 3. Dependency Audit
+- Application is a genuine desktop PDF presenter, not merely a sample metrics dashboard.
+- Clear landing/Open PDF, page thumbnails (lazy via IntersectionObserver), next/previous controls, keyboard, fullscreen, blackout, light/dark appearance, gesture status and Settings.
+- PDF pages rendered by `pdfjs-dist`; per-page up/down gestures are routed into the current PDF's scroll area rather than skipping page numbers.
+- Presentation controls work without camera consent as keyboard/mouse fallbacks.
+- Camera consent and data handling are shown before starting native capture; a simple "Recenter" action assists presenter handoff.
 
-All 5 runtime dependencies and 10 development dependencies in `package.json` were scrutinized against runtime imports and build steps:
+**Remaining issues / recommendations**
 
-### Runtime Dependencies (`dependencies`)
-| Dependency | Version | Active Usage in Codebase | Status |
-| :--- | :--- | :--- | :---: |
-| `@smartspectra/node-sdk` | `^3.4.0` | `src/main/main.ts`, `src/preload/preload.ts`, `smartSpectraController.ts`, `tests/foundation.test.mjs`, `tests/sdk-diagnostic.mjs` | **RETAINED** (Core SDK) |
-| `lucide-react` | `^1.16.0` | All 17 imported icons rendered in `App.tsx` and `PresenterHUD.tsx` | **RETAINED** (Icons) |
-| `pdfjs-dist` | `^4.10.38` | `src/renderer/src/engine/pdfEngine.ts`, `tests/presentation.test.mjs` | **RETAINED** (PDF viewer) |
-| `react` | `^18.3.1` | Core UI state and component lifecycle across `src/renderer/` | **RETAINED** (Framework) |
-| `react-dom` | `^18.3.1` | `src/renderer/src/main.tsx` DOM root mounting | **RETAINED** (Mounting) |
+| Priority | Finding | Recommendation |
+| --- | --- | --- |
+| **P0** | Real SDK source is not visually evident enough to a first-time judge. HUD Details reports native status/counts but no concise proof panel. | Show "Presage active", live facial-landmark sample count, tracked/lost state and last accepted gesture in a small truthful panel. Never render fake biosignals or raw coordinates. |
+| **P0** | Face acquisition on a second presenter and repeated comfortable motion are not independently stress-verified. | Execute the 5-minute real Windows acceptance procedure with two people, lighting changes, pause/resume and disconnect. Record exact outcomes. |
+| **P1** | No camera preview in native mode, reducing confidence that the presenter is within view. | Prefer clear Presage-powered "face found / no face / multiple faces" guidance and recenter; do not open a second MediaPipe camera pipeline merely to create a preview. A real SDK-supported video output could be evaluated later. |
+| **P1** | Settings contains opt-in Eyes timing and calibration, but live blink detection previously produced zero confirmed starts. | Keep it clearly labeled optional/unverified until actual SmartSpectra blinks are observed; avoid centering the final demo on it. |
+| **P2** | `App.tsx` remains a large monolithic file and both App/footer and SlideViewer/fullscreen maintain elapsed timers. | Separate Settings, Guide, camera consent and timer orchestration once the live Windows functionality is fully stable. Don't refactor the working presenter only for a cleaner file count. |
+| **P2** | PDF rendering and zoom have limited automated browser-level coverage. | Later test large/malformed PDFs, window resize, zoom transitions and page-change race conditions. Current Node tests are not Electron end-to-end tests. |
 
-### Development Dependencies (`devDependencies`)
-| Dependency | Version | Active Usage in Tooling | Status |
-| :--- | :--- | :--- | :---: |
-| `@types/node` | `^22.10.2` | TypeScript typing for Node built-ins (`node:path`, `node:fs`, `node:child_process`) | **RETAINED** |
-| `@types/react` | `^18.3.12` | React 18 TypeScript type definitions | **RETAINED** |
-| `@types/react-dom` | `^18.3.1` | React DOM 18 TypeScript type definitions | **RETAINED** |
-| `@vitejs/plugin-react`| `^4.3.4` | Vite JSX runtime compilation | **RETAINED** |
-| `electron` | `^43.8.7` | Desktop shell executable runtime | **RETAINED** |
-| `electron-builder` | `^26.18.0` | Linux AppImage, Windows NSIS, and macOS packaging | **RETAINED** |
-| `typescript` | `^5.7.2` | Static type checker (`tsc`) | **RETAINED** |
-| `vite` | `^6.0.3` | Bundler and dev server | **RETAINED** |
-| `vite-plugin-electron`| `^0.29.0` | Electron main and preload Vite integration | **RETAINED** |
-| `vite-plugin-electron-renderer`| `^0.14.6` | Polyfills Node/Electron IPC APIs for the renderer | **RETAINED** |
+## 4. Native backend, security and dependency audit
 
-**Vulnerability Audit:** `npm audit` was executed: **found 0 vulnerabilities**.
+**Confirmed good design**
 
----
+- Only the official `@smartspectra/node-sdk` is used for automatic human sensing. `useCamera(CameraSelection.default)` runs inside a supervised Node child process, avoiding the old high-overhead renderer-to-main pixel transfer.
+- Real `face.landmarks` stability/reset/timestamps drive the head-command state machine; inferred direction, metric counts and quality state cross bounded IPC, not whole biometric arrays or video frames.
+- The head engine has movement smoothing, rearming, false-positive protection, loss/reacquisition logic, and mathematical tests. Native samples were verified on the real Windows webcam.
+- SDK telemetry is explicitly disabled (`enableTelemetry: false`), with error and face-state reporting.
+- Camera startup requires user consent and sender validation; connecting/closing triggers native child cleanup.
 
-## 4. Dead Code & Obsolete CSS Elimination
+**Risks identified**
 
-A complete AST and token scan of `src/` and `globals.css` was performed:
+| Severity | Finding | Status / action |
+| --- | --- | --- |
+| **HIGH — corrected** | Old fallback wrote Presage API keys as **plaintext** when the OS keychain was unavailable; retrieval could read them back. | Removed plaintext fallback, now fails closed. Credential IPC is main-window scoped. Settings displays secure-save errors. Old historical local files should be considered for manual cleanup if an insecure-backend machine was ever used. |
+| **MEDIUM — open** | Electron BrowserWindow still explicitly uses `sandbox: false`, a leftover justification from the retired renderer SDK preload. | Test sandboxed preload and native IPC on Windows; enable `sandbox: true` if compatible, then rerun complete acceptance. |
+| **MEDIUM — open** | Clean Windows installer may differ from local `npm run dev`: app.asar, native runtime/DLL resolution, child process packaging and SmartScreen warning. | Windows CI now builds installer. Install and test that artifact on a clean Windows computer before claiming production-ready distribution. |
+| **MEDIUM — open** | Native blink path has not produced verified real blink events in the independent diagnostic. | Run dedicated actual SDK Eyes calibration test; either prove it or describe it as experimental. |
+| **LOW — corrected** | Blink calibration could leave the prior eye-closed flag true on a completed practice cycle. | Fixed completed calibration edge state in native worker; real Eyes test remains necessary. |
+| **LOW — open** | Old documentation still preserved in historical master plans/packaging notes can be mistaken for current instructions if the header is ignored. | Added historical notices, updated the current architecture/privacy/checklist; treat the native audit as source of truth. |
 
-### Confirmed Dead Code Removed
-1. **Dead Class Method `AudioFeedbackController.getEnabled()`:**
-   - **File:** `src/renderer/src/utils/audioChime.ts`
-   - **Reason:** Never called anywhere; sound feedback enable/disable toggle in `App.tsx` is tracked in React state and set via `audioFeedback.setEnabled(enabled)`.
-   - **Action:** Deleted dead method.
-2. **Dead CSS Selector `.rail-slide-number`:**
-   - **File:** `src/renderer/src/styles/globals.css`
-   - **Reason:** Leftover from earlier prototype; `SlideThumbnail.tsx` uses `.rail-page-label`.
-   - **Action:** Deleted rule.
-3. **Dead CSS Selector `.panel-overline`:**
-   - **File:** `src/renderer/src/styles/globals.css`
-   - **Reason:** Camera setup drawer header was refactored during the Studio redesign; `.panel-overline` was no longer referenced in JSX.
-   - **Action:** Deleted rule.
-4. **Duplicate CSS Rules Merged:**
-   - Consolidated split rules for `.studio-topbar`, `.studio-brand`, `.studio-stage`, `.welcome-stage`, `.camera-panel`, and `.camera-preview`.
+**Version/dependency facts:** `@smartspectra/node-sdk` is a required runtime dependency, as are React, React DOM, PDF.js and Lucide. Electron, Vite, TypeScript, Electron Builder and Hallmark linting are used to build/test/package. Do not delete a dependency solely because a text search fails to find it in the frontend; some belong to build configuration or native runtime.
 
----
+## 5. Challenge qualification and positioning
 
-## 5. Items Retained and Why
+Official challenge dates: **November 4–22, 2026**. Submission deadline: **November 22, 11:59 PM PST**. The entry must have a functional real-SDK signal, public repository, setup instructions, demo video, an English DEV post using `#presagechallenge`, and an explicit consent/data-handling/telemetry/retention/deletion statement. Individuals 18+ only, one entry per person. No medical claims or covert monitoring.
 
-- **`scripts/test-runner.mjs`:** Custom ESM test runner utilizing Node's native `node:test`. Required because GitHub Actions runner environments on Ubuntu require explicit file path lists rather than glob shell expansions.
-- **`tests/foundation.test.mjs`:** 4 automated tests verifying presence of core documentation, zero committed credentials, native C API export surface, and build directories.
-- **`tests/gestureEngine.test.mjs`:** 9 automated tests verifying intentional dwell thresholds, cooldown windows, double-blink rewind, gap bounds, pause/face loss disarming, and sensitivity configuration.
-- **`tests/presentation.test.mjs`:** 3 automated tests testing PDF parsing, page extraction, state machine clamping, and corrupted buffer handling.
-- **`tests/sdk-diagnostic.mjs`:** 4 diagnostic tests exercising native `libsmartspectra_capi.so` initialization, camera hardware enumeration, custom input lifecycle, and Protobuf metric decoding.
-- **`docs/` Suite:** Complete engineering documentation (`MASTER_PLAN.md`, `PROGRESS.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `DESIGN_SYSTEM.md`, `RELEASE_CHECKLIST.md`, `CAMERA_TESTING_PROCEDURE.md`, `PACKAGING_AND_INSTALLATION.md`).
+**Fit:** The true SmartSpectra landmark stream powers real PDF slide and scroll controls; that matches the underlying-technology rule. Head movements are acceptable derived actions from a documented SDK facial-landmark signal. **No need to add pulse/HRV/breathing just to appear technical**. Presage does not publish hand landmarks in its official face metrics; adding MediaPipe hand swipes as a headline would dilute the strict Presage-only concept.
 
----
+**Best competitive category:** **Best Thoughtful Real-World Use**: an accessible touch-free presentation tool with explicit consent, local sensing, manual fallback and a clear productive use. Also enter Best Overall. Most Creative or Delightful Use is possible but less compelling unless the final demo adds a distinctive verified delight.
 
-## 6. Uncertain Items Requiring Review
+**Critical eligibility check:** Public repository date is evidence but not proof the code itself started in the contest window. Read https://dev.to/page/official-hackathon-rules (especially entry requirements and employer-policy clause). Nigeria is not among the jurisdictions expressly listed as excluded; that does not override other rules, sanctions restrictions or individual circumstances.
 
-**Zero uncertain items identified.**  
-All 13 files in `src/renderer/src/`, both Electron process scripts in `src/main` and `src/preload`, both static assets in `public/`, and all 15 dependencies are verified active and necessary.
+**Not ready to submit today:** The user has not supplied a finished DEV post/video, final clean-machine/long-session acceptance evidence, or proven Eyes behavior. A polished codebase without the required submission package may be ineligible or unjudgeable. Judges explicitly check that the public code **and video** show live Presage use.
 
----
+## 6. Final priority plan: finish, don't expand
 
-## 7. Final Verification Suite Results
+1. **P0: Freeze the native Head sensing path.** Do not reintroduce MediaPipe/hand tracking, add a new gesture engine or change already comfortable thresholds without real failure evidence.
+2. **P0: Finish Windows acceptance.** Pull latest main, run `npm ci`, `npm run build`, `npm test`, and then run a 5+ minute real-camera Head presentation; verify page navigation, in-page scroll, face handoff, pause/resume, recenter and disconnect. Repeat on a clean installed Windows build.
+3. **P0: Demonstration proof.** Display genuine source state and sample counts; capture a short live camera + application video with Presage SDK running and one natural gesture producing an immediate slide and PDF scroll.
+4. **P0: Consent and eligibility.** Confirm the employer-policy/individual restrictions; include the exact current data/telemetry/retention/disconnect disclosures in the submission.
+5. **P0: Submit.** Write one high-quality English DEV post, include the public repository, real demo video and simple setup, select Overall and Thoughtful Real-World, and apply `#presagechallenge` before deadline.
+6. **P1: Eyes decision.** Only include live Eyes demonstration after confirmed real blink events. If still unreliable, focus judges on the verified Presage facial-landmark Head interaction; optional beta status must be honest.
+7. **P2: Code organization and optional UX polish.** Split large App, unify duplicated timers, reassess sandbox, and prune unnecessary build plugin only after protecting the tested Windows installation.
 
-All checks were executed in the Linux audit environment with 100% pass rates:
+**Stop condition:** Working installed app + real Presage head commands for an entire ordinary presentation + truthful source evidence + clean consent disclosure + submission package. Adding more sensors or more surface features now is less valuable than proving reliability.
 
-### 1. Static Type Check (`npx tsc --noEmit`)
-```bash
-$ npx tsc --noEmit
-# Exit Code: 0 (Zero type errors, zero unused variables or parameters)
-```
+## Source-of-truth links
 
-### 2. Automated Test Suite (`npm test`)
-```bash
-$ npm test
-✔ Glimra Foundation — Core Documentation Suite (6.17ms)
-✔ Glimra Foundation — Security Audit (No Committed Credentials) (0.97ms)
-✔ Glimra Foundation — SmartSpectra SDK Native Export Surface (92.04ms)
-✔ Glimra Foundation — Build Artifacts Generated (0.39ms)
-✔ M3 Gesture Engine: Involuntary Blinks (<350ms) are Ignored (2.67ms)
-✔ M3 Gesture Engine: Unstable Biometric Samples Are Discarded (0.37ms)
-✔ M3 Gesture Engine: Non-monotonic & Stalled Timestamps Handled Safely (0.33ms)
-✔ M3 Gesture Engine: Intentional Prolonged Blink (400ms) Advances Slide (1.01ms)
-✔ M3 Gesture Engine: Refractory Cooldown Suppresses Double Advances (0.70ms)
-✔ M3 Gesture Engine: Verified Double Blink Triggers Previous Slide (0.57ms)
-✔ M3 Gesture Engine: Double Blink Rejects Inappropriate Gaps and Durations (2.46ms)
-✔ M3 Gesture Engine: Pause and Face Loss Disarm Processing Immediately (0.49ms)
-✔ M3 Gesture Engine: Dynamic Sensitivity Tuning via updateConfig (0.58ms)
-✔ M2 Presentation Engine: Real PDF Document Import & Page Count (117.55ms)
-✔ M2 Presentation Engine: Slide Navigation State Machine (1.45ms)
-✔ M2 Presentation Engine: Corrupted Buffer Error Handling (3.86ms)
-ℹ tests 16, suites 0, pass 16, fail 0, duration_ms 279.3ms
-```
+- Repository: https://github.com/0xaje/Glimra
+- CI runs: https://github.com/0xaje/Glimra/actions
+- Official challenge: https://dev.to/challenges/presage-2026-11-04/
+- Contest rules: https://dev.to/page/official-hackathon-rules
+- SmartSpectra metrics: https://presagetech.com/docs/smartspectra-sdk/nodejs/metrics
+- SmartSpectra Node API: https://presagetech.com/docs/smartspectra-sdk/nodejs/api-reference
+- Current architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Privacy and camera disclosure: [PRIVACY.md](PRIVACY.md)
+- Windows acceptance checks: [CAMERA_TESTING_PROCEDURE.md](CAMERA_TESTING_PROCEDURE.md)
+- Release checklist: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 
-### 3. Production Build (`npm run build`)
-```bash
-$ npm run build
-✓ 2113 modules transformed.
-dist/index.html                              0.42 kB │ gzip:   0.30 kB
-dist/assets/pdf.worker.min-yatZIOMy.mjs  1,375.84 kB
-dist/assets/index-eLgRKU_5.css              14.48 kB │ gzip:   3.38 kB
-dist/assets/index-CBPOd8Iy.js              702.24 kB │ gzip: 193.23 kB
-dist-electron/main.js                        2.84 kB │ gzip:   1.31 kB
-dist-electron/preload.js                     0.56 kB │ gzip:   0.26 kB
-✓ built in 6.97s
-```
-
-### 4. Hallmark Design Audit (`npm run lint:hallmark`)
-```bash
-$ npm run lint:hallmark
-sloplint: clean. 0 FAIL, 0 REFLEX, 0 WARN across 7 file(s).
-```
-
-### 5. Dependency Vulnerability Audit (`npm audit`)
-```bash
-$ npm audit
-found 0 vulnerabilities
-```
-
----
-
-## 8. Physical Hardware & Public Readiness Status
-
-In strict adherence to repository integrity rules:
-1. **Physical Webcam Testing:** Marked `BLOCKED` in WSL2 because `/dev/video*` is not exposed. Live camera verification must be executed on a physical machine following [`docs/CAMERA_TESTING_PROCEDURE.md`](CAMERA_TESTING_PROCEDURE.md).
-2. **Presage Live Cloud Session:** Marked `BLOCKED` until authenticated with a valid API key from `physiology.presagetech.com`.
-3. **Packaged AppImage Launch on Clean OS:** Marked `NOT YET VERIFIED` until independently verified on a clean Linux desktop environment.
+**Evidence standard:** No fabricated on-device test, hardware success, SDK blink event, or judge score is presented as an organizer-confirmed result.
