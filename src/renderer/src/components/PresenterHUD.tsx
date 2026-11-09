@@ -1,11 +1,14 @@
 import { useRef, useEffect, useState } from 'react';
 import { CameraState } from '../types';
+import type { GestureControlMode } from './LiveGestureTracker';
 
 interface PresenterHUDProps {
   camera: CameraState;
   chargeRatio: number;
   videoStream: MediaStream | null;
   onTogglePause: () => void;
+  controlMode: GestureControlMode;
+  trackingReady: boolean;
 }
 
 export function PresenterHUD({
@@ -13,6 +16,8 @@ export function PresenterHUD({
   chargeRatio,
   videoStream,
   onTogglePause,
+  controlMode,
+  trackingReady,
 }: PresenterHUDProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -85,7 +90,7 @@ export function PresenterHUD({
           </span>
           <span style={{ fontSize: '13px', fontWeight: 500 }}>
             {camera.status === 'tracking'
-              ? 'Hands-free ready'
+              ? (controlMode === 'eyes' ? 'Eye control' : trackingReady ? (controlMode === 'hand' ? 'Hand control ready' : 'Head control ready') : 'Starting gestures…')
               : camera.status === 'paused'
               ? 'Paused'
               : camera.status === 'initializing'
@@ -116,14 +121,20 @@ export function PresenterHUD({
         {camera.validationMessage}
       </div>
 
-      {/* Eye hold progress reaches ready at 100%; release completes the command. */}
-      {camera.status === 'tracking' && camera.faceDetected && (
+      {camera.status === 'tracking' && controlMode !== 'eyes' && trackingReady && (
+        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+          {controlMode === 'hand' ? 'Open hand: left/right = slides, up/down = scroll' : 'Move head: left/right = slides, up/down = scroll'}
+        </div>
+      )}
+
+      {/* Optional SmartSpectra eye mode only: hold and release blink. */}
+      {camera.status === 'tracking' && controlMode === 'eyes' && camera.faceDetected && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
           {chargeRatio >= 1 ? 'Ready — open your eyes to change slide' : chargeRatio > 0 ? 'Keep eyes closed until ready' : 'Hold eyes closed, then open to move forward'}
         </div>
       )}
       {/* Visual charge indicator for prolonged intentional blink dwell */}
-      {chargeRatio > 0 && (
+      {controlMode === 'eyes' && chargeRatio > 0 && (
         <div
           role="progressbar"
           aria-valuenow={Math.round(chargeRatio * 100)}
