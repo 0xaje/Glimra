@@ -199,6 +199,9 @@ ipcMain.handle('glimra:presage-control', (event, command: string, value: unknown
   } else if (command === 'calibration') {
     if (typeof value !== 'boolean') return false;
     presageChild.send({ type: 'calibration', enabled: value });
+  } else if (command === 'recenter') {
+    if (value !== true) return false;
+    presageChild.send({ type: 'recenter' });
   } else if (command === 'timing') {
     if (!value || typeof value !== 'object') return false;
     const v = value as { minIntentionalBlinkMs?: number; maxIntentionalBlinkMs?: number; refractoryCooldownMs?: number };
