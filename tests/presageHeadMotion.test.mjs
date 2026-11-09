@@ -53,8 +53,8 @@ test('a second gesture is possible after relaxing toward center', () => {
   const engine = new PresageHeadMotion();
   engine.observe(pose(300, 240, 0), 0);
   engine.observe(pose(270, 240, 80), 80);
-  assert.equal(engine.observe(pose(270, 240, 160), 160), null);
-  assert.equal(engine.observe(pose(270, 240, 240), 240), 'right');
+  assert.equal(engine.observe(pose(270, 240, 160), 160), 'right');
+  assert.equal(engine.observe(pose(270, 240, 240), 240), null, 'held movement cannot repeat');
   engine.observe(pose(298, 240, 310), 310);
   engine.observe(pose(298, 240, 490), 490);
   engine.observe(pose(298, 240, 650), 650);
