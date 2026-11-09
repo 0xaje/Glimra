@@ -305,6 +305,14 @@ export class SmartSpectraController {
           millisecondsSinceLastMetrics: this.lastMetricsAtMs ? Math.round(performance.now() - this.lastMetricsAtMs) : null,
           lastValidationHint: this.lastValidationHint,
           cameraMode: '640x480',
+          originalVideo: (() => {
+            const track = this.ownedCameraStream?.getVideoTracks()[0];
+            const settings = track?.getSettings();
+            return { state: track?.readyState, muted: track?.muted,
+              width: settings?.width, height: settings?.height,
+              negotiatedFps: settings?.frameRate };
+          })(),
+          sdkInputVideoState: this.sdkInputStream?.getVideoTracks()[0]?.readyState,
         });
         this.gestureEngine.reset();
         this.callbacks.onChargeProgress(0);
