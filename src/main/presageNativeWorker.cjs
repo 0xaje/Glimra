@@ -29,6 +29,8 @@ let lastValid = 0;
 let faceTracked = false;
 let lastValidationCode = null;
 let lastValidationReportAt = 0;
+let noFaceSince = null;
+let multipleFaces = false;
 let lastLandmarkTimestamp = 0;
 let lastBlinkTimestamp = 0;
 let blinkStartedAt = null;
@@ -111,7 +113,7 @@ function processBlink(samples) {
 }
 
 function onMetrics(buffer) {
-  if (!active || paused || !sdkRunning) return;
+  if (!active || paused || !sdkRunning || multipleFaces) return;
   let decoded;
   try { decoded = decodeMetrics(buffer); }
   catch (e) {
@@ -201,13 +203,20 @@ async function start(key, requestedMode) {
     });
     sdk.on('validationStatus', (code, _ts, hint) => {
       if (closing) return;
-      const missingFace = code === ValidationCode.kNoFaceFound ||
-        code === ValidationCode.kMultipleFacesFound;
-      if (missingFace) {
-        setFaceTracked(false,
-          code === ValidationCode.kMultipleFacesFound
-            ? 'More than one face detected. Show one presenter at a time.'
-            : 'No face detected. Step into the camera view.');
+      if (code === ValidationCode.kMultipleFacesFound) {
+        multipleFaces = true;
+        noFaceSince = null;
+        setFaceTracked(false, 'More than one face detected. Show one presenter at a time.');
+      } else if (code === ValidationCode.kNoFaceFound) {
+        multipleFaces = false;
+        if (noFaceSince === null) noFaceSince = Date.now();
+        // Avoid a full reset for one dropped SDK detection frame.
+        if (Date.now() - noFaceSince >= 320) {
+          setFaceTracked(false, 'No face detected. Step into the camera view.');
+        }
+      } else {
+        multipleFaces = false;
+        noFaceSince = null;
       }
       // Throttle per-frame quality warnings to avoid flooding Electron IPC
       // and React rendering. Do not treat illumination hints as SDK errors.
