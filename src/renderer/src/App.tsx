@@ -601,7 +601,7 @@ export default function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>Hands — default</div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-accent)' }}>Hands — optional</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   Choose Hands in Settings. Show one open hand. Swipe right: next slide. Swipe left: previous slide.
                   Swipe up: scroll up inside the current PDF page. Swipe down: scroll down inside that same page.
@@ -609,7 +609,7 @@ export default function App() {
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — optional</div>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   Head is selected by default. Make a small comfortable turn to the right or left to change slides.
                   Nod gently up or down to scroll the current PDF page. Glimra learns your natural starting pose;
