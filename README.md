@@ -8,6 +8,24 @@ Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who b
 
 ---
 
+## Presage-only challenge direction (November 9, 2026)
+
+**Strict decision:** SmartSpectra is the only allowed source of automatic human-sensing commands in the final challenge build. The current MediaPipe-based default Head/Hands pipeline is **not yet compliant with that product decision**. We are replacing it with genuine SmartSpectra native facial landmarks and blinking, not portraying the existing local gesture controls as Presage signals.
+
+A non-invasive real-hardware diagnostic was added at `scripts/check-presage-live-facial-signals.cjs`; the [Presage-only implementation contract](docs/PRESAGE_ONLY_IMPLEMENTATION.md) records supported metrics, the target architecture, the migration order, and objective pass/fail criteria. **The native SDK landmark test and main-app migration are not yet verified.** The current app is not presented as Presage-only until that is complete.
+
+```powershell
+# Run only after closing Glimra and other webcam apps.
+# This real SDK diagnostic may consume measurement credits.
+$env:PRESAGE_API_KEY = Read-Host 'Your new SmartSpectra API key'
+node .\\scripts\\check-presage-live-facial-signals.cjs
+Remove-Item Env:\\PRESAGE_API_KEY
+```
+
+**Never paste an API key into issues, logs, demos or chats.** If a key was exposed, rotate it.
+
+---
+
 ## Current status and honest verification
 
 - **Confirmed on real Windows hardware:** the native SmartSpectra SDK, running without Electron/MediaPipe, delivered 495 metrics callbacks, 508 valid signal validations, zero low-frame-rate warnings and no errors in a live session.
