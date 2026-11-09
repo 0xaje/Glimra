@@ -26,6 +26,9 @@ let calibrating = false;
 let blinkTiming = { min: 400, max: 1800, cooldown: 800 };
 let sdkRunning = false;
 let lastValid = 0;
+let faceTracked = false;
+let lastValidationCode = null;
+let lastValidationReportAt = 0;
 let lastLandmarkTimestamp = 0;
 let lastBlinkTimestamp = 0;
 let blinkStartedAt = null;
@@ -36,6 +39,30 @@ let headCount = 0;
 let blinkStableCount = 0;
 let metricsCount = 0;
 const head = new PresageHeadMotion();
+const setFaceTracked = (tracked, reason) => {
+  if (faceTracked === tracked) return;
+  faceTracked = tracked;
+  if (!tracked) {
+    head.reset();
+    blinkStartedAt = null;
+    lastBlinkDetected = false;
+    lastQuickBlinkAt = -Infinity;
+  }
+  emit('face-status', {
+    tracked,
+    reason: tracked ? 'Presage facial landmarks detected'
+      : String(reason ?? 'Waiting for a face').slice(0, 140),
+  });
+};
+
+// A native SDK session may stay in kRunning while face landmarks pause.
+// Do not leave "Head ready" on-screen when actual valid frames stop.
+const faceWatchdog = setInterval(() => {
+  if (active && sdkRunning && faceTracked && Date.now() - lastValid > 1800) {
+    setFaceTracked(false, 'Presage lost stable face tracking. Move into the camera view.');
+  }
+}, 550);
+faceWatchdog.unref?.();
 
 const emit = (type, payload = {}) => {
   if (typeof process.send === 'function' && process.connected) {
@@ -101,6 +128,7 @@ function onMetrics(buffer) {
     if (Number.isFinite(ts) && ts > lastLandmarkTimestamp) {
       lastLandmarkTimestamp = ts;
       lastValid = now;
+      setFaceTracked(true);
       headCount++;
       if (mode === 'head') {
         const direction = head.observe(latest, now);
@@ -117,6 +145,7 @@ function onMetrics(buffer) {
       }
     }
   } else if (latest?.reset) {
+    setFaceTracked(false, 'Presage restarted face tracking; acquiring a new neutral position.');
     head.reset();
   }
   processBlink(decoded.face?.blinking);
@@ -127,6 +156,7 @@ async function stop() {
   closing = true;
   active = false;
   sdkRunning = false;
+  faceTracked = false;
   try {
     if (sdk?.stopAsync) await sdk.stopAsync();
     else if (sdk?.stop) await sdk.stop();
@@ -171,11 +201,29 @@ async function start(key, requestedMode) {
     });
     sdk.on('validationStatus', (code, _ts, hint) => {
       if (closing) return;
-      if (code === ValidationCode.kOk) return;
-      if (code === ValidationCode.kNoFaceFound || code === ValidationCode.kMultipleFacesFound) head.reset();
-      emit('validation', {
-        code: Number(code), hint: typeof hint === 'string' ? hint.slice(0, 160) : '',
-      });
+      const missingFace = code === ValidationCode.kNoFaceFound ||
+        code === ValidationCode.kMultipleFacesFound;
+      if (missingFace) {
+        setFaceTracked(false,
+          code === ValidationCode.kMultipleFacesFound
+            ? 'More than one face detected. Show one presenter at a time.'
+            : 'No face detected. Step into the camera view.');
+      }
+      // Throttle per-frame quality warnings to avoid flooding Electron IPC
+      // and React rendering. Do not treat illumination hints as SDK errors.
+      if (code === ValidationCode.kOk) {
+        lastValidationCode = null;
+        return;
+      }
+      const now = Date.now();
+      if (code !== lastValidationCode || now - lastValidationReportAt >= 4000) {
+        lastValidationCode = code;
+        lastValidationReportAt = now;
+        emit('validation', {
+          code: Number(code),
+          hint: typeof hint === 'string' ? hint.slice(0, 160) : '',
+        });
+      }
     });
     sdk.on('metrics', onMetrics);
     sdk.on('error', (code, message, retryable) => {
@@ -219,6 +267,11 @@ process.on('message', (message) => {
       blinkStartedAt = null;
       lastBlinkDetected = false;
     }
+  } else if (message.type === 'recenter') {
+    head.reset();
+    blinkStartedAt = null;
+    setFaceTracked(false, 'Recenter requested. Face will set a new neutral position.');
+    emit('recentered', { reason: 'manual' });
   } else if (message.type === 'calibration') {
     calibrating = message.enabled === true;
     blinkStartedAt = null;
