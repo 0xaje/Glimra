@@ -1,4 +1,8 @@
-import type { GestureEngineConfig } from './gestureEngine';
+type GestureEngineConfig = {
+  minIntentionalBlinkMs: number;
+  maxIntentionalBlinkMs: number;
+  refractoryCooldownMs: number;
+};
 import type { GestureFeedback } from '../types';
 
 export type GestureControlMode = 'head' | 'eyes';
@@ -25,7 +29,6 @@ export interface PresageCallbacks {
   onStatusChange: (status: 'idle' | 'initializing' | 'tracking' | 'paused' | 'error') => void;
   onValidationChange: (message: string, tracked: boolean) => void;
   onGestureDetected: (feedback: GestureFeedback) => void;
-  onChargeProgress: (chargeRatio: number) => void;
   onCalibrationSample: (durationMs: number) => void;
   onError: (code: number, message: string) => void;
   onSensorReady: () => void;
@@ -49,7 +52,6 @@ export class PresageNativeController {
 
   public setBlinkNavigationEnabled(enabled: boolean): void {
     this.mode = enabled ? 'eyes' : 'head';
-    this.callbacks.onChargeProgress(0);
     if (this.active) void window.glimraDesktop?.controlPresage('mode', this.mode);
   }
 
