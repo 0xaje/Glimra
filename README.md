@@ -2,7 +2,7 @@
 
 > **Control without a touch.**
 
-Glimra is a hands-free desktop PDF presentation application. **Open-hand swipes are the default controls**: left/right changes slides and up/down scrolls inside the current PDF page. You can optionally switch to head movements or SmartSpectra-powered blink controls. The Presage SmartSpectra SDK is integrated for genuine live human-signal processing.
+Glimra is a hands-free desktop PDF presentation application. **Gentle head movement is the default control**: small right/left turns change slides and up/down nods scroll inside the current PDF page. Glimra uses face-relative landmarks and learns your relaxed starting pose instead of requiring large screen-wide head movement. Open-hand swipes and SmartSpectra-powered blink controls remain optional. The Presage SmartSpectra SDK is integrated for genuine live human-signal processing.
 
 Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who benefits from touchless presentation control.
 
@@ -12,8 +12,8 @@ Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who b
 
 - **Confirmed on real Windows hardware:** the native SmartSpectra SDK, running without Electron/MediaPipe, delivered 495 metrics callbacks, 508 valid signal validations, zero low-frame-rate warnings and no errors in a live session.
 - **Previously observed in Glimra:** head left/right slide navigation worked before the experimental gesture Web Worker change. The attempted Worker generated `ModuleFactory not set` in the user’s video and was removed.
-- **Current controls:** Hands (default) for slide swipes and page scrolling; Head (optional) for navigation and nod scrolling; Eyes (optional) for SmartSpectra long/double blink navigation. Keyboard controls remain available.
-- **Still requires verification on the user's Windows machine:** the restored hand-first renderer tracker, vertical scroll on tall or zoomed PDF pages, and concurrent SmartSpectra processing. An SDK error 8 in Electron is not resolved merely by a successful native-only session.
+- **Current controls:** Head (default) for subtle turns, tilts and nods, including PDF-only vertical scrolling; Hands (optional) for open-hand swipes; Eyes (optional) for SmartSpectra long/double blink navigation. Keyboard controls remain available.
+- **Still requires verification on the user's Windows machine:** the new adaptive head-pose sensitivity, vertical direction and rearming behavior, and stable concurrent SmartSpectra processing. The latest user recording showed functioning slide navigation, but gestures needed too much head movement. An SDK error 8 in Electron is not resolved merely by a successful native-only session.
 - **No simulated biometric readings or camera activity.** Models download on first use, run locally, and use the camera only after permission. SmartSpectra may perform SDK telemetry according to Presage policy.
 
 See [Live Gesture Verification](docs/LIVE_GESTURE_VERIFICATION.md) for a focused Windows test plan.
