@@ -76,7 +76,6 @@ export class PresageNativeController {
   public setCalibrationMode(enabled: boolean): void {
     if (!this.active || this.mode !== 'eyes') return;
     void window.glimraDesktop?.controlPresage('calibration', enabled);
-    this.callbacks.onChargeProgress(0);
   }
 
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
