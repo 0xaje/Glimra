@@ -17,16 +17,16 @@ npm run dev
 
 **Important:** `package.json` now includes `@mediapipe/tasks-vision`, but the existing committed `package-lock.json` has not yet been regenerated. Run `npm install` (not `npm ci`) to update the lockfile, and commit the resulting lockfile after validating the installation.
 
-## Real camera checks
+## Real hand-first presentation checks
 
-1. Open a PDF with at least three slides. Connect the camera with consent and your valid SmartSpectra API key.
-2. Face the camera and move your head to your right. Confirm exactly one next-slide command. Return to center, then move to your left to go back. Repeat with a deliberate open-hand swipe.
-3. On a tall or zoomed PDF page, move your head or open hand up/down. Confirm that **only the current page** scrolls and the slide number stays unchanged.
-4. Hold the same position after a command. Verify it does not repeatedly advance. Return to neutral before the next command.
-5. Leave the presentation untouched for 5 minutes and then an hour; verify the camera remains connected and the next gesture still works.
-6. Pause gesture control; verify neither face nor hand motion navigates. Resume and retry.
-7. Cover your face/hand briefly, then uncover it; verify tracking resumes without a false command.
-8. Confirm the live SmartSpectra signal still works, and review its independent validation/processing status. SDK error code 8 and frame-rate warning 11 require real Windows hardware diagnostics.
+1. Open a multi-page PDF, connect the camera with consent, and keep **Hands (default)** selected in Settings.
+2. Wait for `[Glimra/Gestures] Real hand tracking ready`. Show one open hand in view and swipe to your **right** to advance one slide. Return the hand to the center, swipe **left** to go back.
+3. On a **tall page** or a page enlarged using **Fit width** or Zoom in, swipe **down** to move down **inside that PDF page**, then swipe **up** to go back. The page number MUST stay unchanged.
+4. Verify scrolling without the camera first: Arrow Down/Up should scroll within the same PDF page. If there is no overflow, the whole page is already visible and no scroll is possible until zoomed.
+5. Choose **Head** in Settings. Moving your head left/right should change slides; nodding up/down should scroll within the current PDF page.
+6. Choose **Eyes** in Settings only if you want the original SmartSpectra long-blink/double-blink controls. Blink navigation must NOT trigger in Hands/Head modes; SmartSpectra still processes real live signal measurements.
+7. Pause for 5 minutes or longer. The camera should stay connected. Returning the hand to neutral must allow a new command. Disconnect explicitly to turn off the camera.
+8. Check SDK status separately; a real native-only SDK session succeeded on Windows, but Electron integration has previously emitted error 8.
 
 ## Known limits
 
@@ -60,26 +60,16 @@ Interpretation:
 
 The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an INFO message from MediaPipe initialization, not evidence of SmartSpectra failure.
 
-## Renderer bottleneck correction (Nov 9, 2026)
+## November 9 regression and hand-first correction
 
-A **real native-only Windows camera test** on the same machine returned 495 metrics callbacks, 508 valid SmartSpectra signals, zero low-FPS warnings, and no SDK errors. This establishes the webcam and the standalone SmartSpectra SDK can succeed. The problem is specific to the integrated Electron path or concurrent work, not a universal camera failure.
+The user's video showed that moving MediaPipe inference into an Electron module Worker introduced **`ModuleFactory not set`**. This is a real failure: the local gesture tracker could not start, so no head/hand gesture worked. That worker implementation was removed, and the previously functional in-renderer MediaPipe route was restored.
 
-The renderer SDK uses a frame-processing pipeline. MediaPipe's synchronous `detectForVideo()` previously ran on that same renderer main thread and could delay SDK frame delivery. This is now changed:
+To reduce processing load without the broken worker, Glimra now loads **only one detector at a time**: Hands (default) or Head (optional), at about 5 landmark checks per second. Eyes is a separate opt-in SmartSpectra blink mode. SmartSpectra still receives genuine human data and remains subject to its live processing constraints.
 
-- `src/renderer/src/components/LiveGestureTracker.tsx`: asynchronously captures a small `ImageBitmap` no more than about 6 times a second, transfers it to a dedicated Web Worker, and drops frames while that worker is busy.
-- `src/renderer/src/workers/gestureWorker.ts`: performs face and hand model inference away from the renderer, returns **real** observed commands, and closes every received `ImageBitmap` in `finally`.
-- The browser camera and SDK still share one actual MediaStream. SmartSpectra processing retains priority on the renderer thread.
-- If SDK still reports error 8, this change has not solved the complete Electron path; examine SDK renderer frame pump/IPC against the official Electron quickstart. Do **not** report a successful SmartSpectra session until real `kRunning`, valid `kOk` and metrics have been observed together.
+PDF scroll now targets the scrollable viewer inside the **current page only**, using a block overflow layout. Arrow Up/Down also send the same page scroll command as a gesture; use those keys to verify PDF scrolling independently before evaluating landmark accuracy.
 
-Test on Windows after updating main:
+The standalone native SmartSpectra run on Windows confirmed 495 metrics callbacks, 508 valid signal validations, 0 frame-rate warnings and 0 errors. This does not prove SmartSpectra can sustain valid processing concurrently with MediaPipe in Electron.
 
-```powershell
-git pull origin main
-npm run build
-npm test
-npm run dev
-```
+**Unverified:** the new hand-first UI, return-to-neutral gesture calibration, and live scroll behavior still need real Windows app tests. Do not claim these work end to end based only on code changes. The app no longer references the failed Worker.
 
-Look for `[Glimra/Gestures] Worker models ready (off renderer thread)` and SmartSpectra `processingStatus 3 kRunning`, then let the camera run in front light for 20+ seconds. A valid SDK session must produce metrics and validation kOk; simply having no visible error is insufficient.
-
-Rotate any API key accidentally pasted into chats or shared logs before continuing.
+Rotate any exposed Presage API key before further live testing.
