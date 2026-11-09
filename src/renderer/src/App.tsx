@@ -54,6 +54,7 @@ export default function App() {
   const [chargeRatio, setChargeRatio] = useState(0);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
+  const [gestureTrackingError, setGestureTrackingError] = useState<string | null>(null);
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -113,7 +114,7 @@ export default function App() {
     controllerRef.current = new SmartSpectraController({
       onNextSlide: () => slideActionsRef.current.next(),
       onPrevSlide: () => slideActionsRef.current.prev(),
-      onStreamAvailable: (stream) => setVideoStream(stream),
+      onStreamAvailable: (stream) => { setVideoStream(stream); setGestureTrackingError(null); },
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
         setCamera((prev) => ({ ...prev, validationMessage, faceDetected })),
@@ -456,9 +457,10 @@ export default function App() {
                 else if (command.direction === 'left') slideActionsRef.current.prev();
                 else window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction: command.direction } }));
               }}
-              onTrackingError={(message) => console.error('[Glimra/Gestures]', message)}
+              onTrackingError={(message) => { console.error('[Glimra/Gestures]', message); setGestureTrackingError(message); }}
             />
             <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause}/>
+            {camera.isActive && gestureTrackingError && <div role="alert" className="studio-error">{gestureTrackingError}</div>}
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
               <div className="welcome-stage" onDragOver={(event) => event.preventDefault()} onDrop={async (event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (!file) return; if (!file.name.toLowerCase().endsWith('.pdf')) { setLoadError('Please choose a PDF file.'); return; } try { await loadPdfData(await file.arrayBuffer(), file.name); } catch { setLoadError('Could not read this PDF file.'); } }}>
