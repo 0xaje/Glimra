@@ -523,7 +523,7 @@ export default function App() {
             <div className="footer-group footer-center">
               <button className={`camera-status ${camera.status==='tracking'&&camera.faceDetected?'tracking':''}`} onClick={() => setShowCameraSetup(true)}>
                 {camera.isActive && camera.status==='tracking'?<Camera size={16}/>:<CameraOff size={16}/>}
-                <span>{camera.isActive && camera.status==='tracking'?'Hands-free ready':camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':'Hands-free off'}</span>
+                <span>{camera.status==='initializing'?'Connecting camera…':camera.status==='error'?'Camera error':camera.status==='paused'?'Hands-free paused':camera.isActive && camera.status==='tracking' ? (gestureMode==='eyes' ? (camera.faceDetected ? 'Eye control ready' : 'Waiting for eye signal') : gestureTrackingReady ? 'Hands-free ready' : 'Starting head/hand tracking…') : 'Hands-free off'}</span>
               </button>
             </div>
             <div className="footer-group">
