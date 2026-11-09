@@ -92,6 +92,9 @@ function processBlink(samples) {
       const now = Date.now();
       if (calibrating) {
         if (heldMs >= 250 && heldMs <= 2500) emit('calibration', { durationMs: Math.round(heldMs) });
+        // Update the real detection edge even during practice. Otherwise a
+        // completed eye opening leaves the engine stuck in the closed state.
+        lastBlinkDetected = detected;
         continue;
       }
       // Explicit long intentional blink advances, normal quick blinks do not.
