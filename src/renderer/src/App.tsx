@@ -8,6 +8,7 @@ import { CameraPreview } from './components/CameraPreview';
 import { SmartSpectraController } from './engine/smartSpectraController';
 import { PresenterHUD } from './components/PresenterHUD';
 import { LiveGestureTracker } from './components/LiveGestureTracker';
+import type { GestureControlMode } from './components/LiveGestureTracker';
 import type { MotionCommand } from './engine/directionalGestureEngine';
 import { audioFeedback } from './utils/audioChime';
 
@@ -54,6 +55,13 @@ export default function App() {
   const [chargeRatio, setChargeRatio] = useState(0);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [scrollCommand, setScrollCommand] = useState<{ id: number; direction: 'up' | 'down' } | null>(null);
+  const [gestureMode, setGestureMode] = useState<GestureControlMode>(() => {
+    try {
+      const saved = localStorage.getItem('glimra-control-mode');
+      return saved === 'head' || saved === 'eyes' ? saved : 'hand';
+    } catch { return 'hand'; }
+  });
+  const [gestureTrackingReady, setGestureTrackingReady] = useState(false);
   const [gestureTrackingError, setGestureTrackingError] = useState<string | null>(null);
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -159,6 +167,14 @@ export default function App() {
     };
   }, []);
 
+  // Hand swipes are the default. Blink navigation is opt-in only.
+  useEffect(() => {
+    try { localStorage.setItem('glimra-control-mode', gestureMode); } catch { /* optional */ }
+    controllerRef.current?.setBlinkNavigationEnabled(gestureMode === 'eyes');
+    setGestureTrackingReady(false);
+    setGestureTrackingError(null);
+  }, [gestureMode]);
+
   // Presenter keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -166,7 +182,10 @@ export default function App() {
         return;
       }
 
-      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction: e.key === 'ArrowUp' ? 'up' : 'down' } }));
+      } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         e.preventDefault();
         nextSlide();
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -459,15 +478,25 @@ export default function App() {
             <LiveGestureTracker
               stream={videoStream}
               enabled={camera.isActive && camera.status !== 'paused' && camera.status !== 'error'}
+              mode={gestureMode}
               onCommand={(command: MotionCommand) => {
-                if (!presentation.isLoaded) return;
+                if (!presentation.isLoaded || gestureMode === 'eyes') return;
+                setCamera(prev => ({
+                  ...prev,
+                  lastGesture: {
+                    type: command.source === 'hand' ? 'hand-swipe' : 'head-motion',
+                    timestamp: Date.now(),
+                    label: command.source === 'hand' ? 'Hand ' + command.direction : 'Head ' + command.direction,
+                  },
+                }));
                 if (command.direction === 'right') slideActionsRef.current.next();
                 else if (command.direction === 'left') slideActionsRef.current.prev();
                 else window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction: command.direction } }));
               }}
-              onTrackingError={(message) => { console.error('[Glimra/Gestures]', message); setGestureTrackingError(message); }}
+              onTrackingReady={() => { setGestureTrackingReady(true); setGestureTrackingError(null); }}
+              onTrackingError={(message) => { console.error('[Glimra/Gestures]', message); setGestureTrackingReady(false); setGestureTrackingError(message); }}
             />
-            <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause}/>
+            <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
             {camera.isActive && gestureTrackingError && <div role="alert" className="studio-error">{gestureTrackingError}</div>}
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
             {!presentation.isLoaded ? (
@@ -505,10 +534,11 @@ export default function App() {
       {showCameraSetup && <div className="studio-scrim" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget)setShowCameraSetup(false)}}>
         <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title" aria-describedby="camera-setup-description">
           <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
-          <p className="panel-description" id="camera-setup-description">Connect your camera and choose how long to close your eyes to change slides.</p>
+          <p className="panel-description" id="camera-setup-description">Use your open hand to control your PDF. Swipe left or right for slides; up or down to scroll a page.</p>
           <CameraPreview stream={videoStream}/>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Eye gesture timing</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
+          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['hand', 'head', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => setGestureMode(option)}>{option === 'hand' ? 'Hands (default)' : option === 'head' ? 'Head' : 'Eyes'}</button>)}</div><p>Hands: swipe. Head: move left, right, up or down. Eyes: SmartSpectra blink control.</p></div>
+          <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
           <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>API key settings</button>
         </section>
@@ -699,10 +729,23 @@ export default function App() {
               </p>
             </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Control method</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {(['hand', 'head', 'eyes'] as GestureControlMode[]).map(option => (
+                  <button type="button" key={option} aria-pressed={gestureMode===option}
+                    onClick={() => setGestureMode(option)}
+                    style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid', borderColor: gestureMode===option ? 'var(--color-accent)' : 'var(--color-border-subtle)', color: gestureMode===option ? 'var(--color-accent)' : 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-elevated)' }}>
+                    {option === 'hand' ? 'Hands (default)' : option === 'head' ? 'Head' : 'Eyes'}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Hands: swipe to turn pages or scroll. Head: move in the direction you want. Eyes: optional SmartSpectra blink controls.</p>
+            </div>
             {/* Gesture Sensitivity */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Gesture dwell sensitivity
+                Eye blink timing (eyes mode only)
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map((level) => (
