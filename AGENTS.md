@@ -1,6 +1,6 @@
 # AGENTS.md — Instructions for Autonomous & Coding Agents
 
-This repository is **Glimra** ("Control without a touch"), a real, production-grade desktop presentation application powered by intentional eye gesture detection using the Presage SmartSpectra SDK.
+This repository is **Glimra** ("Control without a touch"), a real desktop PDF presentation application powered by live **Presage SmartSpectra facial landmarks** for gentle head navigation, with optional (not yet hardware-verified) SmartSpectra blink controls. No MediaPipe or alternate human-sensing engine is active.
 
 **Official repository:** https://github.com/0xaje/Glimra  
 **Branch:** `main`
@@ -116,7 +116,7 @@ git rev-parse origin/main
 
 ## 7. Operating Procedure
 
-1. **Read `docs/MASTER_PLAN.md` completely** before making changes or proposing architecture.
+1. **Read `docs/PRESAGE_ONLY_IMPLEMENTATION.md`, `docs/ARCHITECTURE.md`, and `docs/CODEBASE_AUDIT_REPORT.md`** before changing sensing, IPC, camera security, or packaging. The original `docs/MASTER_PLAN.md` is a historical planning document and may contain retired approaches.
 2. **Read `docs/PROGRESS.md`** to know the current milestone, what has been verified, and the `RESUME HERE` pointer.
 3. **Follow the next unfinished milestone.** Do not skip ahead or implement decorative features before prerequisites pass their stop gates.
 4. **Preserve existing working functionality.** Never refactor or delete working code without an explicit reason recorded in `docs/DECISIONS.md`.
