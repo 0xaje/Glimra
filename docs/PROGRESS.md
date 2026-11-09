@@ -105,3 +105,20 @@ found 0 vulnerabilities
 - **Latest Verified GitHub Actions Run:** [`42325401053`](https://github.com/0xaje/Glimra/actions/runs/42325401053) (SUCCESS: Build 19s, Packaging 1m14s)
 - **Generated Linux Desktop Artifact:** `glimra-linux-x64` (289,163,582 bytes, `Glimra-1.0.0.AppImage`, Artifact ID `13554359328`)
 - **Immediate Next Priority:** Perform live hardware testing with physical webcam and genuine Presage credentials following `docs/CAMERA_TESTING_PROCEDURE.md`.
+
+
+---
+
+## November 9, 2026 — native Presage cleanup, security and challenge audit
+
+**Source of truth:** [CODEBASE_AUDIT_REPORT.md](CODEBASE_AUDIT_REPORT.md), [ARCHITECTURE.md](ARCHITECTURE.md), [PRIVACY.md](PRIVACY.md), and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+**Implemented on `main`:** removed legacy browser blink interpreter/test suite and unused SDK diagnostic; deleted abandoned camera preview asset/CSS and unsupported gesture types; removed dead eye-charge progress; fixed practice blink edge-state; changed API-key persistence to reject plaintext fallback and restricted credential IPC to the application window; added a real Windows installer build to CI and disabled unintended release publishing. Rewrote current architecture, consent and release documentation. Historical plans are clearly labeled as superseded.
+
+**Evidence:** Native Windows SDK diagnostic previously delivered 487 real metrics packets / 416 stable 478-point landmarks / 566 valid checks / no SDK errors. Presenter reports genuine head navigation in Glimra works with substantial improvement. GitHub Actions run [42669308754](https://github.com/0xaje/Glimra/actions/runs/42669308754) passed compile, design lint, **15/15 relevant automated tests**, Linux packaging, and unsigned Windows NSIS packaging. Legacy test count dropped intentionally because the deleted engine is no longer used by runtime.
+
+**Not yet verified:** clean Windows installer with native webcam, 5+ minutes of real continuous head navigation, multiple presenters under varying lighting, real Eyes-mode blinks, and full challenge demo/DEV submission. Individual eligibility / employer policies also require user review.
+
+**Independent provisional judge assessment:** **76/100**, with official judging dimensions but our own weights. Best competitive fit: Best Thoughtful Real-World Use plus Best Overall. No guaranteed outcome.
+
+**RESUME HERE:** Do not alter the now-comfortable native Head threshold without real failure evidence. Pull latest main, run clean Windows install test and the [native camera procedure](CAMERA_TESTING_PROCEDURE.md). Verify presenter handoff, scroll, pause/disconnect, API key handling. Then capture a concise real-SDK demo, finalize privacy disclosure and submit one DEV post with `#presagechallenge` before the official deadline. Eyes mode is optional and must not be demonstrated as working until actual blink detection passes.
