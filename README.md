@@ -2,28 +2,21 @@
 
 > **Control without a touch.**
 
-Glimra is a hands-free desktop presentation application. It allows presenters to navigate slides through intentional, calibrated eye gestures detected using the **Presage SmartSpectra SDK**.
+Glimra is a hands-free desktop PDF presentation application. **Open-hand swipes are the default controls**: left/right changes slides and up/down scrolls inside the current PDF page. You can optionally switch to head movements or SmartSpectra-powered blink controls. The Presage SmartSpectra SDK is integrated for genuine live human-signal processing.
 
 Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who benefits from touchless presentation control.
 
 ---
 
-## Current Status & Verification Transparency
+## Current status and honest verification
 
-In strict adherence to engineering integrity rules, we clearly distinguish between verified features and items pending hardware or credentials:
+- **Confirmed on real Windows hardware:** the native SmartSpectra SDK, running without Electron/MediaPipe, delivered 495 metrics callbacks, 508 valid signal validations, zero low-frame-rate warnings and no errors in a live session.
+- **Previously observed in Glimra:** head left/right slide navigation worked before the experimental gesture Web Worker change. The attempted Worker generated `ModuleFactory not set` in the user’s video and was removed.
+- **Current controls:** Hands (default) for slide swipes and page scrolling; Head (optional) for navigation and nod scrolling; Eyes (optional) for SmartSpectra long/double blink navigation. Keyboard controls remain available.
+- **Still requires verification on the user's Windows machine:** the restored hand-first renderer tracker, vertical scroll on tall or zoomed PDF pages, and concurrent SmartSpectra processing. An SDK error 8 in Electron is not resolved merely by a successful native-only session.
+- **No simulated biometric readings or camera activity.** Models download on first use, run locally, and use the camera only after permission. SmartSpectra may perform SDK telemetry according to Presage policy.
 
-- **Verified Capabilities:**
-  - **PDF Presentation Engine:** Fully offline PDF slide viewer powered by PDF.js, with canvas scaling, slide navigation state machine, keyboard controls, and fullscreen mode (`tests/presentation.test.mjs` passing 3/3).
-  - **Gesture Engine Logic:** Intentional dwell recognition ($\ge 350\text{ ms}$), 1.2s refractory cooldown, involuntary blink rejection (<250ms), double-blink rewind, stability flag filtering, non-monotonic timestamp protection, and dynamic sensitivity configuration (`tests/gestureEngine.test.mjs` passing 9/9).
-  - **Hallmark Design Craft:** Strict Glimra Studio Dark and Light themes passing `sloplint.mjs` with 0 failures, 0 reflex flags, and 0 warnings.
-  - **Security Architecture:** Presage API keys are encrypted locally using Electron's `safeStorage` (OS Keychain / DPAPI / libsecret) via IPC; camera permissions are strictly origin-checked and blocked without explicit presenter consent.
-  - **Native SDK Integration:** Native `libsmartspectra_capi.so` loads via `koffi` FFI; communicates with Presage REST endpoints; decodes `face.blinking` and `face.landmarks` Protobuf buffers accurately (`tests/sdk-diagnostic.mjs` passing 4/4).
-  - **Automated CI/CD & Linux Packaging:** GitHub Actions builds the production bundle, runs all 16 test cases, and packages `Glimra-1.0.0.AppImage` (289 MB) as a downloadable workflow artifact (`glimra-linux-x64`).
-
-- **Pending Verification & Blockers:**
-  - **Physical Camera Hardware:** The development environment (WSL2) does not expose `/dev/video*`. Live camera frame acquisition and end-to-end human gesture testing on a physical webcam require a physical machine or USB camera pass-through (see [docs/CAMERA_TESTING_PROCEDURE.md](docs/CAMERA_TESTING_PROCEDURE.md)).
-  - **Production Presage API Key:** A genuine API key from Presage is required to establish an authenticated live session.
-  - **Clean-Computer Desktop Startup:** Running and launching the packaged AppImage on an independent desktop without dev dependencies is pending (see [docs/PACKAGING_AND_INSTALLATION.md](docs/PACKAGING_AND_INSTALLATION.md)).
+See [Live Gesture Verification](docs/LIVE_GESTURE_VERIFICATION.md) for a focused Windows test plan.
 
 ---
 
@@ -32,7 +25,8 @@ In strict adherence to engineering integrity rules, we clearly distinguish betwe
 - **Desktop Framework:** Electron
 - **User Interface:** React + TypeScript
 - **Build Tooling:** Vite
-- **Physiology & Facial Engine:** `@smartspectra/node-sdk` (Presage Technologies)
+- **Live SmartSpectra Signals:** `@smartspectra/node-sdk` (Presage Technologies)
+- **Default Hand/Optional Head Gestures:** `@mediapipe/tasks-vision`
 - **Slide Rendering:** PDF.js (`pdfjs-dist`)
 - **Design System:** Hallmark (Darkroom Amber theme)
 
