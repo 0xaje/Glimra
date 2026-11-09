@@ -120,3 +120,23 @@ Use the existing comfortable Head control, with the camera enabled, and show a t
 - `[Glimra/SmartSpectra] validationStatus` code 11: means the native processing pipeline is seeing insufficient frame rate.
 
 Do **not** restart the native SDK automatically after every code 8; it can incur real credit charges and will not cure persistent sub-25-FPS frame delivery. The specific native error is `kProcessingFailed`, not the same as an authentication failure, credits exhaustion, or a fatal MediaPipe initialization error. If the clone isolates gestures but SDK still fails, next engineering work should compare a **no-MediaPipe Electron SDK-only capture** and Presage's official `electron-quickstart` to pinpoint renderer/IPC pressure.
+
+## 2026-11-09 — final isolation design after 14:35 screen recording
+
+**Important observed fact:** SmartSpectra's orange "readings unavailable" warning was already present by ~00:54, yet head-controlled PDF page changes and scrolling continued well past 02:00. Therefore **error 8 is not always the immediate cause of head gesture interruption**. Gesture rearming and camera-frame flow are separate reliability issues.
+
+**Hardware evidence:** On the same Windows webcam, native-only SmartSpectra produced 495 metrics callbacks, 508 valid validations, 0 low-FPS warnings, and 0 SDK errors. On the Electron app, its renderer pipeline has repeatedly emitted validation code 11 (low FPS) followed by error 8. This implicates the renderer/shared-frame path, not proven vendor hardware malfunction. Presage's official Node/Electron docs explicitly describe renderer `MediaStreamTrackProcessor` / `OffscreenCanvas` frame extraction and IPC transfer; they note renderer-to-main IPC adds latency.
+
+**Permanent architecture split in Glimra:**
+
+- **Head (default) and Hands:** browser-owned camera stream and MediaPipe model only. They **do not construct or start** the SmartSpectra SDK and **do not need an API key or Presage credits**. All slide navigation and PDF-page scrolling stays real, local, and touch-free. The working head gesture thresholds remain unchanged. These modes should never display SmartSpectra code 8, because its processing pipeline is not running.
+- **Eyes (opt-in):** stops the local camera session and starts the real SmartSpectra Electron SDK with a separate browser camera session; MediaPipe landmark inference is not running. It uses genuine SmartSpectra live blink signals for next/previous slides. An API key is required; no simulated metrics and no automatic paid retries.
+- Switching to or from **Eyes** intentionally stops and restarts capture. Switching Head ↔ Hands keeps the existing local stream.
+- The SDK remains a real integrated feature, but **a hackathon demo needs to explicitly show successful live SmartSpectra-driven Eye navigation**, rather than submitting only MediaPipe gestures and claiming they are SDK-driven.
+- SDK failure in Eyes must report **Eyes unavailable**, not falsely claim head control is running; the user can switch to Head for a separate local-only session.
+
+**Test Head without any key:** Disconnect camera, choose Head, connect, and test a full 5-minute presentation. There should be no `[Glimra] SmartSpectra error` and no SDK metrics or validation warnings in the Head session. This directly removes the known failing Electron pipeline from the mode the presenter actually uses.
+
+**Test actual SDK independently:** Use the existing `scripts/check-smartspectra-native.cjs` if needed, then use Eyes mode to test SmartSpectra in Electron without competing MediaPipe models. If Eyes still reports error 8, compare the official `electron-quickstart` app on the same webcam, then open a support issue with Presage and consider a native-process Eyes integration. Do not alter the functioning Head mode.
+
+**Verification limit:** these architecture changes were committed to main but **the assistant has not run them on the user's Windows webcam or claimed an Electron build passed**. No more speculative head-sensitivity changes are warranted from error 8 alone.
