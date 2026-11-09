@@ -112,18 +112,25 @@ function authorized(event: Electron.IpcMainInvokeEvent): boolean {
 }
 
 async function stopPresageWorker(): Promise<void> {
+  // Invalidate waiting starts even when another request is already stopping the worker.
+  presageGeneration++;
   if (presageStopping) return presageStopping;
   const child = presageChild;
   presageChild = null;
-  presageGeneration++;
-  if (!child || child.exitCode !== null || child.killed) return;
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const stop = new Promise<void>((resolve) => {
-    let finished = false;
-    const done = () => { if (!finished) { finished = true; clearTimeout(timeout); resolve(); } };
-    const timeout = setTimeout(() => { child.kill(); done(); }, 3000);
-    child.once('exit', done);
-    try { if (child.connected) child.send({ type: 'stop' }); else { child.kill(); done(); } }
-    catch { child.kill(); done(); }
+    const timeout = setTimeout(() => child.kill(), 3000);
+    // A kill request is asynchronous. Wait for the old process to actually close.
+    child.once('close', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    try {
+      if (child.connected) child.send({ type: 'stop' });
+      else child.kill();
+    } catch {
+      child.kill();
+    }
   });
   presageStopping = stop;
   try { await stop; } finally { presageStopping = null; }
@@ -132,14 +139,15 @@ async function stopPresageWorker(): Promise<void> {
 ipcMain.handle('glimra:presage-start', async (event, apiKey: string, mode: string) => {
   if (!authorized(event)) throw new Error('Camera consent is required for Presage capture.');
   if (typeof apiKey !== 'string' || !apiKey.trim()) throw new Error('SmartSpectra API key is required.');
-  if (presageStopping) await presageStopping;
-  await stopPresageWorker();
+  const stopping = stopPresageWorker();
+  const generation = presageGeneration;
+  await stopping;
+  if (generation !== presageGeneration || !authorized(event)) return false;
 
   // Worker is included as a plain .cjs file inside app.asar in production.
   // Running Electron as Node avoids the renderer's frame-transfer bottleneck.
   const workerPath = path.join(app.getAppPath(), 'src', 'main', 'presageNativeWorker.cjs');
   if (!fs.existsSync(workerPath)) throw new Error('Native Presage worker is missing from this build.');
-  const generation = ++presageGeneration;
   const child = fork(workerPath, [], {
     execPath: process.execPath,
     cwd: app.isPackaged ? path.dirname(app.getAppPath()) : app.getAppPath(),
@@ -170,7 +178,7 @@ ipcMain.handle('glimra:presage-start', async (event, apiKey: string, mode: strin
       type: 'error', code: 'process', message: error.message,
     });
   });
-  child.on('exit', (code, signal) => {
+  child.on('close', (code, signal) => {
     if (generation !== presageGeneration) return;
     presageChild = null;
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -282,7 +290,10 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => { void stopPresageWorker(); });
+app.on('before-quit', () => {
+  hasUserCameraConsent = false;
+  void stopPresageWorker();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

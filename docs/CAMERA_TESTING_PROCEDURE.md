@@ -17,6 +17,7 @@ Updated November 9, 2026. Do not use screen recordings or simulated landmarks as
 - **Neutral and repeat:** Return to a comfortable position, repeat turns/nods 15–20 times. Holding a pose must not repeatedly jump slides.
 - **Handover:** Presenter A steps completely out of the frame. Presenter B steps in alone, waits for new face tracking, and then controls slides. Try Recenter under Camera Setup only if the automatic baseline does not recover.
 - **Pause/disconnect:** Press Space/P and confirm no gesture commands. Resume and confirm fresh SDK events. Disconnect and ensure the native child and camera both stop. Reconnect with explicit consent.
+- **Startup cancellation:** Close Glimra while it shows “Connecting camera…” and verify the webcam indicator goes off and stays off. Reopen the app and connect again with fresh consent. Disconnect and reconnect once more, then confirm only the new session drives slides.
 - **Stability:** Run a normal presentation for at least five minutes with head/scroll controls; note camera-frame warnings, processing error 8, fake ready status or stranded worker processes.
 - **Optional Eyes mode:** Only call it verified if live SmartSpectra blinking produces intentional actions reliably; our last independent diagnostic observed zero detected blink starts.
 

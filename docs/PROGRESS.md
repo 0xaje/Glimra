@@ -128,3 +128,9 @@ found 0 vulnerabilities
 - **VERIFIED:** Traced the current native SDK, Electron IPC, React/PDF, and build paths against baseline `9e7d00a`. Removed unused desktop IPC queries, stale worker counters, an obsolete environment example and renderer build plugin. Changes span `src/main/`, `src/preload/`, `src/renderer/src/`, `vite.config.ts` and npm manifests.
 - Fresh `npm ci`, `npm run build`, `npm test` (15/15), `npm run lint:hallmark` (0 findings), `npm audit` (0 known advisories), and `git diff --check` passed on Linux. See the commit containing this entry for the exact revision.
 - **RESUME HERE:** Close the camera startup cancellation race in the [audit](CODEBASE_AUDIT_REPORT.md), then run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md), including disconnect during startup. Record Head mode evidence for the DEV submission and keep Eyes experimental until live verification.
+
+### November 9 camera startup cancellation
+
+- **VERIFIED in automated IPC tests:** Stop, consent withdrawal and window close cancel a pending start. Only the latest authorized request may start a replacement after the previous worker closes. Tests cover re-granting consent, concurrent starts, explicit stop and window close.
+- **Changes:** `src/main/main.ts`, `tests/presageLifecycle.test.mjs`, the camera testing procedure and audit report. The GitHub commit containing this entry identifies the exact revision.
+- **RESUME HERE:** Run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md). Check closure during camera connection, fresh consent after reopening, and a full five-minute Head mode presentation with presenter handoff. Live hardware acceptance remains open.
