@@ -74,6 +74,11 @@ export function LiveGestureTracker({
             baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'CPU' },
             runningMode: 'VIDEO',
             numFaces: 1,
+            // Slightly more forgiving face acquisition for natural posture
+            // and modest head turns. Pose filtering handles small jitter.
+            minFaceDetectionConfidence: 0.45,
+            minFacePresenceConfidence: 0.45,
+            minTrackingConfidence: 0.45,
           });
         }
         if (disposed) {
