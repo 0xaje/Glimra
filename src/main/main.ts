@@ -23,6 +23,11 @@ let presageGeneration = 0;
 let presageStopping: Promise<void> | null = null;
 
 const getSecureStoragePath = () => path.join(app.getPath('userData'), 'glimra_auth.bin');
+const safeKeychainAvailable = () => safeStorage.isEncryptionAvailable() &&
+  (typeof safeStorage.getSelectedStorageBackend !== 'function' ||
+    safeStorage.getSelectedStorageBackend() !== 'basic_text');
+const isMainWindowSender = (event: Electron.IpcMainInvokeEvent): boolean =>
+  !!mainWindow && !mainWindow.isDestroyed() && event.sender.id === mainWindow.webContents.id;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -222,55 +227,46 @@ ipcMain.handle('glimra:set-camera-consent', (event, consent: boolean) => {
   return hasUserCameraConsent;
 });
 
-// IPC: Secure API Key Storage using Electron safeStorage (OS Keychain / DPAPI / libsecret)
-ipcMain.handle('glimra:store-api-key', async (_event, apiKey: string) => {
-  if (typeof apiKey !== 'string') return false;
+// API keys require real OS-backed safeStorage. Never write plaintext.
+ipcMain.handle('glimra:store-api-key', async (event, apiKey: string) => {
+  if (!isMainWindowSender(event) || typeof apiKey !== 'string') return false;
   const cleanKey = apiKey.trim();
   const filePath = getSecureStoragePath();
-
   try {
     if (!cleanKey) {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       return true;
     }
-
-    if (safeStorage.isEncryptionAvailable()) {
-      const encrypted = safeStorage.encryptString(cleanKey);
-      fs.writeFileSync(filePath, encrypted);
-      return true;
-    } else {
-      // In headless environments where OS safeStorage is unavailable, store in local restricted file
-      const buffer = Buffer.from(cleanKey, 'utf8');
-      fs.writeFileSync(filePath, buffer, { mode: 0o600 });
-      return true;
+    if (!safeKeychainAvailable()) {
+      console.warn('[Glimra Security] No OS encryption: refusing to store an API key.');
+      return false;
     }
-  } catch (err) {
-    console.error('[Glimra Security] Error saving encrypted credential:', err);
+    fs.writeFileSync(filePath, safeStorage.encryptString(cleanKey), { mode: 0o600 });
+    return true;
+  } catch (error) {
+    console.error('[Glimra Security] Could not save encrypted API key:', error);
     return false;
   }
 });
 
-ipcMain.handle('glimra:retrieve-api-key', async () => {
+ipcMain.handle('glimra:retrieve-api-key', async event => {
+  if (!isMainWindowSender(event) || !safeKeychainAvailable()) return '';
   const filePath = getSecureStoragePath();
   if (!fs.existsSync(filePath)) return '';
-
   try {
-    const buffer = fs.readFileSync(filePath);
-    if (safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(buffer);
-    } else {
-      return buffer.toString('utf8');
-    }
-  } catch (err) {
-    console.error('[Glimra Security] Error decrypting credential:', err);
+    return safeStorage.decryptString(fs.readFileSync(filePath));
+  } catch {
+    // Older versions could write unencrypted fallback files on unsupported
+    // keychains. Fail closed and do not attempt to treat plaintext as a key.
+    console.warn('[Glimra Security] Existing credential is not decryptable; replace it in Settings.');
     return '';
   }
 });
 
-ipcMain.handle('glimra:has-api-key', async () => {
-  const filePath = getSecureStoragePath();
-  return fs.existsSync(filePath);
-});
+ipcMain.handle('glimra:has-api-key', async event =>
+  isMainWindowSender(event) && safeKeychainAvailable() &&
+  fs.existsSync(getSecureStoragePath())
+);
 
 // IPC: Fullscreen presentation controls
 ipcMain.handle('glimra:toggle-fullscreen', () => {
