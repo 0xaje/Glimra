@@ -33,5 +33,6 @@ npm run dev
 - Gesture thresholds are initial engineering values, not hardware-calibrated measurements.
 - The first model download requires internet; current model assets are not bundled for offline use.
 - No real Windows camera test has been completed by the assistant.
-- The current SmartSpectra error handler can still stop the shared camera stream on a terminal SDK error; full gesture/SDK failure isolation is a separate remaining task.
+- SmartSpectra failure no longer intentionally releases the host-owned camera stream. When SDK processing fails (including code 8 or depleted credits), local head/hand gestures should stay on while SmartSpectra blink processing stops. This fallback is not proof of successful SmartSpectra measurement. Verify with a real Windows camera.
+- The SmartSpectra vendor still requires sustained ~25 FPS (ideally 30) for measurements. If its warning persists, test with strong front lighting, close competing camera applications, and use a webcam that genuinely delivers 30 FPS. VideoFrame disposal warnings may originate inside the vendor renderer frame pump and cannot be safely fixed from Glimra's MediaPipe component.
 - Hand detection currently estimates an open palm from extended finger landmarks; it needs real-user verification across different lighting and camera angles.
