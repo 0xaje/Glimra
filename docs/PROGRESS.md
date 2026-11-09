@@ -122,3 +122,9 @@ found 0 vulnerabilities
 **Independent provisional judge assessment:** **76/100**, with official judging dimensions but our own weights. Best competitive fit: Best Thoughtful Real-World Use plus Best Overall. No guaranteed outcome.
 
 **RESUME HERE:** Do not alter the now-comfortable native Head threshold without real failure evidence. Pull latest main, run clean Windows install test and the [native camera procedure](CAMERA_TESTING_PROCEDURE.md). Verify presenter handoff, scroll, pause/disconnect, API key handling. Then capture a concise real-SDK demo, finalize privacy disclosure and submit one DEV post with `#presagechallenge` before the official deadline. Eyes mode is optional and must not be demonstrated as working until actual blink detection passes.
+
+### November 9 follow-up source audit
+
+- **VERIFIED:** Traced the current native SDK, Electron IPC, React/PDF, and build paths against baseline `9e7d00a`. Removed unused desktop IPC queries, stale worker counters, an obsolete environment example and renderer build plugin. Changes span `src/main/`, `src/preload/`, `src/renderer/src/`, `vite.config.ts` and npm manifests.
+- Fresh `npm ci`, `npm run build`, `npm test` (15/15), `npm run lint:hallmark` (0 findings), `npm audit` (0 known advisories), and `git diff --check` passed on Linux. See the commit containing this entry for the exact revision.
+- **RESUME HERE:** Close the camera startup cancellation race in the [audit](CODEBASE_AUDIT_REPORT.md), then run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md), including disconnect during startup. Record Head mode evidence for the DEV submission and keep Eyes experimental until live verification.

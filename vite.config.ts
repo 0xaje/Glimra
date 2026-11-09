@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
 import path from 'node:path';
 
 export default defineConfig({
@@ -15,13 +14,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: [
-                'electron',
-                '@smartspectra/node-sdk',
-                '@smartspectra/node-sdk/main',
-                '@smartspectra/node-sdk/preload',
-                'koffi',
-              ],
+              external: ['electron'],
             },
           },
         },
@@ -36,13 +29,12 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', '@smartspectra/node-sdk/preload'],
+              external: ['electron'],
             },
           },
         },
       },
     ]),
-    renderer(),
   ],
   resolve: {
     alias: {

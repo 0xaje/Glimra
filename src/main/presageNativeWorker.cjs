@@ -38,8 +38,6 @@ let lastQuickBlinkAt = -Infinity;
 let lastBlinkDetected = false;
 let lastCommandAt = -Infinity;
 let headCount = 0;
-let blinkStableCount = 0;
-let metricsCount = 0;
 const head = new PresageHeadMotion();
 const setFaceTracked = (tracked, reason) => {
   if (faceTracked === tracked) return;
@@ -83,7 +81,6 @@ function processBlink(samples) {
     const ts = Number(sample.timestamp);
     if (!Number.isFinite(ts) || ts <= lastBlinkTimestamp) continue;
     lastBlinkTimestamp = ts;
-    blinkStableCount++;
     const detected = sample.detected === true;
     if (detected && !lastBlinkDetected) blinkStartedAt = ts;
     else if (!detected && lastBlinkDetected && blinkStartedAt !== null) {
@@ -124,7 +121,6 @@ function onMetrics(buffer) {
     return;
   }
   if (!decoded || Buffer.isBuffer(decoded) || typeof decoded !== 'object') return;
-  metricsCount++;
   const now = Date.now();
   const samples = decoded.face?.landmarks;
   const latest = Array.isArray(samples) ? samples[samples.length - 1] : null;
@@ -142,10 +138,7 @@ function onMetrics(buffer) {
       // Statistics only: do not transmit raw face landmarks.
       if (headCount === 1 || headCount % 150 === 0) {
         emit('signal', {
-          source: 'Presage SmartSpectra native',
           validLandmarkSamples: headCount,
-          blinkStableSamples: blinkStableCount,
-          metricsPackets: metricsCount,
         });
       }
     }

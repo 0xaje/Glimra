@@ -42,8 +42,7 @@ function createWindow() {
       // Security Architecture:
       // contextIsolation is strictly enforced: renderer main world cannot access preload world.
       // nodeIntegration is disabled: renderer cannot access Node require(), fs, or child_process.
-      // sandbox: false is required because @smartspectra/node-sdk/preload uses Node environment
-      // variables (SMARTSPECTRA_DIAGNOSTICS) and direct MessageChannel transfer to main process.
+      // Validate sandboxed preload and IPC on Windows before changing this setting.
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -263,11 +262,6 @@ ipcMain.handle('glimra:retrieve-api-key', async event => {
   }
 });
 
-ipcMain.handle('glimra:has-api-key', async event =>
-  isMainWindowSender(event) && safeKeychainAvailable() &&
-  fs.existsSync(getSecureStoragePath())
-);
-
 // IPC: Fullscreen presentation controls
 ipcMain.handle('glimra:toggle-fullscreen', () => {
   if (mainWindow) {
@@ -276,10 +270,6 @@ ipcMain.handle('glimra:toggle-fullscreen', () => {
     return !isFull;
   }
   return false;
-});
-
-ipcMain.handle('glimra:is-fullscreen', () => {
-  return mainWindow?.isFullScreen() ?? false;
 });
 
 app.whenReady().then(() => {

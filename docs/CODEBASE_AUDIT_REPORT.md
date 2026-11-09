@@ -3,6 +3,7 @@
 **Audit date:** November 9, 2026  
 **Repository:** https://github.com/0xaje/Glimra  
 **Branch:** `main`  
+**Review baseline:** `9e7d00abe9c583b3b5211e3f747daf985e0bfd74`
 **Architecture:** Windows/Electron + React/TypeScript + PDF.js + native official Presage SmartSpectra Node SDK  
 **Type:** Source-level, dependency, frontend, backend, release, privacy and challenge-rule audit, with public GitHub CI evidence and presenter-provided real hardware reports. This is **not** a penetration test or a certified independent in-person user study.
 
@@ -10,16 +11,16 @@
 
 **Worth submitting after finishing the required acceptance work: YES. Ready to submit today: NO.**
 
-**Provisional, non-organizer judging estimate: 76 / 100.** The judges publish criteria but do not prescribe our weights. This review applies 40 points to underlying technology, 35 to usability, and 25 to originality, assuming the required demo/post are eventually supplied.
+**Provisional, non-organizer judging estimate: 74 / 100.** The judges publish criteria but do not prescribe our weights. This review applies 40 points to underlying technology, 35 to usability, and 25 to originality, The score evaluates the implementation and evidence available for review. The completed entry package is a separate eligibility gate.
 
 | Criterion | Score | Assessment |
 | --- | ---: | --- |
-| Use of underlying technology | **34 / 40** | The real native Presage SDK is foundational, not decorative. Verified 478-point face landmarks and actual head-driven PDF interaction. Eyes mode remains unverified; clean installer and long-session proof incomplete. |
-| Usability and experience | **24 / 35** | Clear touch-free real-world need, PDF navigation and in-page scroll, presenter handoff/recenter and accessible keyboard fallback. Remaining real-world reliability, lack of camera preview, status confidence, and long-session test cost points. |
+| Use of underlying technology | **33 / 40** | The real native Presage SDK is foundational, not decorative. The repository records real 478-point landmark samples, and the presenter reports successful head-driven PDF interaction. Eyes mode remains unverified; clean installer and long-session proof incomplete. |
+| Usability and experience | **23 / 35** | Clear touch-free real-world need, PDF navigation and in-page scroll, presenter handoff/recenter and accessible keyboard fallback. Camera-start cancellation, keyboard focus handling, and missing clean-install and long-session evidence reduce the score. |
 | Originality and creativity | **18 / 25** | Facial head-motion PDF presentation with real Presage integration is a coherent idea, but hands-free slide control exists elsewhere; originality relies on refined in-PDF scrolling, low-effort control and thoughtful consent. |
-| **Total** | **76 / 100** | Solid entry potential, not a guaranteed winner. A polished demo and strong reliability evidence could plausibly raise this to the mid/high 80s. |
+| **Total** | **74 / 100** | Solid entry potential, not a guaranteed winner. A polished demo and strong reliability evidence could plausibly raise this to the mid/high 80s. |
 
-**Submission eligibility vs. readiness:** Glimra public GitHub repository was created November 6, 2026, with first visible commit November 7, inside the November 4–22 entry window. The official rules require **actual development** to start during the contest, not simply a new repository. Nigeria is not named among the general contest's excluded jurisdictions, but individual export-control, age, DEV membership and employer-policy conditions must still be checked personally. Only a complete submission can enter judging.
+**Submission eligibility vs. readiness:** The first commit reachable from main is `d8517f7`, dated November 7, 2026 at 1:18 a.m. WAT, inside the entry window. The official rules require **actual development** to start during the contest, not simply a new repository. Nigeria is not named among the general contest's excluded jurisdictions, but individual export-control, age, DEV membership and employer-policy conditions must still be checked personally. Only a complete submission can enter judging.
 
 ## 1. Audit method and scope
 
@@ -27,7 +28,7 @@ Inspected the current tracked GitHub tree (source, scripts, tests, docs, assets,
 
 **Limits:** This audit cannot personally run the webcam, inspect unpublished Windows system logs, verify app startup on a clean second PC, inspect Presage's internal source, or verify the user's work/employment eligibility. No vendor SDK performance guarantee or win probability can be deduced from unit tests.
 
-## 2. Dead-code removal actually applied to main
+## 2. Dead code removed in earlier commits
 
 | Removal / correction | Reason |
 | --- | --- |
@@ -44,7 +45,11 @@ Inspected the current tracked GitHub tree (source, scripts, tests, docs, assets,
 
 **Not removed because they are legitimately used:** `@smartspectra/node-sdk`, React, Electron, PDF.js, Lucide, PDF.js worker, audio chimes, `public/glimra-sample-deck.pdf` (PDF test asset), native standalone diagnostics and the Hallmark design kit (used by CI lint). The `.agents/skills/hallmark/` reference library is development tooling, not part of the app runtime; do not delete it while depending on `lint:hallmark`.
 
-**Candidate for later dependency reduction:** `vite-plugin-electron-renderer` is still configured as development tooling but looks unnecessary after renderer-only SDK imports were removed. Removing it and pruning `package-lock.json` should only be done with a fresh reproducible `npm ci`/build/package run. Not deleted in this audit because the current Windows installer is finally building.
+### Follow-up cleanup
+
+- Removed the unused fullscreen-state and saved-key existence queries across the main process, preload, and renderer types. The active fullscreen toggle and encrypted credential read/write paths remain available.
+- Removed two native packet counters that had no renderer consumer, a redundant state assignment, and the unused signal source field. The live stable-landmark count and standalone diagnostics still provide sensing evidence.
+- Removed the unused renderer build plugin, obsolete Rollup externals, and the environment example for variables the app no longer reads. The active native worker is packaged separately and diagnostics use `PRESAGE_API_KEY`.
 
 ## 3. Frontend and PDF audit
 
@@ -65,6 +70,7 @@ Inspected the current tracked GitHub tree (source, scripts, tests, docs, assets,
 | **P1** | No camera preview in native mode, reducing confidence that the presenter is within view. | Prefer clear Presage-powered "face found / no face / multiple faces" guidance and recenter; do not open a second MediaPipe camera pipeline merely to create a preview. A real SDK-supported video output could be evaluated later. |
 | **P1** | Settings contains opt-in Eyes timing and calibration, but live blink detection previously produced zero confirmed starts. | Keep it clearly labeled optional/unverified until actual SmartSpectra blinks are observed; avoid centering the final demo on it. |
 | **P2** | `App.tsx` remains a large monolithic file and both App/footer and SlideViewer/fullscreen maintain elapsed timers. | Separate Settings, Guide, camera consent and timer orchestration once the live Windows functionality is fully stable. Don't refactor the working presenter only for a cleaner file count. |
+| **P1** | Consent and Settings dialogs declare modal semantics, but source review found no focus trap, focus restoration, or guard for app-wide presentation shortcuts while a dialog is open. | Verify with keyboard only. Keep focus in the dialog and suppress deck commands until dismissal. |
 | **P2** | PDF rendering and zoom have limited automated browser-level coverage. | Later test large/malformed PDFs, window resize, zoom transitions and page-change race conditions. Current Node tests are not Electron end-to-end tests. |
 
 ## 4. Native backend, security and dependency audit
@@ -82,6 +88,7 @@ Inspected the current tracked GitHub tree (source, scripts, tests, docs, assets,
 | Severity | Finding | Status / action |
 | --- | --- | --- |
 | **HIGH — corrected** | Old fallback wrote Presage API keys as **plaintext** when the OS keychain was unavailable; retrieval could read them back. | Removed plaintext fallback, now fails closed. Credential IPC is main-window scoped. Settings displays secure-save errors. Old historical local files should be considered for manual cleanup if an insecure-backend machine was ever used. |
+| **HIGH — open** | A start request can pass consent validation, wait for worker shutdown, then fork without rechecking consent. Simultaneous starts can also supersede a worker without stopping it. | Make start cancellable and single-owner, revalidate immediately before fork, then test double enable and disconnect during startup. Source finding, pending hardware reproduction. |
 | **MEDIUM — open** | Electron BrowserWindow still explicitly uses `sandbox: false`, a leftover justification from the retired renderer SDK preload. | Test sandboxed preload and native IPC on Windows; enable `sandbox: true` if compatible, then rerun complete acceptance. |
 | **MEDIUM — open** | Clean Windows installer may differ from local `npm run dev`: app.asar, native runtime/DLL resolution, child process packaging and SmartScreen warning. | Windows CI now builds installer. Install and test that artifact on a clean Windows computer before claiming production-ready distribution. |
 | **MEDIUM — open** | Native blink path has not produced verified real blink events in the independent diagnostic. | Run dedicated actual SDK Eyes calibration test; either prove it or describe it as experimental. |
@@ -105,14 +112,21 @@ Official challenge dates: **November 4–22, 2026**. Submission deadline: **Nove
 ## 6. Final priority plan: finish, don't expand
 
 1. **P0: Freeze the native Head sensing path.** Do not reintroduce MediaPipe/hand tracking, add a new gesture engine or change already comfortable thresholds without real failure evidence.
-2. **P0: Finish Windows acceptance.** Pull latest main, run `npm ci`, `npm run build`, `npm test`, and then run a 5+ minute real-camera Head presentation; verify page navigation, in-page scroll, face handoff, pause/resume, recenter and disconnect. Repeat on a clean installed Windows build.
+2. **P0: Fix startup cancellation and finish Windows acceptance.** Pull latest main, run `npm ci`, `npm run build`, `npm test`, and then run a 5+ minute real-camera Head presentation; verify page navigation, in-page scroll, face handoff, pause/resume, recenter and disconnect. Include disconnect during startup and simultaneous start requests in the acceptance checks. Repeat on a clean installed Windows build.
 3. **P0: Demonstration proof.** Display genuine source state and sample counts; capture a short live camera + application video with Presage SDK running and one natural gesture producing an immediate slide and PDF scroll.
 4. **P0: Consent and eligibility.** Confirm the employer-policy/individual restrictions; include the exact current data/telemetry/retention/disconnect disclosures in the submission.
-5. **P0: Submit.** Write one high-quality English DEV post, include the public repository, real demo video and simple setup, select Overall and Thoughtful Real-World, and apply `#presagechallenge` before deadline.
+5. **P0: Submit.** Write one high-quality English DEV post, include the public repository, real demo video and simple setup, select Overall and Thoughtful Real-World, and apply `#presagechallenge` before November 22 at 11:59 p.m. PST (November 23 at 8:59 a.m. WAT).
 6. **P1: Eyes decision.** Only include live Eyes demonstration after confirmed real blink events. If still unreliable, focus judges on the verified Presage facial-landmark Head interaction; optional beta status must be honest.
 7. **P2: Code organization and optional UX polish.** Split large App, unify duplicated timers, reassess sandbox, and prune unnecessary build plugin only after protecting the tested Windows installation.
 
 **Stop condition:** Working installed app + real Presage head commands for an entire ordinary presentation + truthful source evidence + clean consent disclosure + submission package. Adding more sensors or more surface features now is less valuable than proving reliability.
+
+## Verification for the follow-up
+
+- Fresh `npm ci`, TypeScript/Vite build, 15/15 automated tests, and design lint passed on Linux with Node 24.22.1. The tests exercise native SDK exports and head-motion logic, plus PDF checks. They do not open a physical camera.
+- `npm audit` reported zero known advisories for the installed dependency graph. The source scan found no matches for the checked common credential signatures. The automated credential check has limited pattern and file coverage.
+- The [baseline CI run](https://github.com/0xaje/Glimra/actions/runs/42670167899) succeeded. A passing build and Windows artifact do not establish camera or installer behavior on a clean Windows machine.
+- Vite reports a 572 kB renderer bundle and a 1.38 MB PDF worker before compression. Profile startup before spending time on bundle splitting or broad dependency upgrades.
 
 ## Source-of-truth links
 

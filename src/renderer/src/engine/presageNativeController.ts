@@ -16,7 +16,6 @@ type NativeEvent = {
   hint?: string;
   message?: string;
   validLandmarkSamples?: number;
-  blinkStableSamples?: number;
   durationMs?: number;
   tracked?: boolean;
   reason?: string;
@@ -142,7 +141,6 @@ export class PresageNativeController {
         // Metric count is cumulative. It does NOT prove the latest frame is
         // valid or that this presenter is still in camera view.
         if (typeof event.validLandmarkSamples === 'number' && event.validLandmarkSamples > 0 && this.stableSeen) {
-          this.stableSeen = true;
           this.callbacks.onSensorReady();
           this.callbacks.onValidationChange(
             'Live Presage facial landmarks • ' + event.validLandmarkSamples + ' stable samples',
