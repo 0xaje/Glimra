@@ -35,6 +35,7 @@ export class SmartSpectraController {
   private sdkStartSettled: Promise<void> | null = null;
   private hasSdkError = false;
   private isPaused = false;
+  private blinkNavigationEnabled = false;
   private isValidated = false;
   private isSdkRunning = false;
   private firstStreamReport = false;
