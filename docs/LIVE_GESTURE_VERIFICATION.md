@@ -29,11 +29,30 @@ npm run dev
 8. Check no navigation during a brief face loss, blinking or while paused. No idle timeout should disconnect the camera. An SDK error must be recorded and not mistaken for a valid physiological signal.
 9. In the demo screen recording, `npm test` passed 22 tests and navigating PDF pages was visibly working; some Node module / PDF indexing **warnings** appeared, but these warnings alone are not proof of a camera failure.
 
-## Head movement mechanics
+## November 9 regression review — recorded video 12:50
 
-The previous head tracker watched the nose move ~8.5% of the **whole camera frame**: too much movement if the user sits farther away.
+The user reported that the new face-pose tracking felt worse than the earlier working release. The 3m18s Windows recording confirms PDF navigation and in-page scrolling can occur, but intentional head turns were not consistently recognized. The camera preview and UI remained active. The DevTools console showed:
+- `[Glimra] SmartSpectra error (8, retryable=true): SmartSpectra processing failed`
+- `A VideoFrame was garbage collected without being closed` (ownership not identified by the log)
+- `INFO: Created TensorFlow Lite XNNPACK delegate for CPU` (informational log, **not** a fatal TensorFlow error)
 
-The current `HeadPoseGestureEngine` instead reads face landmarks for nose and both eye corners, estimating **turn**, **side tilt**, and **vertical nod relative to the face width**, and adapts to the user's initial pose. It applies filtering, two consecutive directional observations, a single command per turn, a 650ms cooldown, and neutral reset. It requires **no fixed position or physical calibration ritual**. It has unit tests for small movements, off-center starting posture, idle tracking and rejecting single-sample jitter. Real Windows testing is still essential to verify vertical direction, user comfort and false-positive behavior.
+The expanded gesture HUD covered much of the upper-right PDF content and displayed a stale prior gesture label. These usability issues have now been addressed.
+
+The November 9 experimental `HeadPoseGestureEngine` (nose relative to eye midpoint + a more complex neutral/reset state) was **removed**. The older, previously functioning nose-position tracker was restored. It now uses actual MediaPipe eye distance to scale only the head thresholds, allowing smaller physical movement with a distant face while keeping the existing rearm and cooldown. Small eye-line tilt is included, but controls remain based primarily on real head position.
+
+Head stays the default, Hands and Eyes remain optional. PDF-only scrolling is retained. The HUD is compact by default with a Details control; it hides stale gesture messages and explicitly marks SmartSpectra measurements as unavailable if the SDK errors.
+
+This is a correction to an observed regression, **not proof of successful physical-camera calibration**. Run `npm run build`, `npm test` and a real Windows camera session before claiming final success. SmartSpectra native-only success on Windows does not establish that its Electron renderer pipeline is free of error 8, and the unidentified leaked VideoFrame must not be claimed fixed.
+
+## Gesture verification
+
+1. Use Head (default), open a 5-page PDF and enable camera once. Watch that real head model reports ready.
+2. Gently move head right/left from your relaxed starting pose; page counter should advance/rewind once per gesture, without multi-page jumps.
+3. On a zoomed or tall PDF page, nod down and up; the content should scroll within that page but the page counter must stay unchanged.
+4. Return to your relaxed pose between gestures. A held pose must not repeat indefinitely. Sit at different distances from the webcam; the required movement should remain modest.
+5. Choose Hands in Settings to verify open-palm swipes separately. Choose Eyes only if testing actual SmartSpectra blink navigation.
+6. Leave camera on for several minutes. Pause/resume, reconnect and verify no false commands or frozen state.
+7. Record *only red actionable errors* and the frame-rate settings; the XNNPACK INFO log is expected.
 
 ## Known limits
 
@@ -67,16 +86,7 @@ Interpretation:
 
 The XNNPACK “Created TensorFlow Lite XNNPACK delegate for CPU” line is an INFO message from MediaPipe initialization, not evidence of SmartSpectra failure.
 
-## November 9 worker regression and recovery
+## Earlier worker regression
 
-The user's video showed that moving MediaPipe inference into an Electron module Worker introduced **`ModuleFactory not set`**. This is a real failure: the local gesture tracker could not start, so no head/hand gesture worked. That worker implementation was removed, and the previously functional in-renderer MediaPipe route was restored.
+A prior MediaPipe module Worker failed in Electron with `ModuleFactory not set`; it was removed. Head/Hands currently use the supported in-renderer MediaPipe path, loading only one model at a time. The native-only SmartSpectra test succeeded, but its Electron bridge still requires separate debugging for error 8.
 
-To reduce processing load without the broken worker, Glimra loads **only one detector at a time**: Head (default, approximately 7 frames/second) or Hands (optional, approximately 5 frames/second). Eyes is a separate opt-in SmartSpectra blink mode. SmartSpectra still receives genuine human data and remains subject to its live processing constraints.
-
-PDF scroll now targets the scrollable viewer inside the **current page only**, using a block overflow layout. Arrow Up/Down also send the same page scroll command as a gesture; use those keys to verify PDF scrolling independently before evaluating landmark accuracy.
-
-The standalone native SmartSpectra run on Windows confirmed 495 metrics callbacks, 508 valid signal validations, 0 frame-rate warnings and 0 errors. This does not prove SmartSpectra can sustain valid processing concurrently with MediaPipe in Electron.
-
-**Unverified:** the new hand-first UI, return-to-neutral gesture calibration, and live scroll behavior still need real Windows app tests. Do not claim these work end to end based only on code changes. The app no longer references the failed Worker.
-
-Rotate any exposed Presage API key before further live testing.
