@@ -41,6 +41,7 @@ export class SmartSpectraController {
   private sessionGeneration = 0;
   private ownedCameraStream: MediaStream | null = null;
   private starting = false;
+  private cameraRequestPending: Promise<MediaStream> | null = null;
   private calibrating = false;
   private calibrationBlinkStartUs: number | null = null;
   private calibrationLastTimestampUs = 0;
@@ -302,7 +303,7 @@ export class SmartSpectraController {
       // Use the lower-bandwidth mode from the first attempt. 720p adds
       // processing pressure without improving the SDK's >=25 FPS requirement.
       const cameraMode = { width: 640, height: 480, frameRate: 30 };
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const cameraRequest = navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           width: { ideal: cameraMode.width },
@@ -310,6 +311,13 @@ export class SmartSpectraController {
           frameRate: { ideal: cameraMode.frameRate, min: 25 },
         },
       });
+      this.cameraRequestPending = cameraRequest;
+      let stream: MediaStream;
+      try {
+        stream = await cameraRequest;
+      } finally {
+        if (this.cameraRequestPending === cameraRequest) this.cameraRequestPending = null;
+      }
       if (this.sdk !== sdk || generation !== this.sessionGeneration) {
         stream.getTracks().forEach(track => track.stop());
         return;
@@ -376,6 +384,7 @@ export class SmartSpectraController {
     const ownedStream = this.ownedCameraStream;
     this.ownedCameraStream = null;
     const pendingStart = this.sdkStartSettled;
+    const pendingCameraRequest = this.cameraRequestPending;
     this.isRunning = false;
     this.calibrating = false;
     this.calibrationBlinkStartUs = null;
@@ -386,6 +395,16 @@ export class SmartSpectraController {
 
     const cleanup = async () => {
       try {
+        // A permission prompt may still be open when the user disconnects.
+        // Wait for it to settle so the camera cannot be re-opened after stop.
+        if (pendingCameraRequest) {
+          try {
+            const lateStream = await pendingCameraRequest;
+            lateStream.getTracks().forEach(track => track.stop());
+          } catch {
+            // Permission denied/cancelled: no stream was acquired.
+          }
+        }
         // Avoid racing native SDK initialization against SDK shutdown.
         if (pendingStart) await pendingStart;
         await sdk.stop();
