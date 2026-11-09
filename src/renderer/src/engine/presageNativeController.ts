@@ -166,6 +166,11 @@ export class PresageNativeController {
         this.callbacks.onValidationChange('Finding the new resting position…', false);
         break;
       case 'validation':
+        // Presage also validates pulse/breathing measurement quality.
+        // Code 12 says "hold still" and code 7 concerns the chest. Both
+        // conflict with an application intentionally controlled by gentle
+        // head movement, so do not show those as gesture failures.
+        if (event.code === 7 || event.code === 12) break;
         if (event.code !== 0 && event.hint) {
           this.callbacks.onValidationChange('Presage: ' + event.hint, this.stableSeen && !this.paused);
         }
