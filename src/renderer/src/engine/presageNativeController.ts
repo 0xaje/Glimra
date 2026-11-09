@@ -40,6 +40,7 @@ export class PresageNativeController {
   private paused = false;
   private mode: GestureControlMode = 'head';
   private stableSeen = false;
+  private latestBlinkTiming: Partial<GestureEngineConfig> | null = null;
 
   constructor(callbacks: PresageCallbacks) { this.callbacks = callbacks; }
 
@@ -66,11 +67,12 @@ export class PresageNativeController {
   }
 
   public updateGestureConfig(config: Partial<GestureEngineConfig>): void {
+    this.latestBlinkTiming = { ...this.latestBlinkTiming, ...config };
     if (!this.active) return;
     void window.glimraDesktop?.controlPresage('timing', {
-      minIntentionalBlinkMs: config.minIntentionalBlinkMs,
-      maxIntentionalBlinkMs: config.maxIntentionalBlinkMs,
-      refractoryCooldownMs: config.refractoryCooldownMs,
+      minIntentionalBlinkMs: this.latestBlinkTiming.minIntentionalBlinkMs,
+      maxIntentionalBlinkMs: this.latestBlinkTiming.maxIntentionalBlinkMs,
+      refractoryCooldownMs: this.latestBlinkTiming.refractoryCooldownMs,
     });
   }
 
@@ -89,6 +91,7 @@ export class PresageNativeController {
       const started = await desktop.startPresage(key.trim(), this.mode);
       if (!started) throw new Error('Native Presage camera was not started.');
       this.active = true;
+      if (this.latestBlinkTiming) this.updateGestureConfig(this.latestBlinkTiming);
     } catch (error) {
       this.detach?.();
       this.detach = null;
