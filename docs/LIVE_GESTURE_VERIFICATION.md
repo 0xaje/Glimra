@@ -38,7 +38,7 @@ The user reported that the new face-pose tracking felt worse than the earlier wo
 
 The expanded gesture HUD covered much of the upper-right PDF content and displayed a stale prior gesture label. These usability issues have now been addressed.
 
-The November 9 experimental `HeadPoseGestureEngine` (nose relative to eye midpoint + a more complex neutral/reset state) was **removed**. The older, previously functioning nose-position tracker was restored. It now uses actual MediaPipe eye distance to scale only the head thresholds, allowing smaller physical movement with a distant face while keeping the existing rearm and cooldown. Small eye-line tilt is included, but controls remain based primarily on real head position.
+The November 9 experimental `HeadPoseGestureEngine` (nose relative to eye midpoint + a more complex neutral/reset state) was **removed**. The older, previously functioning nose-position tracker was restored. It now uses actual MediaPipe eye distance to scale only the head thresholds, allowing smaller physical movement with a distant face while keeping the existing rearm and cooldown. The original head-direction mapping is preserved; only the required displacement scales with face size.
 
 Head stays the default, Hands and Eyes remain optional. PDF-only scrolling is retained. The HUD is compact by default with a Details control; it hides stale gesture messages and explicitly marks SmartSpectra measurements as unavailable if the SDK errors.
 
