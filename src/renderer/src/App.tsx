@@ -4,12 +4,9 @@ import { PresentationState, CameraState, GestureFeedback } from './types';
 import { loadPresentationFromBuffer, PresentationDocument } from './engine/pdfEngine';
 import { SlideViewer } from './components/SlideViewer';
 import { SlideThumbnail } from './components/SlideThumbnail';
-import { CameraPreview } from './components/CameraPreview';
-import { SmartSpectraController } from './engine/smartSpectraController';
+import { PresageNativeController } from './engine/presageNativeController';
 import { PresenterHUD } from './components/PresenterHUD';
-import { LiveGestureTracker } from './components/LiveGestureTracker';
-import type { GestureControlMode } from './components/LiveGestureTracker';
-import type { MotionCommand } from './engine/directionalGestureEngine';
+import type { GestureControlMode } from './engine/presageNativeController';
 import { audioFeedback } from './utils/audioChime';
 
 type GestureSensitivity = 'quick' | 'balanced' | 'relaxed' | 'custom';
@@ -60,7 +57,7 @@ export default function App() {
       // New default after real camera testing: head movements need less effort.
       // New preference key upgrades earlier hand-first installs once.
       const saved = localStorage.getItem('glimra-control-mode-v2');
-      return saved === 'hand' || saved === 'eyes' ? saved : 'head';
+      return saved === 'eyes' ? saved : 'head';
     } catch { return 'head'; }
   });
   const [gestureTrackingReady, setGestureTrackingReady] = useState(false);
@@ -85,10 +82,7 @@ export default function App() {
   const calibrationActiveRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const controllerRef = useRef<SmartSpectraController | null>(null);
-  const gestureModeRef = useRef(gestureMode);
-  gestureModeRef.current = gestureMode;
-  const switchingModeRef = useRef(false);
+  const controllerRef = useRef<PresageNativeController | null>(null);
   // SDK listeners live for the window lifetime; delegate to the latest render.
   const slideActionsRef = useRef<{ next: () => void; prev: () => void }>({ next: () => {}, prev: () => {} });
 
@@ -124,10 +118,11 @@ export default function App() {
 
   // Initialize SmartSpectra controller once
   useEffect(() => {
-    controllerRef.current = new SmartSpectraController({
+    controllerRef.current = new PresageNativeController({
       onNextSlide: () => slideActionsRef.current.next(),
       onPrevSlide: () => slideActionsRef.current.prev(),
-      onStreamAvailable: (stream) => { setVideoStream(prev => prev?.getVideoTracks()[0]?.id === stream.getVideoTracks()[0]?.id ? prev : stream); setGestureTrackingError(null); },
+      onScroll: (direction) => window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction } })),
+      onSensorReady: () => { setGestureTrackingReady(true); setGestureTrackingError(null); },
       onStatusChange: (status) => setCamera((prev) => ({ ...prev, status })),
       onValidationChange: (validationMessage, faceDetected) =>
         setCamera((prev) => ({ ...prev, validationMessage, faceDetected })),
@@ -138,17 +133,6 @@ export default function App() {
       onCalibrationSample: (durationMs) => {
         if (!calibrationActiveRef.current) return;
         setCalibrationSamples(prev => prev.length >= 5 ? prev : [...prev, durationMs]);
-      },
-      onSdkUnavailable: (_code, message) => {
-        calibrationActiveRef.current = false;
-        setCalibrationOpen(false);
-        // SmartSpectra runs in Eyes mode only. An SDK error must not claim
-        // that a head/hand tracker is running when it is not.
-        const inEyes = gestureModeRef.current === 'eyes';
-        setCamera(prev => ({ ...prev, isActive: true, status: inEyes ? 'error' : 'tracking', faceDetected: false,
-          validationMessage: inEyes
-            ? `${message}. Switch to Head or Hands for local control.`
-            : `${message}. Head/hand tracking remains available.` }));
       },
       onError: (_code, message) => {
         calibrationActiveRef.current = false;
@@ -175,7 +159,7 @@ export default function App() {
     };
   }, []);
 
-  // Gentle head movement is the default. Blink navigation is opt-in only.
+  // All automatic navigation now uses genuine Presage native signals.
   useEffect(() => {
     try { localStorage.setItem('glimra-control-mode-v2', gestureMode); } catch { /* optional */ }
     controllerRef.current?.setBlinkNavigationEnabled(gestureMode === 'eyes');
@@ -416,7 +400,7 @@ export default function App() {
   const confirmCameraConsent = async () => {
     setShowPrivacyModal(false);
 
-    if (gestureMode === 'eyes' && !apiKey.trim()) {
+    if (!apiKey.trim()) {
       setShowSettingsModal(true);
       return;
     }
@@ -427,12 +411,12 @@ export default function App() {
       ...prev,
       isActive: true,
       status: 'initializing',
-      validationMessage: gestureMode === 'eyes' ? 'Connecting to SmartSpectra…' : 'Starting local camera gestures…',
+      validationMessage: 'Starting native Presage SmartSpectra…',
     }));
 
     try {
       if (!controllerRef.current) throw new Error('Camera controller is unavailable.');
-      await controllerRef.current.start(apiKey, gestureMode === 'eyes');
+      await controllerRef.current.start(apiKey);
     } catch (error) {
       setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not start the camera.' }));
       setVideoStream(null);
@@ -448,12 +432,12 @@ export default function App() {
     }
     setShowSettingsModal(false);
 
-    // Updating an SDK key must NEVER restart a healthy local Head/Hands
-    // presentation. Only Eyes mode consumes the SmartSpectra key.
-    if (camera.isActive && gestureMode === 'eyes' && controllerRef.current) {
+    // All automatic gestures use the native SDK, so key changes restart
+    // the authenticated measurement session only with user action.
+    if (camera.isActive && controllerRef.current) {
       await controllerRef.current.stop();
       try {
-        await controllerRef.current.start(trimmed, true);
+        await controllerRef.current.start(trimmed);
       } catch (error) {
         setCamera(prev => ({ ...prev, isActive: false, status: 'error', faceDetected: false, validationMessage: error instanceof Error ? error.message : 'Could not restart the camera.' }));
         setVideoStream(null);
@@ -462,40 +446,12 @@ export default function App() {
     }
   };
 
-  const changeGestureMode = async (nextMode: GestureControlMode) => {
-    if (nextMode === gestureMode || switchingModeRef.current) return;
-    if (nextMode === 'eyes' && !apiKey.trim()) {
-      setShowSettingsModal(true);
-      return;
-    }
-    const controller = controllerRef.current;
-    const needsCameraRestart = camera.isActive && (gestureMode === 'eyes' || nextMode === 'eyes');
-    if (!needsCameraRestart || !controller) {
-      setGestureMode(nextMode);
-      return;
-    }
-
-    switchingModeRef.current = true;
-    setGestureTrackingReady(false);
+  const changeGestureMode = (nextMode: GestureControlMode) => {
+    // Both modes read the SAME real SmartSpectra face metrics. Changing
+    // gesture interpretation does not restart or duplicate native capture.
+    if (nextMode === gestureMode) return;
+    setGestureMode(nextMode);
     setGestureTrackingError(null);
-    setVideoStream(null);
-    setCamera(prev => ({ ...prev, status: 'initializing',
-      validationMessage: 'Switching control method…', faceDetected: false }));
-    try {
-      // SmartSpectra and local gestures are separate camera sessions. This
-      // intentional mode change is the only point where capture is restarted.
-      await controller.stop();
-      controller.setBlinkNavigationEnabled(nextMode === 'eyes');
-      setGestureMode(nextMode);
-      await controller.start(apiKey, nextMode === 'eyes');
-    } catch (error) {
-      console.error('[Glimra] Could not change control mode:', error);
-      setCamera(prev => ({ ...prev, status: 'error', isActive: false,
-        validationMessage: 'Could not switch camera mode. Disconnect and reconnect.' }));
-      setVideoStream(null);
-    } finally {
-      switchingModeRef.current = false;
-    }
   };
 
   return (
@@ -521,27 +477,6 @@ export default function App() {
         <section className="studio-center">
           {!presentation.isFullscreen && presentation.isLoaded && !showSlides && <button className="restore-rail" onClick={() => setShowSlides(true)}><PanelLeftOpen size={16}/> Show slides</button>}
           <div className={`studio-stage ${presentation.isLoaded?'has-presentation':''}`}>
-            <LiveGestureTracker
-              stream={videoStream}
-              enabled={camera.isActive && camera.status !== 'paused' && camera.status !== 'error'}
-              mode={gestureMode}
-              onCommand={(command: MotionCommand) => {
-                if (!presentation.isLoaded || gestureMode === 'eyes') return;
-                setCamera(prev => ({
-                  ...prev,
-                  lastGesture: {
-                    type: command.source === 'hand' ? 'hand-swipe' : 'head-motion',
-                    timestamp: Date.now(),
-                    label: command.source === 'hand' ? 'Hand ' + command.direction : 'Head ' + command.direction,
-                  },
-                }));
-                if (command.direction === 'right') slideActionsRef.current.next();
-                else if (command.direction === 'left') slideActionsRef.current.prev();
-                else window.dispatchEvent(new CustomEvent('glimra:scroll-gesture', { detail: { direction: command.direction } }));
-              }}
-              onTrackingReady={() => { setGestureTrackingReady(true); setGestureTrackingError(null); }}
-              onTrackingError={(message) => { console.error('[Glimra/Gestures]', message); setGestureTrackingReady(false); setGestureTrackingError(message); }}
-            />
             <PresenterHUD camera={camera} chargeRatio={chargeRatio} videoStream={videoStream} onTogglePause={toggleGesturePause} controlMode={gestureMode} trackingReady={gestureTrackingReady}/>
             {camera.isActive && gestureTrackingError && <div role="alert" className="studio-error">{gestureTrackingError}</div>}
             <input type="file" ref={fileInputRef} accept=".pdf,application/pdf" onChange={handleFileUpload} className="visually-hidden" />
@@ -581,14 +516,14 @@ export default function App() {
         <section className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-setup-title" aria-describedby="camera-setup-description">
           <div className="panel-head"><div><h2 id="camera-setup-title">Set up hands-free control</h2></div><button className="icon-button" aria-label="Close camera setup" onClick={()=>setShowCameraSetup(false)}><X size={20}/></button></div>
           <p className="panel-description" id="camera-setup-description">Move your head gently to control the PDF. Left or right changes slides; up or down scrolls the current page. No need to face the camera perfectly.</p>
-          <CameraPreview stream={videoStream}/>
+          <div className="panel-field"><p>Native Presage camera runs in a separate process. Camera frames stay in the SDK; Glimra receives verified gesture commands and signal status, not a video preview.</p></div>
           <div className="panel-field"><label>Camera status</label><p>{camera.validationMessage}</p></div>
-          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'hand', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => { void changeGestureMode(option); }}>{option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}</button>)}</div><p>Head and Hands work locally, with no Presage key needed. Eyes uses live SmartSpectra blink signals and reconnects the camera.</p></div>
+          <div className="panel-field"><label>Control method</label><div className="sensitivity-options">{(['head', 'eyes'] as GestureControlMode[]).map(option => <button key={option} type="button" className={gestureMode===option?'active':''} onClick={() => changeGestureMode(option)}>{option === 'head' ? 'Head (default)' : 'Eyes'}</button>)}</div><p>Both controls use live Presage SmartSpectra signals. Head uses 478-point facial landmarks; Eyes uses blink detection. A Presage API key is required.</p></div>
           {gestureMode === 'eyes' && (
           <div className="panel-field"><label>Eye timing (eyes mode only)</label><div className="sensitivity-options">{(['quick', 'balanced', 'relaxed', 'custom'] as GestureSensitivity[]).map(option=><button key={option} type="button" className={sensitivity===option?'active':''} onClick={()=>handleSensitivityChange(option)}>{option[0].toUpperCase()+option.slice(1)}<small>{option === 'custom' ? 'Adjust in Settings' : `${GESTURE_PRESETS[option].minIntentionalBlinkMs} ms`}</small></button>)}</div><p>Close your eyes, then open them to move forward. Adjust your timing in Settings.</p></div>
           )}
           <button className="primary-button panel-primary" disabled={camera.status === "initializing"} onClick={async()=>{await handleEnableCameraClick();setShowCameraSetup(false)}}>{camera.isActive?'Disconnect camera':'Connect camera'}</button>
-          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>SmartSpectra key (Eyes mode)</button>
+          <button className="text-button" onClick={()=>{setShowCameraSetup(false);setShowSettingsModal(true)}}>Presage API key</button>
         </section>
       </div>}
       {/* Guide & Onboarding Modal */}
@@ -738,7 +673,7 @@ export default function App() {
             {/* API Key */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="api-key-input" style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Presage SmartSpectra API key (Eyes mode)
+                Presage SmartSpectra API key
               </label>
               <input
                 id="api-key-input"
@@ -766,7 +701,7 @@ export default function App() {
                   <button type="button" key={option} aria-pressed={gestureMode===option}
                     onClick={() => { void changeGestureMode(option); }}
                     style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid', borderColor: gestureMode===option ? 'var(--color-accent)' : 'var(--color-border-subtle)', color: gestureMode===option ? 'var(--color-accent)' : 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-elevated)' }}>
-                    {option === 'head' ? 'Head (default)' : option === 'hand' ? 'Hands' : 'Eyes'}
+                    {option === 'head' ? 'Head (default)' : 'Eyes'}
                   </button>
                 ))}
               </div>
@@ -952,8 +887,7 @@ export default function App() {
               Camera access & privacy
             </h2>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              Glimra uses your camera for small head movements by default. You can choose open-hand swipes
-              or optional SmartSpectra eye control in Settings.
+              Glimra uses the native Presage SmartSpectra SDK to recognize real head movements and optional eye blinks. Your webcam is captured by Presage after you consent.
             </p>
             <ul
               style={{
