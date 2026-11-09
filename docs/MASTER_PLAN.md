@@ -1,3 +1,9 @@
+# Historical master plan notice
+
+**Current source of truth (November 9, 2026):** See [Presage-only implementation](PRESAGE_ONLY_IMPLEMENTATION.md), [Architecture](ARCHITECTURE.md), [Release checklist](RELEASE_CHECKLIST.md), and [current audit](CODEBASE_AUDIT_REPORT.md). This older plan is preserved to show planning history. Any references below to old renderer camera capture, MediaPipe, blink-first controls, or previously completed milestones are NOT the current architecture.
+
+---
+
 # MASTER_PLAN.md — Authoritative Implementation Roadmap
 
 **Project:** Glimra
