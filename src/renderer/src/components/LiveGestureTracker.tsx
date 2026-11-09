@@ -73,7 +73,7 @@ export function LiveGestureTracker({
             runningMode: 'VIDEO',
             numFaces: 1,
             // Slightly more forgiving face acquisition for natural posture
-            // and modest head turns. Pose filtering handles small jitter.
+            // and modest head turns. The gesture engine rejects tiny jitter.
             minFaceDetectionConfidence: 0.45,
             minFacePresenceConfidence: 0.45,
             minTrackingConfidence: 0.45,
@@ -97,7 +97,7 @@ export function LiveGestureTracker({
             return;
           }
           gestures.setPaused(false);
-            if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
+          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
           // Subtle head movements need more frequent samples, without
           // running heavy model inference on every camera frame.
           const interval = mode === 'head' ? 155 : 190;
