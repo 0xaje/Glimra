@@ -68,3 +68,34 @@ jobs:
             release/*.AppImage
             release/*.deb
           if-no-files-found: warn
+
+  package-windows:
+    name: Package Windows installer
+    needs: verify
+    runs-on: windows-2022
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package Windows NSIS installer
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload unsigned Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: glimra-windows-x64-unsigned
+          path: release/*.exe
+          if-no-files-found: error
