@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react';
-import { FaceLandmarker, HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { DirectionalGestureEngine, MotionCommand } from '../engine/directionalGestureEngine';
+import type { MotionCommand } from '../engine/directionalGestureEngine';
 
-const WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
-const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+type WorkerReply =
+  | { type: 'ready' }
+  | { type: 'processed'; commands: MotionCommand[] }
+  | { type: 'error'; message: string };
 
 /**
- * Runs local face/hand landmark inference on the already-consented camera.
- * Model assets download on first use; frames are processed in the renderer.
- * No session idle timeout, fake points, or extra getUserMedia request.
+ * One video camera stream; local face + hand inference runs in a Web Worker.
+ * MediaPipe's synchronous detectForVideo must not block the Electron renderer,
+ * because the SmartSpectra renderer bridge also extracts and sends video frames.
+ *
+ * Camera capture is owned by SmartSpectraController. This component NEVER
+ * opens or stops camera tracks. It drops frames when its worker is busy.
  */
 export function LiveGestureTracker({
   stream, enabled, onCommand, onTrackingError,
@@ -31,111 +34,113 @@ export function LiveGestureTracker({
     const video = videoRef.current;
     if (!video || !stream) return;
     let disposed = false;
-    let raf = 0;
-    let face: FaceLandmarker | null = null;
-    let hand: HandLandmarker | null = null;
+    let requestId = 0;
+    let worker: Worker | null = null;
+    let workerReady = false;
+    let workerBusy = false;
+    let lastCaptureAt = -Infinity;
     let lastVideoTime = -1;
-    let lastInferenceAt = 0;
-    let lastFaceInferenceAt = 0;
-    let lastHandInferenceAt = 0;
-    const engine = new DirectionalGestureEngine();
+    let previousEnabled = enabledRef.current;
+    let reportedError = false;
+
+    const reportError = (message: string) => {
+      if (disposed || reportedError) return;
+      reportedError = true;
+      errorRef.current?.(message);
+    };
 
     const run = async () => {
       try {
-        const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
-        if (disposed) return;
-        face = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'CPU' },
-          runningMode: 'VIDEO',
-          numFaces: 1,
-        });
-        if (disposed) return;
-        hand = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'CPU' },
-          runningMode: 'VIDEO',
-          numHands: 1,
-        });
-        if (disposed) return;
+        // Keep the same host-owned MediaStream, including after SDK failure.
         video.srcObject = stream;
         await video.play();
         if (disposed) return;
 
-        const frame = (now: number) => {
+        worker = new Worker(new URL('../workers/gestureWorker.ts', import.meta.url), { type: 'module' });
+        worker.onmessage = (event: MessageEvent<WorkerReply>) => {
           if (disposed) return;
-          raf = requestAnimationFrame(frame);
-          if (!enabledRef.current) { engine.setPaused(true); return; }
-          engine.setPaused(false);
-          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0) return;
-          // Limit inference cost while preserving an always-on session.
-          if (now - lastInferenceAt < 120 || video.currentTime === lastVideoTime) return;
-          lastInferenceAt = now;
-          lastVideoTime = video.currentTime;
-          try {
-            // Avoid running two expensive CPU models on every video frame.
-            // Each model runs at most about 4 Hz; SmartSpectra keeps the
-            // original camera frame rate independently.
-            if (now - lastFaceInferenceAt >= 240) {
-              lastFaceInferenceAt = now;
-              const faceResult = face!.detectForVideo(video, now);
-              const landmarks = faceResult.faceLandmarks[0];
-              if (landmarks) {
-              // Nose position is in original camera coordinates, not mirrored UI.
-              const nose = landmarks[1];
-              const command = engine.observe('head', { x: 1 - nose.x, y: nose.y, confidence: 1 }, now);
-              if (command) commandRef.current(command);
-              } else {
-                engine.observe('head', null, now);
-              }
+          const message = event.data;
+          if (message.type === 'ready') {
+            workerReady = true;
+            console.info('[Glimra/Gestures] Worker models ready (off renderer thread)');
+          } else if (message.type === 'processed') {
+            workerBusy = false;
+            if (enabledRef.current) {
+              for (const command of message.commands) commandRef.current(command);
             }
-            // Stagger hand inference away from the face pass to avoid a
-            // single long synchronous main-thread block that starves SDK frames.
-            if (now - lastHandInferenceAt < 240 || now - lastFaceInferenceAt < 100) return;
-            lastHandInferenceAt = now;
-            const handResult = hand!.detectForVideo(video, now);
-            const palm = handResult.landmarks[0];
-            if (palm) {
-              // Palm center is less noisy than individual fingertips.
-              const ids = [0, 5, 9, 13, 17];
-              const x = ids.reduce((sum, i) => sum + palm[i].x, 0) / ids.length;
-              const y = ids.reduce((sum, i) => sum + palm[i].y, 0) / ids.length;
-              // Require an open hand: fingers extended away from wrist.
-              const wrist = palm[0];
-              const tips = [8, 12, 16, 20];
-              const joints = [5, 9, 13, 17];
-              const extended = tips.filter((tip, i) => {
-                const t = palm[tip], j = palm[joints[i]];
-                return Math.hypot(t.x - wrist.x, t.y - wrist.y) >
-                  Math.hypot(j.x - wrist.x, j.y - wrist.y) * 1.15;
-              }).length;
-              const command = engine.observe('hand', extended >= 3 ? { x: 1 - x, y, confidence: 1 } : null, now);
-              if (command) commandRef.current(command);
-            } else {
-              engine.observe('hand', null, now);
-            }
-          } catch (error) {
-            // Do not kill the camera on one malformed frame.
-            console.warn('[Glimra/Gestures] Frame inference skipped', error);
+          } else if (message.type === 'error') {
+            workerReady = false;
+            workerBusy = false;
+            reportError('Could not start local gesture tracking: ' + message.message);
           }
         };
-        raf = requestAnimationFrame(frame);
+        worker.onerror = (event) => {
+          event.preventDefault();
+          workerReady = false;
+          workerBusy = false;
+          reportError('Local gesture worker stopped. Check camera and model loading.');
+          console.error('[Glimra/Gestures] Worker error:', event.message);
+        };
+        worker.postMessage({ type: 'init' });
+
+        const frame = (timestampMs: number) => {
+          if (disposed) return;
+          requestId = requestAnimationFrame(frame);
+          const active = enabledRef.current;
+          if (active !== previousEnabled) {
+            previousEnabled = active;
+            worker?.postMessage({ type: 'reset' });
+          }
+          if (!active || !workerReady || workerBusy) return;
+          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0) return;
+          // Max ~6 landmark frames/sec. Never queue old frames when busy.
+          if (timestampMs - lastCaptureAt < 160 || video.currentTime === lastVideoTime) return;
+          lastCaptureAt = timestampMs;
+          lastVideoTime = video.currentTime;
+          workerBusy = true;
+          void createImageBitmap(video, {
+            resizeWidth: 480,
+            resizeHeight: 360,
+            resizeQuality: 'medium',
+          }).then(bitmap => {
+            if (disposed || !worker || !enabledRef.current) {
+              bitmap.close();
+              workerBusy = false;
+              return;
+            }
+            // Transfer ownership, never clone a large pixel buffer.
+            worker.postMessage({ type: 'frame', bitmap, timestampMs }, [bitmap]);
+          }).catch(error => {
+            workerBusy = false;
+            console.warn('[Glimra/Gestures] Frame capture failed:', error);
+          });
+        };
+        requestId = requestAnimationFrame(frame);
       } catch (error) {
         if (!disposed) {
-          console.error('[Glimra/Gestures] Could not load local gesture models', error);
-          errorRef.current?.('Gesture tracking could not start. Check your internet connection for the first model download.');
+          console.error('[Glimra/Gestures] Initialization error:', error);
+          reportError('Unable to start local camera gesture tracking.');
         }
       }
     };
+
     void run();
     return () => {
       disposed = true;
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(requestId);
+      worker?.terminate();
       video.pause();
       video.srcObject = null;
-      face?.close();
-      hand?.close();
     };
   }, [stream]);
 
-  return <video ref={videoRef} muted playsInline aria-hidden="true"
-    style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}/>;
+  return (
+    <video
+      ref={videoRef}
+      muted
+      playsInline
+      aria-hidden="true"
+      style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+    />
+  );
 }
