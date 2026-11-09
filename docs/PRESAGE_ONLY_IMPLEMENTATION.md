@@ -80,3 +80,26 @@ Use the **native camera capture path**, which worked in the user's independent W
 **FAIL:** Slides move while Presage SDK is disabled/unavailable, the only meaningful gestures are MediaPipe-driven, or the demo merely shows an API key while another detector drives the actions.
 
 **The code is now Presage-only for automatic gesture sensing. Do not describe the full desktop product as hardware-verified or ready to submit until the new Windows integration test and CI checks have passed.**
+
+## November 9: more comfortable control and presenter handoff (native Presage only)
+
+**Windows terminal evidence supplied by the presenter:** Presage's native child started two real capture sessions, showing internal MediaPipe/TFLite implementation warnings, landmark-projection warnings and Windows Media Foundation camera exposure fallbacks. There was **no reported SmartSpectra error 8, kError, or JavaScript fatal error** in the pasted log. The application initially responded comfortably; response became inconsistent when a different person attempted to present. Native warnings do not prove that the landmark stream stopped.
+
+**Confirmed design limitations in the previous Glimra code:**
+- The head-motion engine kept the first presenter's face-centroid reference. A new presenter's offset could be read as one large gesture and leave the engine disarmed until they returned to someone else's original position.
+- The renderer used a cumulative valid-landmark count as a signal of face readiness. That number can remain positive after face tracking stops, producing a misleading "ready" state.
+- Validation warnings were sent to React on nearly every bad frame, creating unnecessary UI updates.
+- Native camera capture has **no video preview** in React by design. Do not open a second getUserMedia stream to fake a preview.
+
+**Applied corrections:**
+- Track sudden face-position or face-size discontinuities and rebaseline without sending a slide command. Respect the SDK's actual `Landmarks.reset` and no/multiple-face validation.
+- If the user has settled in a new pose for about 1.1 seconds after a gesture, rearm from that pose **without repeating the command**. This avoids forced neck movements or pixel-perfect returns. Gently lower head movement thresholds while retaining two successive consistent readings.
+- Keep a live face-tracked indicator based on fresh *Presage SDK* metrics. An SDK process may run while face tracking is unavailable; do not show a stale "Head ready".
+- Throttle duplicate warnings; warn for multiple faces and insufficient light without mislabeling them a fatal SDK crash.
+- Offer a small **Recenter for a new presenter** recovery action under camera setup. Automatic reacquisition remains the primary flow.
+
+**Recommended capture conditions:** one person at a time; the previous presenter should step completely out of view before the next person steps in. Light the face evenly, avoid strong backlighting, keep camera stable, and avoid extreme head turns. Presage's model card explicitly warns that large rotations reduce facial landmark reliability. The Media Foundation exposure warning reports a camera driver reverting to AUTO; it does **not** by itself mean Glimra is malfunctioning.
+
+**Hand swipe policy:** SmartSpectra's published face metrics do not provide hand-landmark coordinates. Per the strict Presage-only requirement, do not reintroduce MediaPipe/OpenCV hand tracking or describe hand control as SmartSpectra functionality. Keyboard/mouse controls are allowed accessibility fallbacks; Eyes remains an optional genuine Presage blink mode, not yet shown to detect real blinks in the previous standalone diagnostic.
+
+**Verification pending:** GitHub CI math tests plus a live Windows presentation involving two presenters, small up/down and left/right gestures, and a 5+ minute continuous session. No real hand gestures or second-presenter success should be claimed before that test.
