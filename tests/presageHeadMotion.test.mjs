@@ -20,8 +20,8 @@ test('gentle real-coordinate head movement produces one slide direction', () => 
   const engine = new PresageHeadMotion();
   assert.equal(engine.observe(pose(300, 240, 0), 0), null);
   assert.equal(engine.observe(pose(274, 240, 80), 80), null);
-  assert.equal(engine.observe(pose(274, 240, 160), 160), null);
-  assert.equal(engine.observe(pose(274, 240, 240), 240), 'right');
+  assert.equal(engine.observe(pose(274, 240, 160), 160), 'right');
+  assert.equal(engine.observe(pose(274, 240, 240), 240), null, 'holding the turn cannot fire twice');
   for (let now = 290; now <= 690; now += 50) {
     assert.equal(engine.observe(pose(274, 240, now), now), null, 'held turn must not repeat');
   }
@@ -31,8 +31,8 @@ test('vertical head movement produces a PDF scroll direction', () => {
   const engine = new PresageHeadMotion();
   engine.observe(pose(300, 240, 0), 0);
   engine.observe(pose(300, 260, 80), 80);
-  assert.equal(engine.observe(pose(300, 260, 160), 160), null);
-  assert.equal(engine.observe(pose(300, 260, 240), 240), 'down');
+  assert.equal(engine.observe(pose(300, 260, 160), 160), 'down');
+  assert.equal(engine.observe(pose(300, 260, 240), 240), null, 'holding a nod cannot scroll twice');
 });
 
 test('unstable or reset frames never create commands', () => {
