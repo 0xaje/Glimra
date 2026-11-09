@@ -79,7 +79,16 @@ export class DirectionalGestureEngine {
       ? (size === null ? 0.035 : Math.max(0.012, Math.min(0.03, size * 0.09)))
       : 0.055;
     if (!current.armed) {
-      if (Math.hypot(dx, dy) <= neutral) {
+      // The head must return toward its relaxed position before another
+      // command, but demanding an exact pixel-for-pixel return can keep a
+      // live tracker disarmed for minutes. Give the *rearm zone* some
+      // tolerance without changing the proven gesture trigger thresholds.
+      // Held turns remain outside this zone, so cannot repeatedly fire.
+      const inNeutralZone = source === 'head'
+        ? Math.abs(dx) <= Math.max(neutral, horizontalThreshold * 0.82) &&
+          Math.abs(dy) <= Math.max(neutral, verticalThreshold * 0.82)
+        : Math.hypot(dx, dy) <= neutral;
+      if (inNeutralZone) {
         if (current.neutralSince === null) current.neutralSince = nowMs;
         if (nowMs - current.neutralSince >= 180) {
           current.armed = true;
