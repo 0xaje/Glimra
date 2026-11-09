@@ -123,7 +123,7 @@ export function PresenterHUD({
 
       {camera.status === 'tracking' && controlMode !== 'eyes' && trackingReady && (
         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-          {controlMode === 'hand' ? 'Open hand: left/right = slides, up/down = scroll' : 'Move head: left/right = slides, up/down = scroll'}
+          {controlMode === 'hand' ? 'Open hand: left/right = slides, up/down = scroll' : 'Small head moves: left/right = slides, up/down = scroll'}
         </div>
       )}
 
