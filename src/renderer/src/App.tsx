@@ -577,13 +577,13 @@ export default function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 500 }}>Head — default</div>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Head : default</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   SmartSpectra's real facial landmarks power head control. Make a small comfortable turn left or right to change slides, or nod up or down to scroll inside the current page. Return to your relaxed pose between moves.
                 </p>
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-subtle)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 500 }}>Eyes — optional SmartSpectra control</div>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Eyes : optional SmartSpectra control</div>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.7 }}>
                   Choose Eyes in Settings. A deliberate long blink goes forward; a quick double-blink goes back.
                   Eyes uses SmartSpectra's live blink detections from the same native camera session. It requires a valid signal and does not scroll pages. Eye blinking still needs real hardware verification.
