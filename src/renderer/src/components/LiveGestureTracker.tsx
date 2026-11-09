@@ -34,6 +34,8 @@ export function LiveGestureTracker({
     let hand: HandLandmarker | null = null;
     let lastVideoTime = -1;
     let lastInferenceAt = 0;
+    let lastFaceInferenceAt = 0;
+    let lastHandInferenceAt = 0;
     const engine = new DirectionalGestureEngine();
 
     const run = async () => {
@@ -61,21 +63,29 @@ export function LiveGestureTracker({
           raf = requestAnimationFrame(frame);
           if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0) return;
           // Limit inference cost while preserving an always-on session.
-          if (now - lastInferenceAt < 65 || video.currentTime === lastVideoTime) return;
+          if (now - lastInferenceAt < 120 || video.currentTime === lastVideoTime) return;
           lastInferenceAt = now;
           lastVideoTime = video.currentTime;
           try {
-            const faceResult = face!.detectForVideo(video, now);
-            const handResult = hand!.detectForVideo(video, now);
-            const landmarks = faceResult.faceLandmarks[0];
-            if (landmarks) {
+            // Avoid running two expensive CPU models on every video frame.
+            // Each model runs at most about 4 Hz; SmartSpectra keeps the
+            // original camera frame rate independently.
+            if (now - lastFaceInferenceAt >= 240) {
+              lastFaceInferenceAt = now;
+              const faceResult = face!.detectForVideo(video, now);
+              const landmarks = faceResult.faceLandmarks[0];
+              if (landmarks) {
               // Nose position is in original camera coordinates, not mirrored UI.
               const nose = landmarks[1];
               const command = engine.observe('head', { x: 1 - nose.x, y: nose.y, confidence: 1 }, now);
               if (command) commandRef.current(command);
-            } else {
-              engine.observe('head', null, now);
+              } else {
+                engine.observe('head', null, now);
+              }
             }
+            if (now - lastHandInferenceAt < 240) return;
+            lastHandInferenceAt = now;
+            const handResult = hand!.detectForVideo(video, now);
             const palm = handResult.landmarks[0];
             if (palm) {
               // Palm center is less noisy than individual fingertips.
