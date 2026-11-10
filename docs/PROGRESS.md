@@ -134,3 +134,9 @@ found 0 vulnerabilities
 - **VERIFIED in automated IPC tests:** Stop, consent withdrawal and window close cancel a pending start. Only the latest authorized request may start a replacement after the previous worker closes. Tests cover re-granting consent, concurrent starts, explicit stop and window close.
 - **Changes:** `src/main/main.ts`, `tests/presageLifecycle.test.mjs`, the camera testing procedure and audit report. The GitHub commit containing this entry identifies the exact revision.
 - **RESUME HERE:** Run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md). Check closure during camera connection, fresh consent after reopening, and a full five-minute Head mode presentation with presenter handoff. Live hardware acceptance remains open.
+
+### November 10 Settings window fit
+
+- Settings uses the Guide's 560 px maximum width and caps its height within the window padding. Its contents scroll vertically, and presenter keyboard shortcuts are suspended while Settings is open so keyboard navigation can work in the panel.
+- Production build passed, 19 of 19 tests passed, and the design lint reported zero findings. Local Chromium could not start because the execution environment blocked its socket. Windows layout acceptance remains pending.
+- **RESUME HERE:** Install the Windows artifact from the CI run for this commit, open Settings in a restored window, and scroll from the API key field to Save settings before recording the walkthrough.

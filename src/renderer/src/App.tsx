@@ -168,7 +168,7 @@ export default function App() {
   // Presenter keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (showSettingsModal || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
@@ -198,7 +198,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [presentation.currentSlide, presentation.totalSlides, camera.status, presentation.isLoaded]);
+  }, [presentation.currentSlide, presentation.totalSlides, camera.status, presentation.isLoaded, showSettingsModal]);
 
   const nextSlide = () => {
     setIsBlackout(false);
@@ -654,9 +654,13 @@ export default function App() {
           }}
         >
           <div
+            tabIndex={0}
             style={{
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '560px',
+              maxHeight: 'min(90vh, calc(100vh - 48px))',
+              overflowY: 'auto',
+              overscrollBehaviorY: 'contain',
               backgroundColor: 'var(--color-bg-surface)',
               border: '1px solid var(--color-border-strong)',
               borderRadius: 'var(--radius-lg)',
