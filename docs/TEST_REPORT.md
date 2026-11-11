@@ -14,7 +14,7 @@ The active CI compiles the React/Electron TypeScript source, builds PDF frontend
 
 The new Windows CI job builds and uploads an unsigned NSIS installer without releasing it to GitHub. The Linux AppImage build is verified separately. A package compiling successfully does not prove that a clean Windows machine can load the native SDK or run its physical webcam.
 
-Use `npm ci && npm run build && npm run lint:hallmark && npm test` and check the latest GitHub Actions run on the repository's main branch for exact results. See [release checklist](RELEASE_CHECKLIST.md) and [current audit](CODEBASE_AUDIT_REPORT.md).
+Use `npm ci && npm run build && npm run lint:hallmark && npm test` and check the latest GitHub Actions run on the repository's main branch for exact results. See [release checklist](RELEASE_CHECKLIST.md).
 
 ## Still unverified
 

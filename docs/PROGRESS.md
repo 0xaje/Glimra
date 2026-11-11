@@ -111,7 +111,7 @@ found 0 vulnerabilities
 
 ## November 9, 2026 — native Presage cleanup, security and challenge audit
 
-**Source of truth:** [CODEBASE_AUDIT_REPORT.md](CODEBASE_AUDIT_REPORT.md), [ARCHITECTURE.md](ARCHITECTURE.md), [PRIVACY.md](PRIVACY.md), and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+**Source of truth:** [ARCHITECTURE.md](ARCHITECTURE.md), [PRIVACY.md](PRIVACY.md), and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 
 **Implemented on `main`:** removed legacy browser blink interpreter/test suite and unused SDK diagnostic; deleted abandoned camera preview asset/CSS and unsupported gesture types; removed dead eye-charge progress; fixed practice blink edge-state; changed API-key persistence to reject plaintext fallback and restricted credential IPC to the application window; added a real Windows installer build to CI and disabled unintended release publishing. Rewrote current architecture, consent and release documentation. Historical plans are clearly labeled as superseded.
 
@@ -127,7 +127,7 @@ found 0 vulnerabilities
 
 - **VERIFIED:** Traced the current native SDK, Electron IPC, React/PDF, and build paths against baseline `9e7d00a`. Removed unused desktop IPC queries, stale worker counters, an obsolete environment example and renderer build plugin. Changes span `src/main/`, `src/preload/`, `src/renderer/src/`, `vite.config.ts` and npm manifests.
 - Fresh `npm ci`, `npm run build`, `npm test` (15/15), `npm run lint:hallmark` (0 findings), `npm audit` (0 known advisories), and `git diff --check` passed on Linux. See the commit containing this entry for the exact revision.
-- **RESUME HERE:** Close the camera startup cancellation race in the [audit](CODEBASE_AUDIT_REPORT.md), then run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md), including disconnect during startup. Record Head mode evidence for the DEV submission and keep Eyes experimental until live verification.
+- **RESUME HERE:** Run the [installed Windows camera acceptance](CAMERA_TESTING_PROCEDURE.md), including disconnect during startup. Record Head mode evidence for the DEV submission and keep Eyes experimental until live verification.
 
 ### November 9 camera startup cancellation
 
@@ -140,3 +140,7 @@ found 0 vulnerabilities
 - Settings uses the Guide's 560 px maximum width and caps its height within the window padding. Its contents scroll vertically, and presenter keyboard shortcuts are suspended while Settings is open so keyboard navigation can work in the panel.
 - Production build passed, 19 of 19 tests passed, and the design lint reported zero findings. Local Chromium could not start because the execution environment blocked its socket. Windows layout acceptance remains pending.
 - **RESUME HERE:** Install the Windows artifact from the CI run for this commit, open Settings in a restored window, and scroll from the API key field to Save settings before recording the walkthrough.
+
+## Submission repository review
+
+The public working tree omits the historical master plan and internal scoring audit. Previous commits retain both. Submission-facing documentation retains architecture, setup, camera testing, and privacy disclosures. Local verification passed 19 tests, the production build, and Hallmark lint. The reviewed baseline was `fb14f51`.

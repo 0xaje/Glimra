@@ -11,7 +11,6 @@ test('Glimra Foundation — Core Documentation Suite', () => {
     'AGENTS.md',
     'README.md',
     'LICENSE',
-    'docs/MASTER_PLAN.md',
     'docs/PROGRESS.md',
     'docs/ARCHITECTURE.md',
     'docs/DESIGN_SYSTEM.md',

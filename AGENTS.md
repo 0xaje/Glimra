@@ -116,7 +116,7 @@ git rev-parse origin/main
 
 ## 7. Operating Procedure
 
-1. **Read `docs/PRESAGE_ONLY_IMPLEMENTATION.md`, `docs/ARCHITECTURE.md`, and `docs/CODEBASE_AUDIT_REPORT.md`** before changing sensing, IPC, camera security, or packaging. The original `docs/MASTER_PLAN.md` is a historical planning document and may contain retired approaches.
+1. **Read `docs/PRESAGE_ONLY_IMPLEMENTATION.md`, `docs/ARCHITECTURE.md`, and `docs/RELEASE_CHECKLIST.md`** before changing sensing, IPC, camera security, or packaging.
 2. **Read `docs/PROGRESS.md`** to know the current milestone, what has been verified, and the `RESUME HERE` pointer.
 3. **Follow the next unfinished milestone.** Do not skip ahead or implement decorative features before prerequisites pass their stop gates.
 4. **Preserve existing working functionality.** Never refactor or delete working code without an explicit reason recorded in `docs/DECISIONS.md`.

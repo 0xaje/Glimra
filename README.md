@@ -29,7 +29,7 @@ This established that Presage can supply the signals required for Glimra's head 
 
 **Current status:** Linux build, design audit, unit tests and unsigned Windows installer packaging run in GitHub Actions. The presenter reports that actual native Presage head movements control the PDF and have improved substantially. Still **not verified**: a five-minute stability test, clean Windows installer camera operation, second-presenter handover under varied lighting, and real Eyes-mode blink control. Do not claim those milestones passed.
 
-Read the [current full codebase audit and independent 76/100 judge review](docs/CODEBASE_AUDIT_REPORT.md), the [strict Presage-first implementation plan](docs/PRESAGE_ONLY_IMPLEMENTATION.md), and the [real-camera acceptance checklist](docs/CAMERA_TESTING_PROCEDURE.md).
+See the [real-camera acceptance checklist](docs/CAMERA_TESTING_PROCEDURE.md) and [camera consent and data handling](docs/PRIVACY.md).
 
 ---
 
@@ -89,7 +89,7 @@ Both Head and Eyes use the real native Presage SDK. Enter your SmartSpectra API 
 
 ## Roadmap & Milestones
 
-See [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) for the implementation roadmap and [docs/PROGRESS.md](docs/PROGRESS.md) for live progress tracking.
+See [docs/PROGRESS.md](docs/PROGRESS.md) for implementation and verification status.
 
 ---
 

@@ -46,4 +46,4 @@ The SDK is constructed with `enableTelemetry: false`. SDK authentication, meteri
 
 The repository CI runs TypeScript/Vite build, Hallmark design lint, and Node unit tests, followed by Linux and Windows installer packaging. CI cannot execute a physical camera acceptance test. Windows in-app camera reliability, multi-presenter handoff, long continuous sessions, and optional real blink control must be verified separately.
 
-The original Presage-only migration plan and the current audit are in `PRESAGE_ONLY_IMPLEMENTATION.md` and `CODEBASE_AUDIT_REPORT.md`. Historical plans and build logs may refer to discontinued architecture; do not reuse those as a description of the active application.
+See [the Presage-only implementation](PRESAGE_ONLY_IMPLEMENTATION.md) and [release checklist](RELEASE_CHECKLIST.md) for integration and verification details.

@@ -43,4 +43,4 @@ Updated November 9, 2026. An unchecked item is **not verified**. Build success d
 - [ ] Publish one English DEV post using the official submission template and `#presagechallenge` before Nov 22, 2026, 11:59 PM PST.
 - [ ] Enter Best Overall and Best Thoughtful Real-World Use; choose Most Creative only if the final presentation demonstrably supports that story.
 
-Current detailed findings: [CODEBASE_AUDIT_REPORT.md](CODEBASE_AUDIT_REPORT.md). Authoritative submission rules: https://dev.to/challenges/presage-2026-11-04/ and https://dev.to/page/official-hackathon-rules.
+Authoritative submission rules: https://dev.to/challenges/presage-2026-11-04/ and https://dev.to/page/official-hackathon-rules.
