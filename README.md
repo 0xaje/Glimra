@@ -1,105 +1,57 @@
 # Glimra
 
-> **Control without a touch.**
+**Control without a touch.** Glimra is a desktop app for presenting PDFs with deliberate head movements, built with the Presage SmartSpectra SDK.
 
-Glimra is a hands-free PDF presentation application powered by the **official Presage SmartSpectra SDK**. Its default Head mode interprets actual live Presage facial landmarks to move between slides and scroll within the current PDF page. Optional Eyes mode uses real SmartSpectra blinking detections. **No MediaPipe or other automatic gesture-tracking SDK is used.**
-Built for teachers, keynote speakers, trainers, workshop hosts, and anyone who benefits from touchless presentation control.
+## The problem
 
----
+Changing slides can interrupt a lesson, talk, or workshop when the presenter has to reach for the keyboard. Glimra gives teachers, speakers, trainers, and people with limited hand mobility another way to navigate a presentation. A gentle head turn changes slides. A nod scrolls the current page when there is content to scroll. Keyboard navigation is also available.
 
-## Current verification status
+## Watch the demo
 
-**Confirmed with a genuine Windows webcam and Presage's native Node SDK (November 9, 2026):**
+[![Watch the Glimra demo on YouTube](https://i.ytimg.com/vi/poCkYjcC2ss/hqdefault.jpg)](https://youtu.be/poCkYjcC2ss)
 
-- 487 real SDK metrics packets, all decoded
-- 416 stable Presage facial-landmark samples
-- 478 facial points per sample
-- 566 valid SDK quality checks, **0** low-frame-rate warnings, **0** SDK errors
-- Real face-centroid movement ranges: horizontal **0.539** and vertical **0.266** face widths
+[Watch the full 2:32 demo](https://youtu.be/poCkYjcC2ss) · [Jump to the split-screen live test at 1:32](https://youtu.be/poCkYjcC2ss?t=92) · [Glimra website](https://glimra-studio.flutteringpeach8.chatgpt.site)
 
-This established that Presage can supply the signals required for Glimra's head navigation. **The diagnostic detected zero blinking starts**; the optional Eyes interaction is not yet independently verified.
+The demo walks through setup and camera consent, then shows the presenter and desktop side by side so you can see the head movement and the slide response together.
 
-**Implemented on `main` (Windows desktop verification still required):**
+## Run Glimra
 
-- Native camera worker in a dedicated Node child process, using `SmartSpectraSDK.useCamera(CameraSelection.default)` to avoid the old Electron renderer-frame-transfer bottleneck.
-- Head movements derived from **real, stable** `metrics.face.landmarks[]` samples, with smoothing, a deliberate two-frame movement, and rearming after return to a relaxed position.
-- Eyes mode from genuine `metrics.face.blinking[]` samples only. No fake blink feedback.
-- Gesture commands and quality status passed to the renderer via a restricted Electron IPC bridge. No raw camera images or face coordinates are sent.
-- MediaPipe and old browser camera gesture processing removed. User permission and API key are required for native capture. Keyboard navigation remains available without the camera.
-
-**Current status:** Linux build, design audit, unit tests and unsigned Windows installer packaging run in GitHub Actions. The presenter reports that actual native Presage head movements control the PDF and have improved substantially. Still **not verified**: a five-minute stability test, clean Windows installer camera operation, second-presenter handover under varied lighting, and real Eyes-mode blink control. Do not claim those milestones passed.
-
-See the [real-camera acceptance checklist](docs/CAMERA_TESTING_PROCEDURE.md) and [camera consent and data handling](docs/PRIVACY.md).
-
----
-
-## Architecture & Technology Stack
-
-- **Desktop Framework:** Electron
-- **User Interface:** React + TypeScript
-- **Build Tooling:** Vite
-- **Live SmartSpectra Signals:** `@smartspectra/node-sdk` (Presage Technologies)
-- **Genuine Head/Eye Sensing:** Native SmartSpectra facial landmarks and blinking detection; no external sensing engine
-- **Native Camera Service:** Dedicated Node child process + Electron IPC
-- **Slide Rendering:** PDF.js (`pdfjs-dist`)
-- **Design System:** Hallmark (Darkroom Amber theme)
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full architectural documentation.
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js >= 22.12.0
-- A webcam (built-in or USB)
-- A valid Presage SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com), required for **Head and Eyes**
-
-### Installation & Development
+You need Node.js 22.12 or newer and npm. For hands-free control, you also need a webcam and a [Presage SmartSpectra API key](https://physiology.presagetech.com/).
 
 ```bash
-# Clone the repository
 git clone https://github.com/0xaje/Glimra.git
 cd Glimra
-
-# Install dependencies
-npm install
-
-# Run development mode
+npm ci
 npm run dev
 ```
 
-### Packaging & Distribution
+1. Add your Presage API key in **Settings**.
+2. Choose **Open presentation** and select a PDF. You can use the [sample deck](public/glimra-sample-deck.pdf).
+3. Open the camera setup, connect the camera, and choose **Enable camera control** in the consent dialog. Use **Head** mode and wait for tracking to be ready.
+4. Turn your head gently left or right to change slides. Use **Recenter** if needed. You can also use the left and right arrow keys.
+
+Windows installer and Linux AppImage packaging are configured in CI. See the [packaging notes](docs/PACKAGING_AND_INSTALLATION.md) and [camera acceptance checklist](docs/CAMERA_TESTING_PROCEDURE.md) for platform and verification details.
+
+## How live signals drive the presentation
+
+1. The [native camera worker](src/main/presageNativeWorker.cjs) starts a SmartSpectra session in a separate Node process after camera consent. It reads live facial landmarks from the SDK.
+2. The [head motion detector](src/main/presageHeadMotion.cjs) uses stable landmark samples to estimate movement relative to a resting position. It filters unstable samples and rearms after the presenter relaxes, so a held turn does not repeatedly advance slides.
+3. The [Electron bridge](src/preload/preload.ts) delivers gesture events and tracking status to the renderer. The [presentation controller](src/renderer/src/engine/presageNativeController.ts) routes them to slide navigation or scrolling. PDF.js renders the document locally.
+
+Head mode is the default and is shown in the Windows demo. The optional Eyes mode reads live SDK blink detections, but its blink controls still need hardware verification. See the [architecture](docs/ARCHITECTURE.md) and [verification notes](docs/SDK_VERIFICATION.md) for details.
+
+## Camera consent and data handling
+
+Camera capture starts after you explicitly enable camera control. **Disconnect camera** stops the capture session. **Pause** stops gesture commands while leaving capture active. Glimra processes camera frames locally through the native SDK and does not record or upload footage or facial landmarks. Derived gesture signals are held in memory, and PDFs are rendered locally.
+
+The app disables SDK telemetry in its configuration. Presage authentication and metering may still require network access. If you save your API key, Glimra uses Electron's OS-backed secure storage where supported. See the [full privacy disclosure](docs/PRIVACY.md).
+
+## Development checks
 
 ```bash
-# Package for Linux (AppImage)
-npm run dist:linux
-
-# Package for Windows (NSIS installer)
-npm run dist:win
-
-# Package for macOS (DMG/zip)
-npm run dist:mac
+npm run build
+npm test
+npm run lint:hallmark
 ```
 
-### Entering your API Key
-Both Head and Eyes use the real native Presage SDK. Enter your SmartSpectra API key in **Settings**. No automatic gesture control is offered when Presage is unavailable. The key is encrypted locally using Electron's OS-backed `safeStorage` when available; key persistence is refused otherwise and is never exposed in browser localStorage, committed to version control, or bundled into application distributions.
-
----
-
-## Roadmap & Milestones
-
-See [docs/PROGRESS.md](docs/PROGRESS.md) for implementation and verification status.
-
----
-
-## Challenge Entry
-
-- **Challenge:** [Presage SmartSpectra SDK Challenge 2026](https://dev.to/challenges/presage-2026-11-04)
-- **Deadline:** November 22, 2026, 11:59 PM PST
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+Built for the [Presage SmartSpectra SDK Challenge](https://dev.to/challenges/presage-2026-11-04). Released under the [MIT License](LICENSE).
