@@ -1,18 +1,21 @@
-# Glimra
-
-## Watch the demo
+[![Website — Glimra Studio](https://img.shields.io/badge/Website-Glimra%20Studio-2563EB?style=for-the-badge)](https://glimra-studio.flutteringpeach8.chatgpt.site)
+[![License — MIT](https://img.shields.io/badge/License-MIT-238636?style=for-the-badge)](LICENSE)
+[![Windows — x64 installer](https://img.shields.io/badge/Windows-x64%20installer-0078D4?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092266652)
+[![Ubuntu — x64 AppImage](https://img.shields.io/badge/Ubuntu-x64%20AppImage-E5A400?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092465040)
+[![YouTube — Full demo](https://img.shields.io/badge/YouTube-Full%20demo-D92323?style=for-the-badge)](https://youtu.be/poCkYjcC2ss)
+[![Live test — 1:32](https://img.shields.io/badge/Live%20test-1%3A32-8250DF?style=for-the-badge)](https://youtu.be/poCkYjcC2ss?t=92)
 
 [![Watch the Glimra demo on YouTube](https://i.ytimg.com/vi/poCkYjcC2ss/hqdefault.jpg)](https://youtu.be/poCkYjcC2ss)
 
-[Watch the full 2:32 demo](https://youtu.be/poCkYjcC2ss) · [Jump to the split-screen live test at 1:32](https://youtu.be/poCkYjcC2ss?t=92) · [Glimra website](https://glimra-studio.flutteringpeach8.chatgpt.site)
+# Glimra
 
-The demo walks through setup and camera consent, then shows the presenter and desktop side by side so you can see the head movement and the slide response together.
+**Control without a touch.** Glimra is a desktop app for presenting PDFs with deliberate head movements, built with the Presage SmartSpectra SDK.
 
-## Download Glimra
+## The problem
 
-[![Windows x64 installer](https://img.shields.io/badge/Windows%20x64-Installer-C93737?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092266652)
-[![Ubuntu x64 AppImage](https://img.shields.io/badge/Ubuntu%20x64-AppImage-E5A400?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092465040)
-[![License MIT](https://img.shields.io/badge/License-MIT-238636?style=for-the-badge)](LICENSE)
+Changing slides can interrupt a lesson, talk, or workshop when the presenter has to reach for the keyboard. Glimra gives teachers, speakers, trainers, and people with limited hand mobility another way to navigate a presentation. A gentle head turn changes slides. A nod scrolls the current page when there is content to scroll. Keyboard navigation is also available.
+
+## Install Glimra
 
 These ZIPs come from the [official GitHub Actions build](https://github.com/0xaje/Glimra/actions/runs/43540677030). Sign in to GitHub to download them.
 
@@ -20,12 +23,6 @@ These ZIPs come from the [official GitHub Actions build](https://github.com/0xaj
 | --- | --- |
 | Windows x64 | Extract the ZIP and run the included installer. The installer is unsigned, so Windows may display an unknown-publisher warning. |
 | Ubuntu x64 (22.04+) | Extract the ZIP, mark the AppImage executable, then open it. Packaged camera operation on Ubuntu still needs live verification. |
-
-**Control without a touch.** Glimra is a desktop app for presenting PDFs with deliberate head movements, built with the Presage SmartSpectra SDK.
-
-## The problem
-
-Changing slides can interrupt a lesson, talk, or workshop when the presenter has to reach for the keyboard. Glimra gives teachers, speakers, trainers, and people with limited hand mobility another way to navigate a presentation. A gentle head turn changes slides. A nod scrolls the current page when there is content to scroll. Keyboard navigation is also available.
 
 ## Build and run from source
 
@@ -58,6 +55,12 @@ Head mode is the default and is shown in the Windows demo. The optional Eyes mod
 Camera capture starts after you explicitly enable camera control. **Disconnect camera** stops the capture session. **Pause** stops gesture commands while leaving capture active. Glimra processes camera frames locally through the native SDK and does not record or upload footage or facial landmarks. Derived gesture signals are held in memory, and PDFs are rendered locally.
 
 The app disables SDK telemetry in its configuration. Presage authentication and metering may still require network access. If you save your API key, Glimra uses Electron's OS-backed secure storage where supported. See the [full privacy disclosure](docs/PRIVACY.md).
+
+## Current scope and roadmap
+
+The current build covers local PDF presentation, camera consent, Head mode, and keyboard navigation. The Windows demo shows Head mode in use. Eyes mode and the packaged Ubuntu camera flow still need live verification.
+
+Next steps are to test camera distance and lighting in classroom setups, verify presenter handoff, and run hardware checks for Ubuntu and Eyes mode. See the [project website](https://glimra-studio.flutteringpeach8.chatgpt.site/#roadmap) for longer-term ideas.
 
 ## Development checks
 
