@@ -61,7 +61,7 @@ Because `libsmartspectra_capi.so` has its RPATH configured as `$ORIGIN`, the dyn
 
 ## 2. Installation & Running on a Clean Linux Desktop
 
-Follow these steps to test the packaged application on a supported Linux computer (Ubuntu 20.04+, Debian 11+, Fedora 36+, or Arch Linux):
+Follow these steps to test the packaged application on a supported Linux computer (Ubuntu 22.04 or newer, or another x86-64 distribution with glibc 2.35 or newer):
 
 ### Step 1: Download the Verified Artifact
 1. Open the verified GitHub Actions run:

@@ -55,7 +55,7 @@ jobs:
       - name: Compile production bundle
         run: npm run build
 
-      - name: Package Linux AppImage & deb
+      - name: Package Linux AppImage
         run: npm run dist:linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,10 +64,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: glimra-linux-x64
-          path: |
-            release/*.AppImage
-            release/*.deb
-          if-no-files-found: warn
+          path: release/*.AppImage
+          if-no-files-found: error
 
   package-windows:
     name: Package Windows installer
