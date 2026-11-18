@@ -13,7 +13,17 @@
 
 ## The problem
 
-Changing slides can interrupt a lesson, talk, or workshop when the presenter has to reach for the keyboard. Glimra gives teachers, speakers, trainers, and people with limited hand mobility another way to navigate a presentation. A gentle head turn changes slides. A nod scrolls the current page when there is content to scroll. Keyboard navigation is also available.
+Technology should be accessible to everyone, but many everyday interactions still depend on physical controls.
+
+According to the [World Health Organization](https://www.who.int/en/news-room/fact-sheets/detail/disability-and-health), approximately **1.3 billion people worldwide experience significant disability**. WHO also reports that [more than 2.5 billion people need at least one assistive product](https://www.who.int/news-room/fact-sheets/detail/assistive-technology). These figures illustrate the wider importance of accessible technology; they do **not** represent Glimra's potential user base.
+
+For people with limited hand mobility, using a keyboard, mouse, or presentation clicker can create barriers. Even changing a presentation page may require physical interaction that is difficult for some users. Teachers, public speakers, trainers, and workshop facilitators can also be interrupted when they need to reach for presentation controls.
+
+**Glimra explores a more accessible, hands-free way to present.** Built with the Presage SmartSpectra SDK, the desktop app lets presenters navigate local PDFs with deliberate head movements: a gentle turn changes pages and a nod scrolls when content is scrollable. Keyboard navigation remains available. The current Head mode has real-camera evidence; optional eye-blink controls still need live hardware verification.
+
+The goal is simple: **make presenting easier, more independent, and more accessible.**
+
+For the underlying sources, project diagnostics, and limitations, read [Research & Validation](docs/RESEARCH_AND_VALIDATION.md).
 
 ## Install Glimra
 
