@@ -18,6 +18,16 @@ Accessibility is a broad motivation, not a claim that everyone with a disability
 - A published research article, **“Eye-blink detection system for human–computer interaction,”** discusses eye-blink-based user interfaces as a possible input route for people who cannot easily use hands or speech. This supports feasibility of the interaction category, **not** measured Glimra reliability. [Research article, Springer](https://link.springer.com/article/10.1007/s10209-011-0256-6).
 - The official **Presage SmartSpectra SDK** describes facial analysis features including landmarks and eye-blink detection. Those are upstream SDK capabilities, not proof that Glimra's optional Eyes mode has passed a live acceptance test. [Presage documentation](https://smartspectra.presagetech.com/docs/) and [official GitHub repository](https://github.com/Presage-Security/SmartSpectra).
 
+## Research directly relevant to head-controlled interaction
+
+The following studies support the **design direction** behind Glimra's implemented Head mode. They are not tests of Glimra itself.
+
+1. **Tracking and Classification of Head Movement for Augmentative and Alternative Communication Systems** (Sensors, 2022). This research investigates recognizing intended head movements for alternative communication, showing how head tracking can be treated as purposeful input rather than merely motion on camera. **Relevance to Glimra:** deliberate head gestures and filtering accidental motion. **Limit:** its system and tasks differ from Glimra's PDF presentation workflow. [Full research](https://pmc.ncbi.nlm.nih.gov/articles/PMC8780700/).
+2. **Usability of a Low-Cost Head Tracking Computer Access Method following Stroke** (2015). This research investigates head tracking as an alternative means of interacting with a computer following stroke. **Relevance to Glimra:** physical controls can be a barrier and head-based access may offer another route for some users. **Limit:** it does not establish that Glimra works for stroke survivors or any particular disability group. [PubMed record](https://pubmed.ncbi.nlm.nih.gov/26427744/).
+3. **Supporting effective alternative access for individuals with physical disabilities: state of the science, emerging technologies, and future research directions** (2025). This review discusses head controls, eye tracking, switches and individualized alternative access assessment. **Relevance to Glimra:** different people need different access methods, so head controls should be framed as an option, not a universal solution. **Limit:** a review of alternative access generally, not a clinical or usability evaluation of Glimra. [Full review](https://pmc.ncbi.nlm.nih.gov/articles/PMC12452802/).
+
+**Important distinction:** The earlier blink-interface research is most relevant to Glimra's optional, not-yet-verified Eyes mode. Head-interaction research is more relevant to the working Head mode.
+
 ## What Glimra actually does today
 
 The Windows application opens and presents local PDFs. Its **Head mode** interprets facial-landmark movements from the real SmartSpectra native SDK: a controlled head turn navigates pages and a nod can scroll when scrollable content is present. Keyboard control is also available.
