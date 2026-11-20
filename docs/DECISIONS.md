@@ -35,3 +35,7 @@
 - **Context:** Involuntary physiological blinks occur every few seconds. Accidental slide transitions would ruin a presentation.
 - **Decision:** Require a sustained eye closure (dwell threshold: 400ms–700ms) followed by an intentional opening to trigger a slide transition.
 - **Rationale:** Spontaneous human blinks last between 100ms and 250ms. A 400ms+ intentional pause clearly distinguishes deliberate control from natural reflex.
+
+## Tracking recovery — 1.0.1
+
+Face loss pauses gesture delivery and resumes on stable facial landmarks. Manual pause remains in effect when a face returns. SDK-declared retryable capture and processing faults restart the native session after teardown; closing or disconnecting cancels recovery. Authentication and other terminal errors remain actionable. Automated controller and worker regression tests cover these paths. Windows webcam walk-away testing remains pending.

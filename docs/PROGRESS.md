@@ -144,3 +144,7 @@ found 0 vulnerabilities
 ## Submission repository review
 
 The public working tree omits the historical master plan and internal scoring audit. Previous commits retain both. Submission-facing documentation retains architecture, setup, camera testing, and privacy disclosures. Local verification passed 19 tests, the production build, and Hallmark lint. The reviewed baseline was `fb14f51`.
+
+## Tracking recovery — 1.0.1
+
+Face loss pauses gesture delivery and resumes on stable facial landmarks. Manual pause remains in effect when a face returns. SDK-declared retryable capture and processing faults restart the native session after teardown; closing or disconnecting cancels recovery. Authentication and other terminal errors remain actionable. Automated controller and worker regression tests cover these paths. Windows webcam walk-away testing remains pending.

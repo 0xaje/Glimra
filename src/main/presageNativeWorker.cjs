@@ -20,6 +20,8 @@ let sdk = null;
 let active = false;
 let starting = false;
 let closing = false;
+let recoveryTimer = null;
+let recovering = false;
 let mode = 'head';
 let paused = false;
 let calibrating = false;
@@ -152,6 +154,7 @@ function onMetrics(buffer) {
 async function stop() {
   if (closing) return;
   closing = true;
+  clearTimeout(recoveryTimer);
   active = false;
   sdkRunning = false;
   faceTracked = false;
@@ -194,7 +197,7 @@ async function start(key, requestedMode) {
       } else if (status === ProcessingStatus.kStarting) {
         emit('state', { state: 'initializing' });
       } else if (status === ProcessingStatus.kError) {
-        emit('state', { state: 'error' });
+        setFaceTracked(false, 'Tracking paused. Waiting for the camera signal.');
       }
     });
     sdk.on('validationStatus', (code, _ts, hint) => {
@@ -232,6 +235,35 @@ async function start(key, requestedMode) {
     });
     sdk.on('metrics', onMetrics);
     sdk.on('error', (code, message, retryable) => {
+      if (closing) return;
+      // Retry only SDK-declared transient capture/processing faults.
+      // Authentication, credits and configuration failures still need action.
+      if (retryable && [7, 8, 9, 10, 11].includes(Number(code))) {
+        sdkRunning = false;
+        setFaceTracked(false, 'Tracking paused. Waiting for the camera signal.');
+        emit('state', { state: 'waiting' });
+        if (recovering) return;
+        recovering = true;
+        recoveryTimer = setTimeout(async () => {
+          try {
+            await sdk.stopAsync();
+            if (closing) return;
+            sdk.reset();
+            lastLandmarkTimestamp = 0;
+            lastBlinkTimestamp = 0;
+            multipleFaces = false;
+            noFaceSince = null;
+            recovering = false;
+            sdk.useCamera(CameraSelection.default);
+            sdk.start();
+          } catch (error) {
+            recovering = false;
+            emit('error', { code: 'recovery', message: String(error?.message ?? error).slice(0, 200) });
+            void stop();
+          }
+        }, 1500);
+        return;
+      }
       emit('error', {
         code: Number(code),
         message: String(message ?? 'Presage processing stopped').slice(0, 200),

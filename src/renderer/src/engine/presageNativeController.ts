@@ -58,7 +58,7 @@ export class PresageNativeController {
     if (!this.active) return;
     this.paused = paused;
     void window.glimraDesktop?.controlPresage('pause', paused);
-    this.callbacks.onStatusChange(paused ? 'paused' : 'tracking');
+    this.callbacks.onStatusChange(paused || !this.stableSeen ? 'paused' : 'tracking');
     this.callbacks.onValidationChange(paused
       ? 'Presentation gestures paused'
       : 'Presage native camera active', !paused && this.stableSeen);
@@ -131,8 +131,12 @@ export class PresageNativeController {
       case 'state':
         if (event.state === 'tracking') {
           this.active = true;
-          this.callbacks.onStatusChange(this.paused ? 'paused' : 'tracking');
+          this.callbacks.onStatusChange(this.paused || !this.stableSeen ? 'paused' : 'tracking');
           this.callbacks.onValidationChange('Presage SmartSpectra native processing running', false);
+        } else if (event.state === 'waiting') {
+          this.stableSeen = false;
+          this.callbacks.onSensorLost('Waiting for the camera signal');
+          this.callbacks.onStatusChange('paused');
         } else if (event.state === 'initializing') {
           this.callbacks.onStatusChange('initializing');
         }
@@ -151,10 +155,12 @@ export class PresageNativeController {
       case 'face-status':
         if (event.tracked === true) {
           this.stableSeen = true;
+          this.callbacks.onStatusChange(this.paused ? 'paused' : 'tracking');
           this.callbacks.onSensorReady();
           this.callbacks.onValidationChange('Presage facial landmarks ready', !this.paused);
         } else {
           this.stableSeen = false;
+          this.callbacks.onStatusChange('paused');
           this.callbacks.onSensorLost(event.reason || 'Waiting for one face in camera view');
           this.callbacks.onValidationChange(event.reason || 'Waiting for one face in camera view', false);
         }
@@ -175,7 +181,7 @@ export class PresageNativeController {
         }
         break;
       case 'gesture':
-        if (this.paused || !this.active) return;
+        if (this.paused || !this.active || !this.stableSeen) return;
         if (event.source !== 'head' && event.source !== 'blink') return;
         if (!['left', 'right', 'up', 'down'].includes(event.direction || '')) return;
         if (this.mode === 'head' && event.source !== 'head') return;

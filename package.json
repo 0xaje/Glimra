@@ -1,8 +1,8 @@
 {
   "name": "glimra",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
-  "description": "Control without a touch — real Presage SmartSpectra facial landmarks and blink presentation control",
+  "description": "Control without a touch \u2014 real Presage SmartSpectra facial landmarks and blink presentation control",
   "main": "dist-electron/main.js",
   "engines": {
     "node": ">=22.12.0"
