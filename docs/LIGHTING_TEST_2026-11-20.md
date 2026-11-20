@@ -10,7 +10,7 @@ The presenter supplied two recordings of one session: a 287.90-second portrait p
 | 1:15–2:10 | Room light off, curtain open | Face remains visible in daylight. Presenter reports that controls continued to work. |
 | 2:15–2:55 | Room light off, curtain closed | Face is much darker. Presenter reports continued control with less sharp or consistent responses. PDF content changes during this part of the desktop recording. |
 
-The desktop frame at 2:30 displays **Paused**. The still cannot establish why it paused, whether pause was manual, or when active tracking returned. Treat continuous low-light tracking as unverified.
+The earlier desktop frame at 2:30 displayed **Paused**. The replacement frame at 2:44 displays **Presage head ready**. The still cannot establish why it paused, whether pause was manual, or when active tracking returned. Treat continuous low-light tracking as unverified.
 
 These ranges identify candidate excerpts, rather than exact lighting-switch timestamps. Some intervals include the presenter leaving the chair or changing the environment.
 
@@ -22,7 +22,7 @@ Each image places the phone view beside a desktop frame at the same nominal sour
 
 ![Daylight condition, both sources at 1:35](evidence/2026-11-20/daylight.jpg)
 
-![Low-light condition, both sources at 2:30](evidence/2026-11-20/low-light.jpg)
+![Low-light condition, both sources at 2:44](evidence/2026-11-20/low-light.jpg)
 
 ## Limits
 
