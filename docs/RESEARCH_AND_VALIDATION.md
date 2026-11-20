@@ -73,3 +73,7 @@ Do not publish numerical performance claims until the numerator, denominator, te
 ## Summary
 
 Glimra combines established accessibility motivation and documented camera-based face/blink analysis with an implemented PDF presentation workflow. **Head mode has real-device evidence; Eyes mode remains an unverified option.** The research justifies investigating hands-free control, while Glimra's own measured test results determine whether it is reliable in practice.
+
+## November 20 lighting observations
+
+A later presenter session includes room-light, daylight and low-light conditions. Read the [test observations and paired screenshots](LIGHTING_TEST_2026-11-20.md) for source ranges, qualitative results and limitations. Gesture accuracy, timing and automatic recovery remain unverified in this session.

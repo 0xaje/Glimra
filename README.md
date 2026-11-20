@@ -65,6 +65,8 @@ Head mode is the default and is shown in the Windows demo. The optional Eyes mod
 
 Glimra is motivated by accessibility needs and by published work on hands-free computer interaction. The supporting figures, papers, Presage SDK references, and actual November 9 live diagnostic evidence are documented in [Research & Validation](docs/RESEARCH_AND_VALIDATION.md). These sources do **not** establish a Glimra user-market size or a gesture accuracy rate. Head mode has real-device evidence; optional Eyes mode still needs genuine hardware acceptance.
 
+See the [November 20 lighting observations and paired screenshots](docs/LIGHTING_TEST_2026-11-20.md) for additional presenter testing and its limitations.
+
 ## Camera consent and data handling
 
 Camera capture starts after you explicitly enable camera control. **Disconnect camera** stops the capture session. **Pause** stops gesture commands while leaving capture active. Glimra processes camera frames locally through the native SDK and does not record or upload footage or facial landmarks. Derived gesture signals are held in memory, and PDFs are rendered locally.

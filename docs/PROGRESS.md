@@ -148,3 +148,7 @@ The public working tree omits the historical master plan and internal scoring au
 ## Tracking recovery — 1.0.1
 
 Face loss pauses gesture delivery and resumes on stable facial landmarks. Manual pause remains in effect when a face returns. SDK-declared retryable capture and processing faults restart the native session after teardown; closing or disconnecting cancels recovery. Authentication and other terminal errors remain actionable. Automated controller and worker regression tests cover these paths. Windows webcam walk-away testing remains pending.
+
+## November 20 presenter recordings
+
+Added [lighting observations and illustrative paired screenshots](LIGHTING_TEST_2026-11-20.md). One Windows session, three presenter-described lighting conditions. Exact synchronization and quantitative performance remain pending. See the [video edit plan](VIDEO_EDIT_PLAN.md).

@@ -26,3 +26,7 @@ Use `npm ci && npm run build && npm run lint:hallmark && npm test` and check the
 - Compatibility and runtime behavior of unsigned Windows installer on a non-developer PC.
 
 Do not describe any unverified item as passed in the DEV challenge submission.
+
+## November 20 presenter recordings
+
+Added [lighting observations and illustrative paired screenshots](LIGHTING_TEST_2026-11-20.md). One Windows session, three presenter-described lighting conditions. Exact synchronization and quantitative performance remain pending. See the [video edit plan](VIDEO_EDIT_PLAN.md).
