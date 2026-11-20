@@ -20,7 +20,7 @@ Each image places the phone view beside a desktop frame at the same nominal sour
 
 ![Room light on, both sources at 0:30](evidence/2026-11-20/room-light.jpg)
 
-![Daylight condition, both sources at 1:24](evidence/2026-11-20/daylight.jpg)
+![Daylight condition, source time approximately 1:54.5](evidence/2026-11-20/daylight-clear-v2.jpg)
 
 ![Low-light condition, both sources at 2:44](evidence/2026-11-20/low-light.jpg)
 
