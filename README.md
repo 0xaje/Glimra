@@ -2,10 +2,10 @@
 [![License — MIT](https://img.shields.io/badge/License-MIT-238636?style=for-the-badge)](LICENSE)
 [![Windows — x64 installer](https://img.shields.io/badge/Windows-x64%20installer-0078D4?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092266652)
 [![Ubuntu — x64 AppImage](https://img.shields.io/badge/Ubuntu-x64%20AppImage-E5A400?style=for-the-badge)](https://github.com/0xaje/Glimra/actions/runs/43540677030/artifacts/14092465040)
-[![YouTube — Full demo](https://img.shields.io/badge/YouTube-Full%20demo-D92323?style=for-the-badge)](https://youtu.be/poCkYjcC2ss)
-[![Live test — 1:32](https://img.shields.io/badge/Live%20test-1%3A32-8250DF?style=for-the-badge)](https://youtu.be/poCkYjcC2ss?t=92)
+[![YouTube — Full demo](https://img.shields.io/badge/YouTube-Full%20demo-D92323?style=for-the-badge)](https://youtu.be/sRE2VN--4Dk)
+[![Live demo](https://img.shields.io/badge/Live%20demo-Watch-8250DF?style=for-the-badge)](https://youtu.be/sRE2VN--4Dk)
 
-[![Watch the Glimra demo on YouTube](https://i.ytimg.com/vi/poCkYjcC2ss/hqdefault.jpg)](https://youtu.be/poCkYjcC2ss)
+[![Watch the Glimra demo on YouTube](https://i.ytimg.com/vi/sRE2VN--4Dk/hqdefault.jpg)](https://youtu.be/sRE2VN--4Dk)
 
 # Glimra
 
